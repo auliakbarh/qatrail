@@ -138,6 +138,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
         <thead>
           <tr className="border-b border-border">
             <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ID</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Date/time</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">QA</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Result</th>
@@ -148,14 +149,15 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading…</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading…</td></tr>
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No records yet</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No records yet</td></tr>
           )}
           {rows.map((r: any, idx: number) => (
             <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
               <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{r.key}</td>
               <td className="px-3 py-2 text-xs">{fmt(r.executedAt)}</td>
               <td className="px-3 py-2">{r.executedBy.name}</td>
               <td className="px-3 py-2">
@@ -208,6 +210,7 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
         <thead>
           <tr className="border-b border-border">
             <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ID</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Issue</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Priority</th>
@@ -218,14 +221,15 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading…</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading…</td></tr>
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No issues yet</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No issues yet</td></tr>
           )}
           {rows.map((i: any, idx: number) => (
             <tr key={i.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
               <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
               <td className="px-3 py-2 font-medium">
                 <button onClick={() => selectIssue(i.id)} className="hover:underline">
                   {i.title}

@@ -50,6 +50,7 @@ export const recordResolvers = {
     },
   },
   RecordTest: {
+    key: (r: any) => `REC-${r.number}`,
     executedAt: (r: any) => r.executedAt.toISOString(),
     createdAt: (r: any) => r.createdAt.toISOString(),
     executedBy: (r: any, _: unknown, ctx: Context) =>

@@ -65,7 +65,7 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
   if (fType) rows = rows.filter((r: any) => r.type === fType);
   rows = sortRows(rows, sortKey as any, sortDir);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
-  const colCount = showPeople ? 9 : 7;
+  const colCount = showPeople ? 10 : 8;
   const fmtDate = (iso: string) => new Date(iso).toLocaleString();
 
   return (
@@ -99,6 +99,7 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
           <thead>
             <tr className="border-b border-border">
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+              <SortableTh label="ID" colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Issue" colKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Type" colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Priority" colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -127,6 +128,7 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
                 {!collapsed.has(label) && gr.map((i: any, idx: number) => (
                   <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}`)}>
                     <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
                     <td className="px-3 py-2 font-medium">{i.title}</td>
                     <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
                     <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>

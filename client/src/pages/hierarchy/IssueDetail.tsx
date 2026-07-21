@@ -86,6 +86,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
             <button onClick={() => selectIssue(null)} className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted">
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
+            <span className="font-mono text-xs text-muted-foreground">{i.key}</span>
             <h2 className="text-sm font-semibold">{i.title}</h2>
           </div>
           <div className="flex items-center gap-1.5">

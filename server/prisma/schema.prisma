@@ -178,6 +178,7 @@ model TestCaseAttachment {
 
 model RecordTest {
   id           String     @id @default(cuid())
+  number       Int        @unique @default(autoincrement()) // human key: REC-<number>
   testCaseId   String
   testCase     TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   executedById String
@@ -210,6 +211,7 @@ model RecordTestAttachment {
 
 model Issue {
   id             String      @id @default(cuid())
+  number         Int         @unique @default(autoincrement()) // human key: ISSUE-<number>
   testCaseId     String
   testCase       TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   recordTestId   String?     @unique

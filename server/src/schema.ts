@@ -98,6 +98,7 @@ export const typeDefs = /* GraphQL */ `
 
   type RecordTest {
     id: ID!
+    key: String!
     testCaseId: ID!
     executedBy: User!
     executedAt: String!
@@ -191,6 +192,7 @@ export const typeDefs = /* GraphQL */ `
 
   type Issue {
     id: ID!
+    key: String!
     testCaseId: ID!
     featureId: ID!
     projectId: ID!

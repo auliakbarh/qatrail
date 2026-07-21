@@ -9,7 +9,7 @@ export const ENGINEERS = gql`
 export const RECORD_TESTS = gql`
   query RecordTests($testCaseId: ID!) {
     recordTests(testCaseId: $testCaseId) {
-      id executedAt result note issueId retestIssueId
+      id key executedAt result note issueId retestIssueId
       executedBy { id name }
       attachments { order url kind label }
       createdAt
@@ -30,7 +30,7 @@ export const DELETE_RECORD_TEST = gql`
 `;
 
 const ISSUE_FIELDS = `
-  id testCaseId featureId projectId recordTestId recreatedFromId jiraKey jiraCommentId
+  id key testCaseId featureId projectId recordTestId recreatedFromId jiraKey jiraCommentId
   type title description environment platform
   appVersion backendVersion testAccount testPassword testedAt preconditions
   steps actualResult expectedResult priority note status review archived
@@ -44,7 +44,7 @@ const ISSUE_FIELDS = `
 export const ISSUES = gql`
   query Issues($testCaseId: ID, $archived: Boolean) {
     issues(testCaseId: $testCaseId, archived: $archived) {
-      id title type priority status review environment platform archived slaStatus
+      id key title type priority status review environment platform archived slaStatus
       assignee { id name } reporter { id name } createdAt
     }
   }
@@ -59,7 +59,7 @@ export const ISSUE = gql`
 export const ASSIGNED_TO_ME = gql`
   query AssignedToMe {
     assignedToMe {
-      id title type priority status review environment platform slaStatus createdAt
+      id key title type priority status review environment platform slaStatus createdAt
     }
   }
 `;

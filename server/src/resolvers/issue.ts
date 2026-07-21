@@ -192,6 +192,7 @@ export const issueResolvers = {
     },
   },
   Issue: {
+    key: (i: any) => `ISSUE-${i.number}`,
     async featureId(i: any, _: unknown, ctx: Context) {
       const tc = await ctx.prisma.testCase.findUnique({ where: { id: i.testCaseId }, select: { featureId: true } });
       return tc?.featureId ?? null;
