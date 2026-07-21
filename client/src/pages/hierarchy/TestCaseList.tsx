@@ -6,6 +6,7 @@ import { useNav } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
+import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows } from "../../lib/list";
 import { cn } from "../../lib/utils";
 
@@ -34,6 +35,11 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
+  const onSort = (key: string) => {
+    const n = nextSort({ key: sortKey, dir: sortDir }, key);
+    setSortKey(n.key);
+    setSortDir(n.dir);
+  };
   const rows = sortRows(
     searchRows(data?.testCases ?? [], search, ["name", "description"]),
     sortKey as any,
@@ -52,26 +58,15 @@ export function TestCaseList({ featureId }: { featureId: string }) {
         </button>
       </div>
       <div className="px-5 py-4">
-        <FilterBar
-          search={search}
-          onSearch={setSearch}
-          sortKey={sortKey}
-          onSortKey={setSortKey}
-          sortDir={sortDir}
-          onSortDir={setSortDir}
-          sortOptions={[
-            { value: "createdAt", label: "created" },
-            { value: "name", label: "name" },
-          ]}
-        />
+        <FilterBar search={search} onSearch={setSearch} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Test case</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Latest</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Records</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Issues</th>
+                <SortableTh label="Test case" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label="Latest" colKey="latestResult" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label="Records" colKey="recordCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label="Issues" colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>

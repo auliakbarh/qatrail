@@ -7,6 +7,7 @@ import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
+import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
 
 export function ProjectList() {
@@ -19,6 +20,11 @@ export function ProjectList() {
   const [groupKey, setGroupKey] = useState("");
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
+  const onSort = (key: string) => {
+    const n = nextSort({ key: sortKey, dir: sortDir }, key);
+    setSortKey(n.key);
+    setSortDir(n.dir);
+  };
   const rows = sortRows(
     searchRows(data?.projects ?? [], search, ["name", "squad", "description"]),
     sortKey as any,
@@ -45,15 +51,6 @@ export function ProjectList() {
           <FilterBar
             search={search}
             onSearch={setSearch}
-            sortKey={sortKey}
-            onSortKey={setSortKey}
-            sortDir={sortDir}
-            onSortDir={setSortDir}
-            sortOptions={[
-              { value: "name", label: "name" },
-              { value: "createdAt", label: "created" },
-              { value: "featureCount", label: "features" },
-            ]}
             groupKey={groupKey}
             onGroupKey={setGroupKey}
             groupOptions={[{ value: "squad", label: "squad" }]}
@@ -62,9 +59,9 @@ export function ProjectList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Project</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Squad</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Features</th>
+                  <SortableTh label="Project" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh label="Squad" colKey="squad" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh label="Features" colKey="featureCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass %</th>
                   <th className="px-3 py-2"></th>
                 </tr>

@@ -7,6 +7,7 @@ import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
+import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows } from "../../lib/list";
 
 export function FeatureList({ projectId }: { projectId: string }) {
@@ -20,6 +21,11 @@ export function FeatureList({ projectId }: { projectId: string }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
+  const onSort = (key: string) => {
+    const n = nextSort({ key: sortKey, dir: sortDir }, key);
+    setSortKey(n.key);
+    setSortDir(n.dir);
+  };
   const rows = sortRows(
     searchRows(data?.features ?? [], search, ["name", "description"]),
     sortKey as any,
@@ -38,24 +44,13 @@ export function FeatureList({ projectId }: { projectId: string }) {
         </button>
       </div>
       <div className="px-5 py-4">
-        <FilterBar
-          search={search}
-          onSearch={setSearch}
-          sortKey={sortKey}
-          onSortKey={setSortKey}
-          sortDir={sortDir}
-          onSortDir={setSortDir}
-          sortOptions={[
-            { value: "name", label: "name" },
-            { value: "testCaseCount", label: "test cases" },
-          ]}
-        />
+        <FilterBar search={search} onSearch={setSearch} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Feature</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Test cases</th>
+                <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label="Test cases" colKey="testCaseCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass %</th>
                 <th className="px-3 py-2"></th>
               </tr>
