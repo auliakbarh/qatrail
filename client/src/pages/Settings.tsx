@@ -159,6 +159,7 @@ function UsersCard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
+                  <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Name</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Email</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Role</th>
@@ -167,8 +168,9 @@ function UsersCard() {
                 </tr>
               </thead>
               <tbody>
-                {(data?.users ?? []).map((u: any) => (
+                {(data?.users ?? []).map((u: any, idx: number) => (
                   <tr key={u.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                     <td className="px-3 py-2 font-medium">{u.name}</td>
                     <td className="px-3 py-2 font-mono text-xs">{u.email}</td>
                     <td className="px-3 py-2"><span className="rounded bg-muted px-1.5 py-0.5 text-xs">{u.role}</span></td>

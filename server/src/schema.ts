@@ -217,6 +217,7 @@ export const typeDefs = /* GraphQL */ `
     status: WorkStatus!
     review: ReviewState!
     archived: Boolean!
+    slaStatus: String!
     reporter: User!
     assignee: User!
     attachments: [Attachment!]!

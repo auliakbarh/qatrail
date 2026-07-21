@@ -15,6 +15,17 @@ export async function slaTargets(): Promise<Record<string, SlaTarget>> {
   return map;
 }
 
+// Short-lived cache so per-issue slaStatus resolvers don't hit the DB N times.
+let _cache: Record<string, SlaTarget> | null = null;
+let _cachedAt = 0;
+export async function cachedSlaTargets(): Promise<Record<string, SlaTarget>> {
+  const now = Date.now();
+  if (_cache && now - _cachedAt < 10_000) return _cache;
+  _cache = await slaTargets();
+  _cachedAt = now;
+  return _cache;
+}
+
 const mins = (a: Date, b: Date) => (a.getTime() - b.getTime()) / 60000;
 
 export type SlaBucket = "met" | "atRisk" | "breached";

@@ -44,7 +44,7 @@ const ISSUE_FIELDS = `
 export const ISSUES = gql`
   query Issues($testCaseId: ID, $archived: Boolean) {
     issues(testCaseId: $testCaseId, archived: $archived) {
-      id title type priority status review environment platform archived
+      id title type priority status review environment platform archived slaStatus
       assignee { id name } reporter { id name } createdAt
     }
   }
@@ -59,7 +59,7 @@ export const ISSUE = gql`
 export const ASSIGNED_TO_ME = gql`
   query AssignedToMe {
     assignedToMe {
-      id title type priority status review environment platform createdAt
+      id title type priority status review environment platform slaStatus createdAt
     }
   }
 `;

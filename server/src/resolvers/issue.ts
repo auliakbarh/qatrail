@@ -4,6 +4,7 @@ import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify } from "../notify.js";
 import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
+import { cachedSlaTargets, classifyResolve } from "../sla.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -208,6 +209,13 @@ export const issueResolvers = {
     respondedAt: (i: any) => i.respondedAt?.toISOString() ?? null,
     resolvedAt: (i: any) => i.resolvedAt?.toISOString() ?? null,
     closedAt: (i: any) => i.closedAt?.toISOString() ?? null,
+    // SLA status for production issues: MET | AT_RISK | BREACHED, else NA.
+    async slaStatus(i: any) {
+      if (i.environment !== "PRODUCTION") return "NA";
+      const targets = await cachedSlaTargets();
+      if (!targets[i.priority]) return "NA";
+      return classifyResolve(i, targets, new Date()).toUpperCase().replace("ATRISK", "AT_RISK");
+    },
     reporter: (i: any, _: unknown, ctx: Context) =>
       ctx.prisma.user.findUnique({ where: { id: i.reporterId } }),
     assignee: (i: any, _: unknown, ctx: Context) =>

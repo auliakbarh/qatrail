@@ -283,6 +283,7 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
+              <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
               <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Pass %" colKey="percent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Passed" colKey="passed" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -292,11 +293,12 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
           <tbody>
             {list.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-muted-foreground">No features</td>
+                <td colSpan={5} className="py-8 text-center text-muted-foreground">No features</td>
               </tr>
             )}
-            {list.map((k: any) => (
+            {list.map((k: any, idx: number) => (
               <tr key={k.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                 <td className="px-3 py-2">{k.name}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
