@@ -87,8 +87,24 @@ const server = new ApolloServer({
                 const issueId = field.toLowerCase().includes("issue") ? (data[field]?.id ?? vars.id ?? null) : null;
                 const url = issueId ? `${env.frontendBaseUrl}/issues/${issueId}` : null;
                 const extra: { name: string; value: string }[] = [];
-                if (vars.jiraKey) extra.push({ name: "JIRA", value: String(vars.jiraKey) });
-                if (typeof vars.archived === "boolean") extra.push({ name: "Archived", value: String(vars.archived) });
+                // Dump the submitted form fields (skip name/title shown elsewhere,
+                // mask secrets, summarize arrays). Cap to keep the embed sane.
+                const SKIP = new Set(["name", "title", "testPassword"]);
+                for (const [k, v] of Object.entries(input)) {
+                  if (extra.length >= 12 || SKIP.has(k) || v == null || v === "") continue;
+                  let val: string;
+                  if (Array.isArray(v)) {
+                    if (v.length === 0) continue;
+                    val = `${v.length} item(s)`;
+                  } else if (typeof v === "object") {
+                    continue;
+                  } else {
+                    val = String(v);
+                  }
+                  extra.push({ name: k, value: val });
+                }
+                if (vars.jiraKey) extra.push({ name: "jiraKey", value: String(vars.jiraKey) });
+                if (typeof vars.archived === "boolean") extra.push({ name: "archived", value: String(vars.archived) });
                 void notifyDiscord(field, actor, { name, note, url, extra });
               }
             } catch {
