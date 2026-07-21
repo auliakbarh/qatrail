@@ -18,7 +18,7 @@ export const analyticsResolvers = {
   Query: {
     async analytics(
       _: unknown,
-      args: { projectId?: string | null; featureId?: string | null },
+      args: { projectId?: string | null; featureId?: string | null; from?: string | null; to?: string | null },
       ctx: Context,
     ) {
       requireAuth(ctx);
@@ -72,11 +72,26 @@ export const analyticsResolvers = {
       for (const i of issues) statusMap[i.status] = (statusMap[i.status] ?? 0) + 1;
       const statusBreakdown = Object.entries(statusMap).map(([status, count]) => ({ status, count }));
 
-      // Created vs resolved — last 6 months.
+      // Created vs resolved — months across [from, to], else last 6 months.
       const months: string[] = [];
-      for (let k = 5; k >= 0; k--) {
-        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
-        months.push(monthKey(d));
+      if (args.from && args.to) {
+        const start = new Date(args.from);
+        const end = new Date(args.to);
+        let y = start.getUTCFullYear();
+        let m = start.getUTCMonth();
+        const ey = end.getUTCFullYear();
+        const em = end.getUTCMonth();
+        let guard = 0;
+        while ((y < ey || (y === ey && m <= em)) && guard++ < 36) {
+          months.push(`${y}-${String(m + 1).padStart(2, "0")}`);
+          m++;
+          if (m > 11) { m = 0; y++; }
+        }
+      } else {
+        for (let k = 5; k >= 0; k--) {
+          const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
+          months.push(monthKey(d));
+        }
       }
       const createdVsResolved = months.map((period) => ({
         period,

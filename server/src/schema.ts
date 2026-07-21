@@ -314,7 +314,7 @@ export const typeDefs = /* GraphQL */ `
     notifications: [Notification!]!
     unreadCount: Int!
 
-    analytics(projectId: ID, featureId: ID): Analytics!
+    analytics(projectId: ID, featureId: ID, from: String, to: String): Analytics!
 
     users: [User!]!
     setting: Setting!

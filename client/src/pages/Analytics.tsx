@@ -4,6 +4,7 @@ import { ANALYTICS } from "../graphql/analytics";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
 import { FilterBar } from "../components/FilterBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
+import { DateRangePicker } from "../components/DateRangePicker";
 import { searchRows, sortRows } from "../lib/list";
 
 function fmtMins(m: number | null): string {
@@ -22,11 +23,12 @@ function Stat({ n, label }: { n: string; label: string }) {
   );
 }
 
-function Card({ title, children }: { title: string; children: any }) {
+function Card({ title, action, children }: { title: string; action?: any; children: any }) {
   return (
     <div className="rounded border border-border">
-      <div className="border-b border-border px-5 py-4">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-4">
         <h2 className="text-sm font-semibold">{title}</h2>
+        {action}
       </div>
       <div className="px-5 py-4">{children}</div>
     </div>
@@ -36,10 +38,12 @@ function Card({ title, children }: { title: string; children: any }) {
 export default function Analytics() {
   const [projectId, setProjectId] = useState<string>("");
   const [featureId, setFeatureId] = useState<string>("");
+  const [from, setFrom] = useState<string | null>(null);
+  const [to, setTo] = useState<string | null>(null);
   const { data: projData } = useQuery(PROJECTS);
   const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
   const { data, loading } = useQuery(ANALYTICS, {
-    variables: { projectId: projectId || null, featureId: featureId || null },
+    variables: { projectId: projectId || null, featureId: featureId || null, from, to },
     fetchPolicy: "cache-and-network",
   });
 
@@ -99,7 +103,10 @@ export default function Analytics() {
             <Stat n={a.slaCompliance == null ? "—" : `${a.slaCompliance}%`} label="SLA compliance (prod)" />
           </div>
 
-          <Card title="Created vs resolved (6 mo)">
+          <Card
+            title="Created vs resolved"
+            action={<DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />}
+          >
             {a.createdVsResolved.every((p: any) => p.created === 0 && p.resolved === 0) ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 No data yet
@@ -137,14 +144,23 @@ export default function Analytics() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card title="SLA compliance (prod)">
               <div className="flex items-center gap-5">
-                <div
-                  className="flex h-28 w-28 items-center justify-center rounded-full"
-                  style={{ background: slaGradient }}
-                >
-                  <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
-                    <span className="text-lg font-semibold">{hasSla ? `${a.slaCompliance ?? 0}%` : "—"}</span>
-                    <span className="text-[10px] text-muted-foreground">{hasSla ? "met" : "no data"}</span>
+                <div className="group relative">
+                  <div
+                    className="flex h-28 w-28 items-center justify-center rounded-full"
+                    style={{ background: slaGradient }}
+                  >
+                    <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
+                      <span className="text-lg font-semibold">{hasSla ? `${a.slaCompliance ?? 0}%` : "—"}</span>
+                      <span className="text-[10px] text-muted-foreground">{hasSla ? "met" : "no data"}</span>
+                    </div>
                   </div>
+                  {hasSla && (
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] shadow-md group-hover:block">
+                      <TipRow color="var(--good)" label="Met" n={sla.met} total={slaCount} />
+                      <TipRow color="var(--warn)" label="At risk" n={sla.atRisk} total={slaCount} />
+                      <TipRow color="var(--destructive)" label="Breached" n={sla.breached} total={slaCount} />
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1.5 text-xs">
                   <Legend color="var(--good)" label={`Met ${sla.met}`} />
@@ -219,10 +235,21 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
 
   return (
     <div className="flex flex-wrap items-center gap-5">
-      <div className="flex h-28 w-28 items-center justify-center rounded-full" style={{ background: `conic-gradient(${stops})` }}>
-        <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
-          <span className="text-lg font-semibold tabular-nums">{total}</span>
-          <span className="text-[10px] text-muted-foreground">issues</span>
+      <div className="group relative">
+        <div className="flex h-28 w-28 items-center justify-center rounded-full" style={{ background: `conic-gradient(${stops})` }}>
+          <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
+            <span className="text-lg font-semibold tabular-nums">{total}</span>
+            <span className="text-[10px] text-muted-foreground">issues</span>
+          </div>
+        </div>
+        <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] shadow-md group-hover:block">
+          {breakdown.map((b) => (
+            <div key={b.status} className="flex items-center gap-1.5">
+              <i className="inline-block h-2 w-2 rounded-sm" style={{ background: STATUS_COLORS[b.status] ?? "#868e96" }} />
+              <span>{b.status}</span>
+              <span className="tabular-nums text-muted-foreground">{b.count} ({Math.round((b.count / total) * 100)}%)</span>
+            </div>
+          ))}
         </div>
       </div>
       <div className="space-y-1.5 text-xs">
@@ -294,6 +321,16 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function TipRow({ color, label, n, total }: { color: string; label: string; n: number; total: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <i className="inline-block h-2 w-2 rounded-sm" style={{ background: color }} />
+      <span>{label}</span>
+      <span className="tabular-nums text-muted-foreground">{n} ({total ? Math.round((n / total) * 100) : 0}%)</span>
     </div>
   );
 }
