@@ -293,6 +293,7 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
               <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Pass %" colKey="percent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label="Min %" colKey="min" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Passed" colKey="passed" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Ready" colKey="ready" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             </tr>
@@ -300,7 +301,7 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
           <tbody>
             {list.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-muted-foreground">No features</td>
+                <td colSpan={6} className="py-8 text-center text-muted-foreground">No features</td>
               </tr>
             )}
             {list.map((k: any, idx: number) => (
@@ -313,8 +314,8 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
                 </td>
                 <td className="px-3 py-2 tabular-nums">
                   <span className={k.percent >= k.min ? "text-foreground" : "text-destructive"}>{k.percent}%</span>
-                  <span className="text-xs text-muted-foreground"> / min {k.min}%</span>
                 </td>
+                <td className="px-3 py-2 tabular-nums text-muted-foreground">{k.min}%</td>
                 <td className="px-3 py-2 tabular-nums text-muted-foreground">{k.passed}/{k.total}</td>
                 <td className="px-3 py-2">
                   <span
