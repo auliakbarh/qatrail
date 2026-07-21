@@ -13,7 +13,7 @@ import { withToast } from "../../store/toast";
 
 export function ProjectList() {
   const { selectProject, openPanel } = useNav();
-  const { data, loading } = useQuery(PROJECTS);
+  const { data, loading } = useQuery(PROJECTS, { fetchPolicy: "cache-and-network" });
   const [deleteProject] = useMutation(DELETE_PROJECT, { refetchQueries: [PROJECTS] });
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");

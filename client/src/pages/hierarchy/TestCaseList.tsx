@@ -27,7 +27,7 @@ function ResultBadge({ result }: { result: string | null }) {
 
 export function TestCaseList({ featureId }: { featureId: string }) {
   const { selectTestCase, openPanel } = useNav();
-  const { data, loading } = useQuery(TEST_CASES, { variables: { featureId } });
+  const { data, loading } = useQuery(TEST_CASES, { variables: { featureId }, fetchPolicy: "cache-and-network" });
   const [deleteTestCase] = useMutation(DELETE_TEST_CASE, {
     refetchQueries: [{ query: TEST_CASES, variables: { featureId } }],
   });

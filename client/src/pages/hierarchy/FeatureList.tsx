@@ -13,7 +13,7 @@ import { withToast } from "../../store/toast";
 
 export function FeatureList({ projectId }: { projectId: string }) {
   const { selectFeature, openPanel } = useNav();
-  const { data, loading } = useQuery(FEATURES, { variables: { projectId } });
+  const { data, loading } = useQuery(FEATURES, { variables: { projectId }, fetchPolicy: "cache-and-network" });
   const [deleteFeature] = useMutation(DELETE_FEATURE, {
     refetchQueries: [{ query: FEATURES, variables: { projectId } }],
   });
