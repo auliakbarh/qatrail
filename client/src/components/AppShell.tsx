@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client";
 import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon } from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "../store/auth";
 import { HEALTH } from "../graphql";
 import { UI_VERSION, THEME_KEY } from "../config";
@@ -46,6 +47,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex h-12 items-center gap-2 border-b border-border px-3">
           <span className="h-4 w-4 rounded bg-primary" />
           <span className="text-sm font-semibold">{t("app")}</span>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
           {NAV.map(({ to, key, Icon, end }) => (

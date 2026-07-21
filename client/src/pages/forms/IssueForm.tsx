@@ -63,26 +63,28 @@ export function IssueForm({
     fetchPolicy: "network-only",
   });
 
+  // init may be: a FAIL-record prefill (recordTestId + testedAt), or a full
+  // issue for "recreate from rejected" — in both cases prefill from init.*.
   const { register, handleSubmit, control, reset, watch, formState } = useForm<Form>({
     defaultValues: {
-      type: "DEFECT",
-      title: "",
-      description: "",
-      environment: "STAGING",
-      platform: "WEB",
-      appVersion: "",
-      backendVersion: "",
-      testAccount: "",
-      testPassword: "",
+      type: init.type ?? "DEFECT",
+      title: init.title ?? "",
+      description: init.description ?? "",
+      environment: init.environment ?? "STAGING",
+      platform: init.platform ?? "WEB",
+      appVersion: init.appVersion ?? "",
+      backendVersion: init.backendVersion ?? "",
+      testAccount: init.testAccount ?? "",
+      testPassword: init.testPassword ?? "",
       testedAt: toLocal(init.testedAt),
-      preconditions: "",
-      steps: "",
-      actualResult: "",
-      expectedResult: "",
-      priority: "MEDIUM",
-      note: "",
-      assigneeId: "",
-      attachments: [],
+      preconditions: init.preconditions ?? "",
+      steps: init.steps ?? "",
+      actualResult: init.actualResult ?? "",
+      expectedResult: init.expectedResult ?? "",
+      priority: init.priority ?? "MEDIUM",
+      note: init.note ?? "",
+      assigneeId: init.assignee?.id ?? "",
+      attachments: (init.attachments ?? []).map((a: any) => ({ url: a.url, kind: a.kind, label: a.label ?? "" })),
     },
   });
   const atts = useFieldArray({ control, name: "attachments" });
@@ -128,6 +130,7 @@ export function IssueForm({
     const input: any = {
       testCaseId,
       recordTestId: init.recordTestId ?? null,
+      recreatedFromId: init.recreatedFromId ?? null,
       type: v.type,
       title: v.title,
       description: v.description,

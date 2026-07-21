@@ -30,12 +30,14 @@ export const DELETE_RECORD_TEST = gql`
 `;
 
 const ISSUE_FIELDS = `
-  id testCaseId recordTestId type title description environment platform
+  id testCaseId recordTestId recreatedFromId type title description environment platform
   appVersion backendVersion testAccount testPassword testedAt preconditions
   steps actualResult expectedResult priority note status review archived
   reporter { id name } assignee { id name }
   attachments { order url kind label }
-  createdAt updatedAt
+  history { id kind fromVal toVal note at by { id name } }
+  postmortem { id rootCause resolution impact prevention resolvedAt resolvedBy { id name } }
+  respondedAt resolvedAt closedAt createdAt updatedAt
 `;
 
 export const ISSUES = gql`

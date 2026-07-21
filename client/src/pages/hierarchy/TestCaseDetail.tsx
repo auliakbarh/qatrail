@@ -170,7 +170,7 @@ function RecordsTab({ testCaseId }: { testCaseId: string }) {
 }
 
 function IssuesTab({ testCaseId }: { testCaseId: string }) {
-  const { openPanel } = useNav();
+  const { openPanel, selectIssue } = useNav();
   const { data, loading } = useQuery(ISSUES, { variables: { testCaseId } });
   const [del, setDel] = useState<{ id: string; title: string } | null>(null);
   const [deleteIssue] = useMutation(DELETE_ISSUE, {
@@ -200,7 +200,11 @@ function IssuesTab({ testCaseId }: { testCaseId: string }) {
           )}
           {rows.map((i: any) => (
             <tr key={i.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-              <td className="px-3 py-2 font-medium">{i.title}</td>
+              <td className="px-3 py-2 font-medium">
+                <button onClick={() => selectIssue(i.id)} className="hover:underline">
+                  {i.title}
+                </button>
+              </td>
               <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
               <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
               <td className="px-3 py-2"><Badge>{i.status}</Badge></td>

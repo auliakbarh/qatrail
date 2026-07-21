@@ -2,12 +2,14 @@ import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
+import { notify } from "../notify.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
 interface IssueInput {
   testCaseId: string;
   recordTestId?: string | null;
+  recreatedFromId?: string | null;
   type: "DEFECT" | "BUG";
   title: string;
   description: string;
@@ -88,6 +90,7 @@ export const issueResolvers = {
           ...scalarData(input),
           testCaseId: input.testCaseId,
           recordTestId: input.recordTestId ?? null,
+          recreatedFromId: input.recreatedFromId ?? null,
           testPassword: encPw(input.testPassword),
           reporterId: user.id,
           attachments: {
@@ -103,6 +106,8 @@ export const issueResolvers = {
           },
         },
       });
+      // Notify the assigned engineer.
+      await notify(input.assigneeId, "ASSIGNED", `Issue assigned to you: ${issue.title}`, issue.id);
       return issue;
     },
     async updateIssue(_: unknown, args: { id: string; input: IssueInput }, ctx: Context) {
@@ -139,12 +144,19 @@ export const issueResolvers = {
     testedAt: (i: any) => i.testedAt.toISOString(),
     createdAt: (i: any) => i.createdAt.toISOString(),
     updatedAt: (i: any) => i.updatedAt.toISOString(),
+    respondedAt: (i: any) => i.respondedAt?.toISOString() ?? null,
+    resolvedAt: (i: any) => i.resolvedAt?.toISOString() ?? null,
+    closedAt: (i: any) => i.closedAt?.toISOString() ?? null,
     reporter: (i: any, _: unknown, ctx: Context) =>
       ctx.prisma.user.findUnique({ where: { id: i.reporterId } }),
     assignee: (i: any, _: unknown, ctx: Context) =>
       ctx.prisma.user.findUnique({ where: { id: i.assigneeId } }),
     attachments: (i: any, _: unknown, ctx: Context) =>
       ctx.prisma.issueAttachment.findMany({ where: { issueId: i.id }, orderBy: { order: "asc" } }),
+    history: (i: any, _: unknown, ctx: Context) =>
+      ctx.prisma.statusEvent.findMany({ where: { issueId: i.id }, orderBy: { at: "asc" } }),
+    postmortem: (i: any, _: unknown, ctx: Context) =>
+      ctx.prisma.postmortem.findUnique({ where: { issueId: i.id } }),
     // Decrypt on read for authorized users. Returns null when unset or undecryptable.
     testPassword: (i: any) => {
       if (!i.testPassword) return null;

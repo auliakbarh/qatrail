@@ -4,9 +4,9 @@ import { featureResolvers } from "./feature.js";
 import { testCaseResolvers } from "./testcase.js";
 import { recordResolvers } from "./record.js";
 import { issueResolvers } from "./issue.js";
+import { workflowResolvers } from "./workflow.js";
+import { notificationResolvers } from "./notification.js";
 
-// Merge per-domain resolver maps. Add analytics/notification/... here as
-// milestones land.
 export const resolvers = {
   Query: {
     ...authResolvers.Query,
@@ -15,6 +15,7 @@ export const resolvers = {
     ...testCaseResolvers.Query,
     ...recordResolvers.Query,
     ...issueResolvers.Query,
+    ...notificationResolvers.Query,
   },
   Mutation: {
     ...authResolvers.Mutation,
@@ -23,10 +24,18 @@ export const resolvers = {
     ...testCaseResolvers.Mutation,
     ...recordResolvers.Mutation,
     ...issueResolvers.Mutation,
+    ...workflowResolvers.Mutation,
+    ...notificationResolvers.Mutation,
+  },
+  Subscription: {
+    ...notificationResolvers.Subscription,
   },
   Project: projectResolvers.Project,
   Feature: featureResolvers.Feature,
   TestCase: testCaseResolvers.TestCase,
   RecordTest: recordResolvers.RecordTest,
   Issue: issueResolvers.Issue,
+  StatusEvent: workflowResolvers.StatusEvent,
+  Postmortem: workflowResolvers.Postmortem,
+  Notification: notificationResolvers.Notification,
 };

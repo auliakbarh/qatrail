@@ -6,14 +6,17 @@ import { ProjectList } from "./hierarchy/ProjectList";
 import { FeatureList } from "./hierarchy/FeatureList";
 import { TestCaseList } from "./hierarchy/TestCaseList";
 import { TestCaseDetail } from "./hierarchy/TestCaseDetail";
+import { IssueDetail } from "./hierarchy/IssueDetail";
 import { ProjectForm } from "./forms/ProjectForm";
 import { FeatureForm } from "./forms/FeatureForm";
 import { TestCaseForm } from "./forms/TestCaseForm";
 import { RecordForm } from "./forms/RecordForm";
 import { IssueForm } from "./forms/IssueForm";
+import { PostmortemForm } from "./forms/PostmortemForm";
 
 export default function Dashboard() {
-  const { projectId, featureId, testCaseId, panel, selectProject, selectFeature } = useNav();
+  const { projectId, featureId, testCaseId, issueId, panel, selectProject, selectFeature, selectTestCase } =
+    useNav();
 
   // Names for breadcrumb (from cached lists).
   const { data: projData } = useQuery(PROJECTS);
@@ -44,7 +47,18 @@ export default function Dashboard() {
             {featureId && featName && (
               <>
                 <ChevronRight className="h-3 w-3" />
-                <span className={testCaseId ? "" : "font-medium text-foreground"}>{featName}</span>
+                <button
+                  onClick={() => selectTestCase(null)}
+                  className={testCaseId ? "hover:text-foreground" : "font-medium text-foreground"}
+                >
+                  {featName}
+                </button>
+              </>
+            )}
+            {testCaseId && issueId && (
+              <>
+                <ChevronRight className="h-3 w-3" />
+                <span className="font-medium text-foreground">Issue</span>
               </>
             )}
           </div>
@@ -62,9 +76,14 @@ export default function Dashboard() {
             <TestCaseList featureId={featureId} />
           </div>
         )}
-        {testCaseId && (
+        {testCaseId && !issueId && (
           <div className="space-y-4 p-6">
             <TestCaseDetail id={testCaseId} />
+          </div>
+        )}
+        {testCaseId && issueId && (
+          <div className="space-y-4 p-6">
+            <IssueDetail id={issueId} testCaseId={testCaseId} />
           </div>
         )}
       </div>
@@ -78,6 +97,9 @@ export default function Dashboard() {
       )}
       {panel?.kind === "issue" && testCaseId && featureId && (
         <IssueForm panel={panel} testCaseId={testCaseId} featureId={featureId} />
+      )}
+      {panel?.kind === "postmortem" && panel.id && testCaseId && (
+        <PostmortemForm issueId={panel.id} testCaseId={testCaseId} />
       )}
     </div>
   );

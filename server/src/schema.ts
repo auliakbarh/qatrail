@@ -106,10 +106,40 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
   }
 
+  type StatusEvent {
+    id: ID!
+    kind: String!
+    fromVal: String
+    toVal: String
+    by: User!
+    note: String
+    at: String!
+  }
+
+  type Postmortem {
+    id: ID!
+    rootCause: String!
+    resolution: String!
+    impact: String
+    prevention: String
+    resolvedBy: User!
+    resolvedAt: String!
+  }
+
+  type Notification {
+    id: ID!
+    kind: String!
+    message: String!
+    issueId: ID
+    read: Boolean!
+    createdAt: String!
+  }
+
   type Issue {
     id: ID!
     testCaseId: ID!
     recordTestId: ID
+    recreatedFromId: ID
     type: FindingType!
     title: String!
     description: String!
@@ -132,6 +162,11 @@ export const typeDefs = /* GraphQL */ `
     reporter: User!
     assignee: User!
     attachments: [Attachment!]!
+    history: [StatusEvent!]!
+    postmortem: Postmortem
+    respondedAt: String
+    resolvedAt: String
+    closedAt: String
     createdAt: String!
     updatedAt: String!
   }
@@ -170,9 +205,17 @@ export const typeDefs = /* GraphQL */ `
     result: TestResult!
     attachments: [AttachmentInput!]!
   }
+  input PostmortemInput {
+    rootCause: String!
+    resolution: String!
+    impact: String
+    prevention: String
+  }
+
   input IssueInput {
     testCaseId: ID!
     recordTestId: ID
+    recreatedFromId: ID
     type: FindingType!
     title: String!
     description: String!
@@ -208,6 +251,9 @@ export const typeDefs = /* GraphQL */ `
     recordTests(testCaseId: ID!): [RecordTest!]!
     issues(testCaseId: ID, archived: Boolean): [Issue!]!
     issue(id: ID!): Issue
+
+    notifications: [Notification!]!
+    unreadCount: Int!
   }
 
   type Mutation {
@@ -232,5 +278,24 @@ export const typeDefs = /* GraphQL */ `
     createIssue(input: IssueInput!): Issue!
     updateIssue(id: ID!, input: IssueInput!): Issue!
     deleteIssue(id: ID!): Boolean!
+
+    # Engineer actions
+    issueAccept(id: ID!): Issue!
+    issueReject(id: ID!, reason: String!): Issue!
+    issueNeedClarify(id: ID!, note: String!): Issue!
+    issueSolve(id: ID!, postmortem: PostmortemInput!): Issue!
+    issueHold(id: ID!): Issue!
+    issueResume(id: ID!): Issue!
+    # QA actions
+    issueClarifyRespond(id: ID!, note: String): Issue!
+    issueReview(id: ID!, pass: Boolean!, note: String): Issue!
+    setIssueArchived(id: ID!, archived: Boolean!): Issue!
+
+    markNotificationRead(id: ID!): Boolean!
+    markAllNotificationsRead: Boolean!
+  }
+
+  type Subscription {
+    notificationAdded: Notification!
   }
 `;
