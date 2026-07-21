@@ -135,6 +135,25 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
   }
 
+  type StatusCount { status: String!, count: Int! }
+  type SlaBreakdown { met: Int!, atRisk: Int!, breached: Int! }
+  type MonthPoint { period: String!, created: Int!, resolved: Int! }
+  type KeyCoverage { name: String!, percent: Int!, passed: Int!, total: Int!, ready: Boolean! }
+
+  type Analytics {
+    totalFindings: Int!
+    totalDefects: Int!
+    totalBugs: Int!
+    resolutionRate: Int!       # % of issues resolved
+    avgResolveMins: Int        # production, resolved
+    slaCompliance: Int         # production, %
+    confidence: Coverage!      # coverage for the selected scope
+    statusBreakdown: [StatusCount!]!
+    slaBreakdown: SlaBreakdown!
+    createdVsResolved: [MonthPoint!]!
+    keyCoverage: [KeyCoverage!]!
+  }
+
   type Issue {
     id: ID!
     testCaseId: ID!
@@ -254,6 +273,8 @@ export const typeDefs = /* GraphQL */ `
 
     notifications: [Notification!]!
     unreadCount: Int!
+
+    analytics(projectId: ID, featureId: ID): Analytics!
   }
 
   type Mutation {

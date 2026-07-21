@@ -6,6 +6,7 @@ import { recordResolvers } from "./record.js";
 import { issueResolvers } from "./issue.js";
 import { workflowResolvers } from "./workflow.js";
 import { notificationResolvers } from "./notification.js";
+import { analyticsResolvers } from "./analytics.js";
 
 export const resolvers = {
   Query: {
@@ -16,6 +17,7 @@ export const resolvers = {
     ...recordResolvers.Query,
     ...issueResolvers.Query,
     ...notificationResolvers.Query,
+    ...analyticsResolvers.Query,
   },
   Mutation: {
     ...authResolvers.Mutation,

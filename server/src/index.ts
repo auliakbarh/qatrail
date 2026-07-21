@@ -13,6 +13,7 @@ import { buildContext, contextFromAuthHeader } from "./context.js";
 import { env } from "./env.js";
 import { prisma } from "./db.js";
 import { logger } from "./logger.js";
+import { startScheduler } from "./scheduler.js";
 
 process.on("uncaughtException", (err) => logger.fatal({ err }, "uncaughtException"));
 process.on("unhandledRejection", (reason) => logger.error({ err: reason }, "unhandledRejection"));
@@ -90,4 +91,5 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => void shu
 
 httpServer.listen(env.port, () => {
   logger.info({ port: env.port }, `QA Reporting GraphQL ready at http://localhost:${env.port}/graphql`);
+  startScheduler();
 });

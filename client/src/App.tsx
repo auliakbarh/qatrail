@@ -7,6 +7,7 @@ import { TOKEN_KEY } from "./config";
 import { AppShell } from "./components/AppShell";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Analytics from "./pages/Analytics";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
@@ -46,7 +47,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/analytics" element={<Placeholder title="Analytics" />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Placeholder title="Settings" />} />
         <Route path="/help" element={<Placeholder title="Help" />} />
       </Route>

@@ -43,3 +43,8 @@ export async function projectCoverage(projectId: string): Promise<Coverage> {
   });
   return coverageForTestCases(tcs.map((t) => t.id));
 }
+
+export async function allCoverage(): Promise<Coverage> {
+  const tcs = await prisma.testCase.findMany({ select: { id: true } });
+  return coverageForTestCases(tcs.map((t) => t.id));
+}

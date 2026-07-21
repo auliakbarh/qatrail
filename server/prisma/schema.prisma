@@ -208,9 +208,9 @@ model RecordTestAttachment {
 model Issue {
   id             String      @id @default(cuid())
   testCaseId     String
-  testCase       TestCase    @relation(fields: [testCaseId], references: [id])
+  testCase       TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   recordTestId   String?     @unique
-  recordTest     RecordTest? @relation(fields: [recordTestId], references: [id])
+  recordTest     RecordTest? @relation(fields: [recordTestId], references: [id], onDelete: SetNull)
 
   type           FindingType
   title          String

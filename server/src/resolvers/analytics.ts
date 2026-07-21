@@ -1,0 +1,132 @@
+import type { Context } from "../context.js";
+import { requireAuth } from "../context.js";
+import { featureCoverage, projectCoverage, allCoverage } from "../coverage.js";
+import { slaTargets, classifyResolve } from "../sla.js";
+
+// Build the issue `where` filter for the requested scope.
+function issueWhere(projectId?: string | null, featureId?: string | null) {
+  if (featureId) return { testCase: { featureId }, archived: false };
+  if (projectId) return { testCase: { feature: { projectId } }, archived: false };
+  return { archived: false };
+}
+
+function monthKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export const analyticsResolvers = {
+  Query: {
+    async analytics(
+      _: unknown,
+      args: { projectId?: string | null; featureId?: string | null },
+      ctx: Context,
+    ) {
+      requireAuth(ctx);
+      const where = issueWhere(args.projectId, args.featureId);
+      const issues = await ctx.prisma.issue.findMany({
+        where,
+        select: {
+          type: true,
+          status: true,
+          environment: true,
+          priority: true,
+          createdAt: true,
+          respondedAt: true,
+          resolvedAt: true,
+        },
+      });
+
+      const total = issues.length;
+      const totalDefects = issues.filter((i) => i.type === "DEFECT").length;
+      const totalBugs = total - totalDefects;
+      const resolved = issues.filter((i) => i.resolvedAt != null).length;
+      const resolutionRate = total === 0 ? 0 : Math.round((resolved / total) * 100);
+
+      // Avg resolve time (production, resolved).
+      const prodResolved = issues.filter((i) => i.environment === "PRODUCTION" && i.resolvedAt);
+      const avgResolveMins =
+        prodResolved.length === 0
+          ? null
+          : Math.round(
+              prodResolved.reduce((s, i) => s + (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 60000, 0) /
+                prodResolved.length,
+            );
+
+      // SLA (production).
+      const now = new Date();
+      const targets = await slaTargets();
+      const prod = issues.filter((i) => i.environment === "PRODUCTION");
+      let met = 0,
+        atRisk = 0,
+        breached = 0;
+      for (const i of prod) {
+        const b = classifyResolve(i, targets, now);
+        if (b === "met") met += 1;
+        else if (b === "atRisk") atRisk += 1;
+        else breached += 1;
+      }
+      const slaCompliance = prod.length === 0 ? null : Math.round((met / prod.length) * 100);
+
+      // Status breakdown.
+      const statusMap: Record<string, number> = {};
+      for (const i of issues) statusMap[i.status] = (statusMap[i.status] ?? 0) + 1;
+      const statusBreakdown = Object.entries(statusMap).map(([status, count]) => ({ status, count }));
+
+      // Created vs resolved — last 6 months.
+      const months: string[] = [];
+      for (let k = 5; k >= 0; k--) {
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - k, 1));
+        months.push(monthKey(d));
+      }
+      const createdVsResolved = months.map((period) => ({
+        period,
+        created: issues.filter((i) => monthKey(i.createdAt) === period).length,
+        resolved: issues.filter((i) => i.resolvedAt && monthKey(i.resolvedAt) === period).length,
+      }));
+
+      // Confidence coverage for the scope.
+      const confidence = args.featureId
+        ? await featureCoverage(args.featureId)
+        : args.projectId
+          ? await projectCoverage(args.projectId)
+          : await allCoverage();
+
+      // Key coverage — features in scope.
+      const features = await ctx.prisma.feature.findMany({
+        where: args.featureId
+          ? { id: args.featureId }
+          : args.projectId
+            ? { projectId: args.projectId }
+            : {},
+        select: { id: true, name: true, minPassPercent: true },
+        orderBy: { name: "asc" },
+      });
+      const keyCoverage = await Promise.all(
+        features.map(async (f) => {
+          const cov = await featureCoverage(f.id);
+          return {
+            name: f.name,
+            percent: cov.percent,
+            passed: cov.passed,
+            total: cov.total,
+            ready: cov.percent >= f.minPassPercent,
+          };
+        }),
+      );
+
+      return {
+        totalFindings: total,
+        totalDefects,
+        totalBugs,
+        resolutionRate,
+        avgResolveMins,
+        slaCompliance,
+        confidence,
+        statusBreakdown,
+        slaBreakdown: { met, atRisk, breached },
+        createdVsResolved,
+        keyCoverage,
+      };
+    },
+  },
+};
