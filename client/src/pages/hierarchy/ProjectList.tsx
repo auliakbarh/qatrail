@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { Plus, FolderOpen, Pencil, Trash2 } from "lucide-react";
 import { PROJECTS, DELETE_PROJECT } from "../../graphql/hierarchy";
@@ -7,7 +7,7 @@ import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
-import { searchRows, sortRows } from "../../lib/list";
+import { searchRows, sortRows, groupRows } from "../../lib/list";
 
 export function ProjectList() {
   const { selectProject, openPanel } = useNav();
@@ -16,6 +16,7 @@ export function ProjectList() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [groupKey, setGroupKey] = useState("");
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
   const rows = sortRows(
@@ -23,6 +24,10 @@ export function ProjectList() {
     sortKey as any,
     sortDir,
   );
+  // When grouping, split into labelled buckets; otherwise one unlabelled bucket.
+  const groups: [string, any[]][] = groupKey
+    ? Object.entries(groupRows(rows, groupKey as any))
+    : [["", rows]];
 
   return (
     <div className="space-y-4 p-6">
@@ -49,6 +54,9 @@ export function ProjectList() {
               { value: "createdAt", label: "created" },
               { value: "featureCount", label: "features" },
             ]}
+            groupKey={groupKey}
+            onGroupKey={setGroupKey}
+            groupOptions={[{ value: "squad", label: "squad" }]}
           />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -76,7 +84,16 @@ export function ProjectList() {
                     </td>
                   </tr>
                 )}
-                {rows.map((p: any) => (
+                {groups.map(([label, groupRows_]) => (
+                  <Fragment key={label || "all"}>
+                    {groupKey && (
+                      <tr className="bg-muted/40">
+                        <td colSpan={5} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                          {label} · {groupRows_.length}
+                        </td>
+                      </tr>
+                    )}
+                    {groupRows_.map((p: any) => (
                   <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2">
                       <button onClick={() => selectProject(p.id)} className="font-medium hover:underline">
@@ -108,6 +125,8 @@ export function ProjectList() {
                       </div>
                     </td>
                   </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
