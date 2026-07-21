@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, signToken } from "../auth.js";
 import { assertStrongPassword } from "../passwordPolicy.js";
 import { assertNotLocked, recordFailure, recordSuccess, assertWithinRate } from "../rateLimit.js";
 import { sendPasswordResetEmail } from "../mail.js";
+import { verifyMicrosoftToken } from "../sso.js";
 import { env, hasJiraCreds } from "../env.js";
 import { API_VERSION } from "../env.public.js";
 
@@ -21,6 +22,7 @@ export const authResolvers = {
         maintenance,
         maintenanceMessage: s?.maintenanceMessage ?? null,
         jiraConfigured: hasJiraCreds(),
+        ssoEnabled: env.msSso.enabled,
       };
     },
     async me(_: unknown, __: unknown, ctx: Context) {
@@ -52,6 +54,19 @@ export const authResolvers = {
       const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
       return { token, user };
     },
+    // Microsoft Entra SSO login. Prepared: verifyMicrosoftToken fails closed
+    // until Entra is wired. Only pre-created, active users may sign in (email match).
+    async microsoftLogin(_: unknown, args: { idToken: string }, ctx: Context) {
+      const identity = await verifyMicrosoftToken(args.idToken);
+      const email = identity.email.trim().toLowerCase();
+      const user = await ctx.prisma.user.findUnique({ where: { email } });
+      if (!user || !user.active) throw new Error("No account for this Microsoft user. Contact an admin.");
+      const sid = crypto.randomUUID();
+      await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });
+      const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
+      return { token, user };
+    },
+
     async changePassword(
       _: unknown,
       args: { currentPassword: string; newPassword: string },

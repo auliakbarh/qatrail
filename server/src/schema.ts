@@ -30,6 +30,7 @@ export const typeDefs = /* GraphQL */ `
     maintenance: Boolean!
     maintenanceMessage: String
     jiraConfigured: Boolean!
+    ssoEnabled: Boolean!
   }
 
   type Coverage {
@@ -320,6 +321,7 @@ export const typeDefs = /* GraphQL */ `
 
   type Mutation {
     login(email: String!, password: String!): AuthPayload!
+    microsoftLogin(idToken: String!): AuthPayload!
     changePassword(currentPassword: String!, newPassword: String!): Boolean!
     forgotPassword(email: String!): Boolean!
     resetPassword(token: String!, newPassword: String!): Boolean!

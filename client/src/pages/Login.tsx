@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
 import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { LOGIN } from "../graphql";
+import { LOGIN, HEALTH } from "../graphql";
 import { useAuth } from "../store/auth";
 
 interface Form {
@@ -17,6 +17,8 @@ export default function Login() {
   const navigate = useNavigate();
   const { register, handleSubmit, formState } = useForm<Form>();
   const [login, { loading }] = useMutation(LOGIN);
+  const { data: health } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  const ssoEnabled = !!health?.health?.ssoEnabled;
   const [error, setError] = useState<string | null>(null);
 
   if (user) return <Navigate to="/" replace />;
@@ -73,11 +75,18 @@ export default function Login() {
           </button>
           <button
             type="button"
-            disabled
-            className="flex w-full items-center justify-center gap-2 rounded border border-border px-4 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
+            disabled={!ssoEnabled}
+            onClick={() =>
+              setError(
+                "Microsoft sign-in is prepared but not yet configured (MSAL + Entra pending).",
+              )
+            }
+            className="flex w-full items-center justify-center gap-2 rounded border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-60 disabled:hover:bg-transparent"
           >
             {t("login.microsoft")}
-            <span className="rounded border border-border px-1.5 py-0.5 text-[10px]">{t("login.soon")}</span>
+            {!ssoEnabled && (
+              <span className="rounded border border-border px-1.5 py-0.5 text-[10px]">{t("login.soon")}</span>
+            )}
           </button>
           <div className="text-center">
             <Link to="/forgot-password" className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">

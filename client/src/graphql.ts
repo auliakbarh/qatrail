@@ -21,6 +21,7 @@ export const HEALTH = gql`
       maintenance
       maintenanceMessage
       jiraConfigured
+      ssoEnabled
     }
   }
 `;
@@ -37,6 +38,15 @@ export const LOGIN = gql`
         mustChangePassword
         active
       }
+    }
+  }
+`;
+
+export const MICROSOFT_LOGIN = gql`
+  mutation MicrosoftLogin($idToken: String!) {
+    microsoftLogin(idToken: $idToken) {
+      token
+      user { id email name role mustChangePassword active }
     }
   }
 `;

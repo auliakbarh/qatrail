@@ -58,6 +58,17 @@ export const env = {
     email: process.env.JIRA_EMAIL ?? "",
     apiToken: resolveJiraToken(),
   },
+  // Microsoft Entra SSO — prepared, not implemented (no Entra access yet).
+  msSso: {
+    enabled: process.env.MS_SSO_ENABLED === "true",
+    tenantId: process.env.MS_TENANT_ID ?? "",
+    clientId: process.env.MS_CLIENT_ID ?? "",
+  },
+  // SharePoint attachment upload — prepared, not implemented. Attachments are
+  // URL-based today; flip this on once the Graph upload path is wired.
+  sharepoint: {
+    enabled: process.env.SHAREPOINT_ENABLED === "true",
+  },
 };
 
 /** True when global JIRA credentials are present. */
