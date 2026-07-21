@@ -29,6 +29,7 @@ export const typeDefs = /* GraphQL */ `
     apiVersion: String!
     maintenance: Boolean!
     maintenanceMessage: String
+    jiraConfigured: Boolean!
   }
 
   type Coverage {
@@ -189,8 +190,12 @@ export const typeDefs = /* GraphQL */ `
   type Issue {
     id: ID!
     testCaseId: ID!
+    featureId: ID!
+    projectId: ID!
     recordTestId: ID
     recreatedFromId: ID
+    jiraKey: String
+    jiraCommentId: String
     type: FindingType!
     title: String!
     description: String!
@@ -349,6 +354,7 @@ export const typeDefs = /* GraphQL */ `
     issueClarifyRespond(id: ID!, note: String): Issue!
     issueReview(id: ID!, pass: Boolean!, note: String): Issue!
     setIssueArchived(id: ID!, archived: Boolean!): Issue!
+    postIssueToJira(id: ID!, jiraKey: String!): Issue!
 
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Boolean!

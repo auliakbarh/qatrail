@@ -30,7 +30,8 @@ export const DELETE_RECORD_TEST = gql`
 `;
 
 const ISSUE_FIELDS = `
-  id testCaseId recordTestId recreatedFromId type title description environment platform
+  id testCaseId featureId projectId recordTestId recreatedFromId jiraKey jiraCommentId
+  type title description environment platform
   appVersion backendVersion testAccount testPassword testedAt preconditions
   steps actualResult expectedResult priority note status review archived
   reporter { id name } assignee { id name }
@@ -69,4 +70,10 @@ export const UPDATE_ISSUE = gql`
 
 export const DELETE_ISSUE = gql`
   mutation DeleteIssue($id: ID!) { deleteIssue(id: $id) }
+`;
+
+export const POST_ISSUE_TO_JIRA = gql`
+  mutation PostIssueToJira($id: ID!, $jiraKey: String!) {
+    postIssueToJira(id: $id, jiraKey: $jiraKey) { id jiraKey jiraCommentId }
+  }
 `;

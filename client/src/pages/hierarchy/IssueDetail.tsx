@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { ArrowLeft, Archive, ArchiveRestore, Copy } from "lucide-react";
-import { ISSUE, ISSUES } from "../../graphql/issue";
+import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA } from "../../graphql/issue";
+import { HEALTH } from "../../graphql";
 import {
   ISSUE_ACCEPT,
   ISSUE_REJECT,
@@ -33,7 +34,13 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const { selectIssue, openPanel } = useNav();
   const { user } = useAuth();
   const { data, loading } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [modal, setModal] = useState<null | "reject" | "clarify" | "clarifyRespond" | "reopen">(null);
+  const [jiraKey, setJiraKey] = useState("");
+  const [jiraMsg, setJiraMsg] = useState<string | null>(null);
+  const [postToJira, { loading: posting }] = useMutation(POST_ISSUE_TO_JIRA, {
+    refetchQueries: [{ query: ISSUE, variables: { id } }],
+  });
 
   const refetch = {
     refetchQueries: [
@@ -120,6 +127,54 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           )}
         </div>
       </div>
+
+      {/* Post to JIRA */}
+      {canQA && (
+        <div className="rounded border border-border">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <h3 className="text-sm font-semibold">Post to JIRA</h3>
+            {i.jiraKey && <Badge variant="outline">Linked: {i.jiraKey}</Badge>}
+          </div>
+          <div className="px-5 py-4">
+            {healthData?.health?.jiraConfigured ? (
+              <>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1.5 block text-xs font-medium">JIRA ticket key</label>
+                    <input
+                      value={jiraKey || i.jiraKey || ""}
+                      onChange={(e) => setJiraKey(e.target.value)}
+                      placeholder="e.g. ATH-901"
+                      className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  <button
+                    disabled={posting || !(jiraKey || i.jiraKey)}
+                    onClick={async () => {
+                      setJiraMsg(null);
+                      try {
+                        await postToJira({ variables: { id, jiraKey: jiraKey || i.jiraKey } });
+                        setJiraMsg("✅ Comment posted to JIRA");
+                      } catch (e: any) {
+                        setJiraMsg(e?.message ?? "Failed");
+                      }
+                    }}
+                    className="h-9 rounded bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {posting ? "Posting…" : i.jiraCommentId ? "Update comment" : "Post comment"}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Posts a formatted comment (issue link + all fields). Re-posting edits the same comment.
+                </p>
+                {jiraMsg && <p className="mt-1 text-xs">{jiraMsg}</p>}
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">JIRA is not configured on the server.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Postmortem */}
       {i.postmortem && (

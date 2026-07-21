@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword, signToken } from "../auth.js";
 import { assertStrongPassword } from "../passwordPolicy.js";
 import { assertNotLocked, recordFailure, recordSuccess, assertWithinRate } from "../rateLimit.js";
 import { sendPasswordResetEmail } from "../mail.js";
-import { env } from "../env.js";
+import { env, hasJiraCreds } from "../env.js";
 import { API_VERSION } from "../env.public.js";
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
@@ -20,6 +20,7 @@ export const authResolvers = {
         apiVersion: API_VERSION,
         maintenance,
         maintenanceMessage: s?.maintenanceMessage ?? null,
+        jiraConfigured: hasJiraCreds(),
       };
     },
     async me(_: unknown, __: unknown, ctx: Context) {

@@ -20,6 +20,7 @@ export const HEALTH = gql`
       apiVersion
       maintenance
       maintenanceMessage
+      jiraConfigured
     }
   }
 `;

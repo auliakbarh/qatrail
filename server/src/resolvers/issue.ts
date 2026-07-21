@@ -3,6 +3,7 @@ import { requireAuth, requireQA } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify } from "../notify.js";
+import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -139,8 +140,61 @@ export const issueResolvers = {
       await ctx.prisma.issue.delete({ where: { id: args.id } });
       return true;
     },
+
+    // Post (or re-post/edit) a formatted comment on a JIRA ticket, containing
+    // the issue deep-link + all fields. Idempotent via stored jiraCommentId.
+    async postIssueToJira(_: unknown, args: { id: string; jiraKey: string }, ctx: Context) {
+      await requireQA(ctx);
+      const issue = await ctx.prisma.issue.findUnique({
+        where: { id: args.id },
+        include: { reporter: true, assignee: true },
+      });
+      if (!issue) throw new Error("Issue not found");
+      const jiraKey = args.jiraKey.trim().toUpperCase();
+      const adf = toADF(
+        issueMarkdown({
+          url: `${env.frontendBaseUrl}/issues/${issue.id}`,
+          type: issue.type,
+          environment: issue.environment,
+          platform: issue.platform,
+          appVersion: issue.appVersion,
+          backendVersion: issue.backendVersion,
+          priority: issue.priority,
+          testedAt: issue.testedAt,
+          testAccount: issue.testAccount,
+          reporterName: issue.reporter.name,
+          assigneeName: issue.assignee.name,
+          title: issue.title,
+          steps: issue.steps,
+          actualResult: issue.actualResult,
+          expectedResult: issue.expectedResult,
+          note: issue.note,
+        }),
+      );
+      // Edit the same comment if we posted before to this key; else create.
+      const commentId =
+        issue.jiraCommentId && issue.jiraKey === jiraKey
+          ? await updateComment(jiraKey, issue.jiraCommentId, adf)
+          : await addComment(jiraKey, adf);
+      if (!commentId) throw new Error("Failed to post to JIRA (check credentials / ticket key).");
+      return ctx.prisma.issue.update({
+        where: { id: issue.id },
+        data: { jiraKey, jiraCommentId: commentId },
+      });
+    },
   },
   Issue: {
+    async featureId(i: any, _: unknown, ctx: Context) {
+      const tc = await ctx.prisma.testCase.findUnique({ where: { id: i.testCaseId }, select: { featureId: true } });
+      return tc?.featureId ?? null;
+    },
+    async projectId(i: any, _: unknown, ctx: Context) {
+      const tc = await ctx.prisma.testCase.findUnique({
+        where: { id: i.testCaseId },
+        select: { feature: { select: { projectId: true } } },
+      });
+      return tc?.feature.projectId ?? null;
+    },
     testedAt: (i: any) => i.testedAt.toISOString(),
     createdAt: (i: any) => i.createdAt.toISOString(),
     updatedAt: (i: any) => i.updatedAt.toISOString(),

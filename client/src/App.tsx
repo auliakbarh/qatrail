@@ -7,6 +7,7 @@ import { TOKEN_KEY } from "./config";
 import { AppShell } from "./components/AppShell";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import IssuePage from "./pages/IssuePage";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Help from "./pages/Help";
@@ -60,6 +61,7 @@ export default function App() {
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/issues/:id" element={<IssuePage />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/help" element={<Help />} />
