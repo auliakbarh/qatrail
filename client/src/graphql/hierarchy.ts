@@ -13,7 +13,7 @@ export const PROJECTS = gql`
 export const FEATURES = gql`
   query Features($projectId: ID!) {
     features(projectId: $projectId) {
-      id projectId name description minPassPercent testCaseCount ${COVERAGE} createdAt updatedAt
+      id key projectId name description minPassPercent testCaseCount ${COVERAGE} createdAt updatedAt
     }
   }
 `;
@@ -21,7 +21,7 @@ export const FEATURES = gql`
 export const TEST_CASES = gql`
   query TestCases($featureId: ID!) {
     testCases(featureId: $featureId) {
-      id featureId name description recordCount issueCount latestResult createdAt
+      id key featureId name description recordCount issueCount latestResult createdAt
     }
   }
 `;
@@ -29,7 +29,7 @@ export const TEST_CASES = gql`
 export const TEST_CASE = gql`
   query TestCase($id: ID!) {
     testCase(id: $id) {
-      id featureId name description precondition note
+      id key featureId name description precondition note
       steps { id order step expectedResult }
       attachments { id order url kind label }
       recordCount issueCount latestResult createdAt

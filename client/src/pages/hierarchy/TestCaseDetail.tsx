@@ -41,7 +41,10 @@ export function TestCaseDetail({ id }: { id: string }) {
     <div className="space-y-4">
       <div className="rounded border border-border">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold">{tc.name}</h2>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-muted-foreground">{tc.key}</span>
+            <h2 className="text-sm font-semibold">{tc.name}</h2>
+          </div>
           <button
             onClick={manage ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
             className={cn(

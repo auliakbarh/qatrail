@@ -67,6 +67,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <thead>
               <tr className="border-b border-border">
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                <SortableTh label="ID" colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label="Test case" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label="Latest" colKey="latestResult" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label="Records" colKey="recordCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -77,14 +78,14 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     No test cases yet
                   </td>
                 </tr>
@@ -92,6 +93,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
               {rows.map((t: any, idx: number) => (
                 <tr key={t.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{t.key}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => selectTestCase(t.id)} className="font-medium hover:underline">
                       {t.name}

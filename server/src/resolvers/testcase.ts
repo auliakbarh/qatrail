@@ -82,6 +82,7 @@ export const testCaseResolvers = {
     },
   },
   TestCase: {
+    key: (t: any) => `TC-${t.number}`,
     createdAt: (t: any) => t.createdAt.toISOString(),
     updatedAt: (t: any) => t.updatedAt.toISOString(),
     steps: (t: any, _: unknown, ctx: Context) =>

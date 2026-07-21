@@ -54,6 +54,7 @@ export const typeDefs = /* GraphQL */ `
 
   type Feature {
     id: ID!
+    key: String!
     projectId: ID!
     name: String!
     description: String
@@ -82,6 +83,7 @@ export const typeDefs = /* GraphQL */ `
 
   type TestCase {
     id: ID!
+    key: String!
     featureId: ID!
     name: String!
     description: String

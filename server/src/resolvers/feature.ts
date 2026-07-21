@@ -56,6 +56,7 @@ export const featureResolvers = {
     },
   },
   Feature: {
+    key: (f: any) => `FEAT-${f.number}`,
     createdAt: (f: any) => f.createdAt.toISOString(),
     updatedAt: (f: any) => f.updatedAt.toISOString(),
     testCaseCount: (f: any, _: unknown, ctx: Context) =>

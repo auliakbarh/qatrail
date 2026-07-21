@@ -119,6 +119,7 @@ model Project {
 
 model Feature {
   id             String   @id @default(cuid())
+  number         Int      @unique @default(autoincrement()) // human key: FEAT-<number>
   projectId      String
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name           String
@@ -134,6 +135,7 @@ model Feature {
 
 model TestCase {
   id           String   @id @default(cuid())
+  number       Int      @unique @default(autoincrement()) // human key: TC-<number>
   featureId    String
   feature      Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
   name         String
