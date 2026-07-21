@@ -58,7 +58,15 @@ export function ProjectForm({ panel }: { panel: PanelState }) {
           <input className={inputCls} {...register("squad")} />
         </Field>
         <Field label="Min pass % (collective of all features)">
-          <input type="number" min={0} max={100} className={inputCls} {...register("minPassPercent")} />
+          <input
+            type="number"
+            min={0}
+            max={100}
+            className={inputCls}
+            {...register("minPassPercent", {
+              setValueAs: (v) => Math.max(0, Math.min(100, Math.round(Number(v) || 0))),
+            })}
+          />
         </Field>
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} />
       </form>

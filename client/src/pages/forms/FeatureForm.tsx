@@ -53,7 +53,15 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
           <textarea className={inputCls} rows={3} {...register("description")} />
         </Field>
         <Field label="Min pass % (collective of all test cases)">
-          <input type="number" min={0} max={100} className={inputCls} {...register("minPassPercent")} />
+          <input
+            type="number"
+            min={0}
+            max={100}
+            className={inputCls}
+            {...register("minPassPercent", {
+              setValueAs: (v) => Math.max(0, Math.min(100, Math.round(Number(v) || 0))),
+            })}
+          />
         </Field>
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} />
       </form>

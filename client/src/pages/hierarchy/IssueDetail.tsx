@@ -17,7 +17,7 @@ import { useNav } from "../../store/nav";
 import { useAuth } from "../../store/auth";
 import { cn } from "../../lib/utils";
 import { TextPromptModal } from "../../components/TextPromptModal";
-import { withToast } from "../../store/toast";
+import { withToast, useToast } from "../../store/toast";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -65,6 +65,13 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const canEngineer = isAssignee || isAdmin;
   const canQA = user?.id === i.reporter.id || user?.role === "QA" || isAdmin;
+
+  // Buttons stay clickable regardless of role; unauthorized clicks toast instead
+  // of acting. Keeps the UI discoverable while the server stays the real gate.
+  const guard = (allowed: boolean, fn: () => void) => () => {
+    if (allowed) fn();
+    else useToast.getState().push("You don't have permission for this action", "error");
+  };
 
   const copyLink = () => {
     void navigator.clipboard.writeText(`${location.origin}/issues/${i.id}`);
@@ -197,50 +204,47 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           <h3 className="text-sm font-semibold">Actions</h3>
         </div>
         <div className="flex flex-wrap gap-2 px-5 py-4">
-          {/* Engineer */}
-          {canEngineer && (i.status === "OPEN" || i.status === "REOPENED") && (
+          {/* Engineer actions — shown by status; role checked on click. */}
+          {(i.status === "OPEN" || i.status === "REOPENED") && (
             <>
-              <ActBtn primary onClick={() => withToast(accept({ variables: { id } }), "Issue accepted", "Couldn't accept issue")}>Accept</ActBtn>
-              <ActBtn onClick={() => setModal("clarify")}>Need clarification</ActBtn>
-              <ActBtn destructive onClick={() => setModal("reject")}>Reject</ActBtn>
+              <ActBtn primary onClick={guard(canEngineer, () => withToast(accept({ variables: { id } }), "Issue accepted", "Couldn't accept issue"))}>Accept</ActBtn>
+              <ActBtn onClick={guard(canEngineer, () => setModal("clarify"))}>Need clarification</ActBtn>
+              <ActBtn destructive onClick={guard(canEngineer, () => setModal("reject"))}>Reject</ActBtn>
             </>
           )}
-          {canEngineer && i.status === "IN_PROGRESS" && (
+          {i.status === "IN_PROGRESS" && (
             <>
-              <ActBtn primary onClick={() => openPanel({ kind: "postmortem", mode: "create", id })}>Solve</ActBtn>
-              <ActBtn onClick={() => withToast(hold({ variables: { id } }), "Issue put on hold", "Couldn't hold issue")}>Hold</ActBtn>
+              <ActBtn primary onClick={guard(canEngineer, () => openPanel({ kind: "postmortem", mode: "create", id }))}>Solve</ActBtn>
+              <ActBtn onClick={guard(canEngineer, () => withToast(hold({ variables: { id } }), "Issue put on hold", "Couldn't hold issue"))}>Hold</ActBtn>
             </>
           )}
-          {canEngineer && i.status === "HOLD" && (
-            <ActBtn primary onClick={() => withToast(resume({ variables: { id } }), "Issue resumed", "Couldn't resume issue")}>Resume</ActBtn>
+          {i.status === "HOLD" && (
+            <ActBtn primary onClick={guard(canEngineer, () => withToast(resume({ variables: { id } }), "Issue resumed", "Couldn't resume issue"))}>Resume</ActBtn>
           )}
-          {/* QA */}
-          {canQA && i.review === "NEED_CLARIFY" && (
-            <ActBtn primary onClick={() => setModal("clarifyRespond")}>Respond clarification</ActBtn>
+          {/* QA actions — shown by status; role checked on click. */}
+          {i.review === "NEED_CLARIFY" && (
+            <ActBtn primary onClick={guard(canQA, () => setModal("clarifyRespond"))}>Respond clarification</ActBtn>
           )}
-          {canQA && i.status === "NEED_REVIEW" && (
+          {i.status === "NEED_REVIEW" && (
             <>
-              <ActBtn primary onClick={() => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } })}>
+              <ActBtn primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } }))}>
                 Retest &amp; review
               </ActBtn>
-              <ActBtn destructive onClick={() => setModal("reopen")}>Reopen</ActBtn>
+              <ActBtn destructive onClick={guard(canQA, () => setModal("reopen"))}>Reopen</ActBtn>
             </>
           )}
-          {canQA && i.review === "REJECTED" && !i.archived && (
-            <ActBtn onClick={() => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } })}>
+          {i.review === "REJECTED" && !i.archived && (
+            <ActBtn onClick={guard(canQA, () => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } }))}>
               Recreate
             </ActBtn>
           )}
-          {canQA && (
-            <ActBtn onClick={() => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? "Issue unarchived" : "Issue archived", "Couldn't update issue")}>
-              {i.archived ? (
-                <><ArchiveRestore className="mr-1 inline h-3.5 w-3.5" />Unarchive</>
-              ) : (
-                <><Archive className="mr-1 inline h-3.5 w-3.5" />Archive</>
-              )}
-            </ActBtn>
-          )}
-          {!canEngineer && !canQA && <span className="text-xs text-muted-foreground">No actions available.</span>}
+          <ActBtn onClick={guard(canQA, () => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? "Issue unarchived" : "Issue archived", "Couldn't update issue"))}>
+            {i.archived ? (
+              <><ArchiveRestore className="mr-1 inline h-3.5 w-3.5" />Unarchive</>
+            ) : (
+              <><Archive className="mr-1 inline h-3.5 w-3.5" />Archive</>
+            )}
+          </ActBtn>
         </div>
       </div>
 
