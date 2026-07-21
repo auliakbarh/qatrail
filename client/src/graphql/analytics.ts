@@ -13,7 +13,7 @@ export const ANALYTICS = gql`
       statusBreakdown { status count }
       slaBreakdown { met atRisk breached }
       createdVsResolved { period created resolved }
-      keyCoverage { name percent passed total ready }
+      keyCoverage { featureId projectId name percent passed total min ready }
     }
   }
 `;

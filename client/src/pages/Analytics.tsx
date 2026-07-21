@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@apollo/client";
+import { useNavigate } from "react-router-dom";
+import { useNav } from "../store/nav";
 import { ANALYTICS } from "../graphql/analytics";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
 import { FilterBar } from "../components/FilterBar";
@@ -266,6 +268,11 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
 }
 
 function KeyCoverageTable({ rows }: { rows: any[] }) {
+  const navigate = useNavigate();
+  const openFeature = (r: any) => {
+    useNav.setState({ projectId: r.projectId, featureId: r.featureId, testCaseId: null, issueId: null, panel: null });
+    navigate("/");
+  };
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -299,14 +306,14 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
             {list.map((k: any, idx: number) => (
               <tr key={k.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                 <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
-                <td className="px-3 py-2">{k.name}</td>
                 <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-16 rounded-full bg-muted">
-                      <div className="h-1.5 rounded-full bg-primary" style={{ width: `${k.percent}%` }} />
-                    </div>
-                    <span className="tabular-nums text-xs">{k.percent}%</span>
-                  </div>
+                  <button onClick={() => openFeature(k)} className="font-medium hover:underline">
+                    {k.name}
+                  </button>
+                </td>
+                <td className="px-3 py-2 tabular-nums">
+                  <span className={k.percent >= k.min ? "text-foreground" : "text-destructive"}>{k.percent}%</span>
+                  <span className="text-xs text-muted-foreground"> / min {k.min}%</span>
                 </td>
                 <td className="px-3 py-2 tabular-nums text-muted-foreground">{k.passed}/{k.total}</td>
                 <td className="px-3 py-2">

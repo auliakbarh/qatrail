@@ -113,17 +113,20 @@ export const analyticsResolvers = {
           : args.projectId
             ? { projectId: args.projectId }
             : {},
-        select: { id: true, name: true, minPassPercent: true },
+        select: { id: true, projectId: true, name: true, minPassPercent: true },
         orderBy: { name: "asc" },
       });
       const keyCoverage = await Promise.all(
         features.map(async (f) => {
           const cov = await featureCoverage(f.id);
           return {
+            featureId: f.id,
+            projectId: f.projectId,
             name: f.name,
             percent: cov.percent,
             passed: cov.passed,
             total: cov.total,
+            min: f.minPassPercent,
             ready: cov.percent >= f.minPassPercent,
           };
         }),

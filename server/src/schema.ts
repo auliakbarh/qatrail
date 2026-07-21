@@ -176,7 +176,7 @@ export const typeDefs = /* GraphQL */ `
   type StatusCount { status: String!, count: Int! }
   type SlaBreakdown { met: Int!, atRisk: Int!, breached: Int! }
   type MonthPoint { period: String!, created: Int!, resolved: Int! }
-  type KeyCoverage { name: String!, percent: Int!, passed: Int!, total: Int!, ready: Boolean! }
+  type KeyCoverage { featureId: ID!, projectId: ID!, name: String!, percent: Int!, passed: Int!, total: Int!, min: Int!, ready: Boolean! }
 
   type Analytics {
     totalFindings: Int!
