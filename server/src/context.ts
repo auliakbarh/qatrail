@@ -57,3 +57,13 @@ export async function requireSuperAdmin(ctx: Context) {
   if (user?.role !== "SUPER_ADMIN") throw new Error("Forbidden: super admin only");
   return user!;
 }
+
+// QA content editors: QA, ADMIN, SUPER_ADMIN may manage projects/features/test cases.
+export async function requireQA(ctx: Context) {
+  const userId = requireAuth(ctx);
+  const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
+  if (user?.role !== "QA" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN") {
+    throw new Error("Forbidden: QA only");
+  }
+  return user!;
+}

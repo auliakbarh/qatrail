@@ -41,26 +41,39 @@ async function main() {
     });
   }
 
-  // 3. Super admin from ENV. Password from env or generated (logged once).
-  let password = env.superAdminPassword;
-  if (!password || !isStrongPassword(password)) {
-    password = generatePassword();
+  // 3. Super admin from ENV.
+  // - A strong SUPER_ADMIN_PASSWORD is authoritative: applied on create AND update.
+  // - If unset/weak, generate one on create only (logged once); on update, leave
+  //   the existing password untouched (don't clobber a password changed via the UI).
+  const envPwStrong = Boolean(env.superAdminPassword) && isStrongPassword(env.superAdminPassword);
+  if (env.superAdminPassword && !envPwStrong) {
     log.warn(
-      { email: env.superAdminEmail, password },
-      "SUPER_ADMIN_PASSWORD unset/weak — generated a temporary password (shown once). Change it after login.",
+      { email: env.superAdminEmail },
+      "SUPER_ADMIN_PASSWORD is set but does not meet the policy (min 9 chars, upper+lower+number+symbol) — ignored.",
     );
   }
-  const passwordHash = await hashPassword(password);
+  const createPw = envPwStrong ? env.superAdminPassword : generatePassword();
+  if (!envPwStrong) {
+    log.warn(
+      { email: env.superAdminEmail, password: createPw },
+      "Using a generated password for the super admin (shown once, only applied if the account is new). Change it after login.",
+    );
+  }
+  const update: any = { role: "SUPER_ADMIN", active: true };
+  if (envPwStrong) {
+    update.passwordHash = await hashPassword(env.superAdminPassword);
+    update.mustChangePassword = false;
+  }
   await prisma.user.upsert({
     where: { email: env.superAdminEmail },
-    update: { role: "SUPER_ADMIN", active: true },
+    update,
     create: {
       email: env.superAdminEmail,
       name: env.superAdminName,
       role: "SUPER_ADMIN",
-      passwordHash,
+      passwordHash: await hashPassword(createPw),
       authProvider: "BOTH",
-      mustChangePassword: !env.superAdminPassword, // force change only if we generated it
+      mustChangePassword: !envPwStrong, // force change only when generated
       active: true,
     },
   });
