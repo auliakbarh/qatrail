@@ -6,8 +6,11 @@ import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../gr
 import { useNav } from "../../store/nav";
 import { cn } from "../../lib/utils";
 import { IconBtn } from "../../components/IconBtn";
+import { HeaderButton } from "../../components/HeaderButton";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
-import { withToast } from "../../store/toast";
+import { withToast, denied } from "../../store/toast";
+import { useAuth } from "../../store/auth";
+import { canManageContent } from "../../lib/perm";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -25,6 +28,8 @@ function fmt(iso: string) {
 
 export function TestCaseDetail({ id }: { id: string }) {
   const { openPanel } = useNav();
+  const { user } = useAuth();
+  const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(TEST_CASE, { variables: { id } });
   const [tab, setTab] = useState<"records" | "issues">("records");
 
@@ -38,8 +43,11 @@ export function TestCaseDetail({ id }: { id: string }) {
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold">{tc.name}</h2>
           <button
-            onClick={() => openPanel({ kind: "testcase", mode: "edit", id: tc.id })}
-            className="flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted"
+            onClick={manage ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
+            className={cn(
+              "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+              !manage && "opacity-40",
+            )}
           >
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
@@ -100,21 +108,22 @@ export function TestCaseDetail({ id }: { id: string }) {
                 </button>
               ))}
             </div>
-            <button
+            <HeaderButton
+              allowed={manage}
+              icon={Plus}
               onClick={() => openPanel({ kind: tab === "records" ? "record" : "issue", mode: "create" })}
-              className="flex h-7 items-center gap-1.5 rounded bg-black px-3 text-xs font-medium text-white hover:bg-black/80"
             >
-              <Plus className="h-3.5 w-3.5" /> {tab === "records" ? "Add Record" : "Add Issue"}
-            </button>
+              {tab === "records" ? "Add Record" : "Add Issue"}
+            </HeaderButton>
           </div>
-          {tab === "records" ? <RecordsTab testCaseId={id} /> : <IssuesTab testCaseId={id} />}
+          {tab === "records" ? <RecordsTab testCaseId={id} manage={manage} /> : <IssuesTab testCaseId={id} manage={manage} />}
         </div>
       </div>
     </div>
   );
 }
 
-function RecordsTab({ testCaseId }: { testCaseId: string }) {
+function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
   const { selectIssue } = useNav();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
   const [del, setDel] = useState<string | null>(null);
@@ -164,7 +173,7 @@ function RecordsTab({ testCaseId }: { testCaseId: string }) {
               <td className="px-3 py-2 text-xs text-muted-foreground">{r.note || "—"}</td>
               <td className="px-3 py-2 text-xs">{r.attachments.length}</td>
               <td className="px-3 py-2 text-right">
-                <IconBtn title="Delete" onClick={() => setDel(r.id)}>
+                <IconBtn title="Delete" allowed={manage} onClick={() => setDel(r.id)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </IconBtn>
               </td>
@@ -182,7 +191,7 @@ function RecordsTab({ testCaseId }: { testCaseId: string }) {
   );
 }
 
-function IssuesTab({ testCaseId }: { testCaseId: string }) {
+function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
   const { openPanel, selectIssue } = useNav();
   const { data, loading } = useQuery(ISSUES, { variables: { testCaseId } });
   const [del, setDel] = useState<{ id: string; title: string } | null>(null);
@@ -224,10 +233,10 @@ function IssuesTab({ testCaseId }: { testCaseId: string }) {
               <td className="px-3 py-2 text-muted-foreground">{i.assignee.name}</td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-1">
-                  <IconBtn title="Edit" onClick={() => openPanel({ kind: "issue", mode: "edit", id: i.id })}>
+                  <IconBtn title="Edit" allowed={manage} onClick={() => openPanel({ kind: "issue", mode: "edit", id: i.id })}>
                     <Pencil className="h-3.5 w-3.5" />
                   </IconBtn>
-                  <IconBtn title="Delete" onClick={() => setDel({ id: i.id, title: i.title })}>
+                  <IconBtn title="Delete" allowed={manage} onClick={() => setDel({ id: i.id, title: i.title })}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </IconBtn>
                 </div>

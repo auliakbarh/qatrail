@@ -54,11 +54,11 @@ export function FilterBar(p: FilterBarProps) {
         </>
       )}
       {p.groupOptions && p.onGroupKey && (
-        <select value={p.groupKey} onChange={(e) => p.onGroupKey!(e.target.value)} className={small}>
-          <option value="">Group: none</option>
+        <select value={p.groupKey} onChange={(e) => p.onGroupKey!(e.target.value)} className={small} title="Group by">
+          <option value="">Group by…</option>
           {p.groupOptions.map((o) => (
             <option key={o.value} value={o.value}>
-              Group: {o.label}
+              {o.label}
             </option>
           ))}
         </select>

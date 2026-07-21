@@ -7,12 +7,17 @@ import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
+import { HeaderButton } from "../../components/HeaderButton";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
+import { useAuth } from "../../store/auth";
+import { canManageContent } from "../../lib/perm";
 
 export function ProjectList() {
   const { selectProject, openPanel } = useNav();
+  const { user } = useAuth();
+  const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(PROJECTS, { fetchPolicy: "cache-and-network" });
   const [deleteProject] = useMutation(DELETE_PROJECT, { refetchQueries: [PROJECTS] });
   const [search, setSearch] = useState("");
@@ -41,12 +46,9 @@ export function ProjectList() {
       <div className="rounded border border-border">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold">Projects</h2>
-          <button
-            onClick={() => openPanel({ kind: "project", mode: "create" })}
-            className="flex h-7 items-center gap-1.5 rounded bg-black px-3 text-xs font-medium text-white hover:bg-black/80"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Project
-          </button>
+          <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "project", mode: "create" })}>
+            Add Project
+          </HeaderButton>
         </div>
         <div className="px-5 py-4">
           <FilterBar
@@ -113,11 +115,12 @@ export function ProjectList() {
                         </IconBtn>
                         <IconBtn
                           title="Edit"
+                          allowed={manage}
                           onClick={() => openPanel({ kind: "project", mode: "edit", id: p.id, initial: p })}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </IconBtn>
-                        <IconBtn title="Delete" onClick={() => setDel({ id: p.id, name: p.name })}>
+                        <IconBtn title="Delete" allowed={manage} onClick={() => setDel({ id: p.id, name: p.name })}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </IconBtn>
                       </div>

@@ -6,9 +6,12 @@ import { useNav } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
+import { HeaderButton } from "../../components/HeaderButton";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
+import { useAuth } from "../../store/auth";
+import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
 
 function ResultBadge({ result }: { result: string | null }) {
@@ -27,6 +30,8 @@ function ResultBadge({ result }: { result: string | null }) {
 
 export function TestCaseList({ featureId }: { featureId: string }) {
   const { selectTestCase, openPanel } = useNav();
+  const { user } = useAuth();
+  const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(TEST_CASES, { variables: { featureId }, fetchPolicy: "cache-and-network" });
   const [deleteTestCase] = useMutation(DELETE_TEST_CASE, {
     refetchQueries: [{ query: TEST_CASES, variables: { featureId } }],
@@ -51,12 +56,9 @@ export function TestCaseList({ featureId }: { featureId: string }) {
     <div className="rounded border border-border">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-sm font-semibold">Test Cases</h2>
-        <button
-          onClick={() => openPanel({ kind: "testcase", mode: "create" })}
-          className="flex h-7 items-center gap-1.5 rounded bg-black px-3 text-xs font-medium text-white hover:bg-black/80"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add Test Case
-        </button>
+        <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "testcase", mode: "create" })}>
+          Add Test Case
+        </HeaderButton>
       </div>
       <div className="px-5 py-4">
         <FilterBar search={search} onSearch={setSearch} />
@@ -105,11 +107,12 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                       </IconBtn>
                       <IconBtn
                         title="Edit"
+                        allowed={manage}
                         onClick={() => openPanel({ kind: "testcase", mode: "edit", id: t.id })}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </IconBtn>
-                      <IconBtn title="Delete" onClick={() => setDel({ id: t.id, name: t.name })}>
+                      <IconBtn title="Delete" allowed={manage} onClick={() => setDel({ id: t.id, name: t.name })}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </IconBtn>
                     </div>

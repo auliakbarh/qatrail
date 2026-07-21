@@ -25,6 +25,11 @@ export const useToast = create<ToastState>((set) => ({
   remove: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
+// Standard "no access" toast for guarded-but-clickable actions.
+export function denied(message = "You don't have permission for this action") {
+  useToast.getState().push(message, "error");
+}
+
 // Run a mutation with success/failure toasts. On failure the real error is
 // swallowed (masked) — the user sees only `failMsg`, never a backend/client
 // error string. Returns the result on success, or null on failure.

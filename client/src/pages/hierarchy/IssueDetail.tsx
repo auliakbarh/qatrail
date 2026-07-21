@@ -207,38 +207,38 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           {/* Engineer actions — shown by status; role checked on click. */}
           {(i.status === "OPEN" || i.status === "REOPENED") && (
             <>
-              <ActBtn primary onClick={guard(canEngineer, () => withToast(accept({ variables: { id } }), "Issue accepted", "Couldn't accept issue"))}>Accept</ActBtn>
-              <ActBtn onClick={guard(canEngineer, () => setModal("clarify"))}>Need clarification</ActBtn>
-              <ActBtn destructive onClick={guard(canEngineer, () => setModal("reject"))}>Reject</ActBtn>
+              <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => withToast(accept({ variables: { id } }), "Issue accepted", "Couldn't accept issue"))}>Accept</ActBtn>
+              <ActBtn allowed={canEngineer} onClick={guard(canEngineer, () => setModal("clarify"))}>Need clarification</ActBtn>
+              <ActBtn allowed={canEngineer} destructive onClick={guard(canEngineer, () => setModal("reject"))}>Reject</ActBtn>
             </>
           )}
           {i.status === "IN_PROGRESS" && (
             <>
-              <ActBtn primary onClick={guard(canEngineer, () => openPanel({ kind: "postmortem", mode: "create", id }))}>Solve</ActBtn>
-              <ActBtn onClick={guard(canEngineer, () => withToast(hold({ variables: { id } }), "Issue put on hold", "Couldn't hold issue"))}>Hold</ActBtn>
+              <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => openPanel({ kind: "postmortem", mode: "create", id }))}>Solve</ActBtn>
+              <ActBtn allowed={canEngineer} onClick={guard(canEngineer, () => withToast(hold({ variables: { id } }), "Issue put on hold", "Couldn't hold issue"))}>Hold</ActBtn>
             </>
           )}
           {i.status === "HOLD" && (
-            <ActBtn primary onClick={guard(canEngineer, () => withToast(resume({ variables: { id } }), "Issue resumed", "Couldn't resume issue"))}>Resume</ActBtn>
+            <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => withToast(resume({ variables: { id } }), "Issue resumed", "Couldn't resume issue"))}>Resume</ActBtn>
           )}
           {/* QA actions — shown by status; role checked on click. */}
           {i.review === "NEED_CLARIFY" && (
-            <ActBtn primary onClick={guard(canQA, () => setModal("clarifyRespond"))}>Respond clarification</ActBtn>
+            <ActBtn allowed={canQA} primary onClick={guard(canQA, () => setModal("clarifyRespond"))}>Respond clarification</ActBtn>
           )}
           {i.status === "NEED_REVIEW" && (
             <>
-              <ActBtn primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } }))}>
+              <ActBtn allowed={canQA} primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } }))}>
                 Retest &amp; review
               </ActBtn>
-              <ActBtn destructive onClick={guard(canQA, () => setModal("reopen"))}>Reopen</ActBtn>
+              <ActBtn allowed={canQA} destructive onClick={guard(canQA, () => setModal("reopen"))}>Reopen</ActBtn>
             </>
           )}
           {i.review === "REJECTED" && !i.archived && (
-            <ActBtn onClick={guard(canQA, () => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } }))}>
+            <ActBtn allowed={canQA} onClick={guard(canQA, () => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } }))}>
               Recreate
             </ActBtn>
           )}
-          <ActBtn onClick={guard(canQA, () => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? "Issue unarchived" : "Issue archived", "Couldn't update issue"))}>
+          <ActBtn allowed={canQA} onClick={guard(canQA, () => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? "Issue unarchived" : "Issue archived", "Couldn't update issue"))}>
             {i.archived ? (
               <><ArchiveRestore className="mr-1 inline h-3.5 w-3.5" />Unarchive</>
             ) : (
@@ -329,14 +329,14 @@ function Block({ label, text }: { label: string; text: string }) {
     </div>
   );
 }
-function ActBtn({ children, onClick, primary, destructive }: { children: any; onClick: () => void; primary?: boolean; destructive?: boolean }) {
+function ActBtn({ children, onClick, primary, destructive, allowed = true }: { children: any; onClick: () => void; primary?: boolean; destructive?: boolean; allowed?: boolean }) {
   const cls = primary
     ? "bg-primary text-primary-foreground hover:bg-primary/90"
     : destructive
       ? "bg-destructive text-white hover:bg-destructive/90"
       : "border border-border hover:bg-muted";
   return (
-    <button onClick={onClick} className={cn("h-8 rounded px-3 text-xs font-medium transition-colors", cls)}>
+    <button onClick={onClick} className={cn("h-8 rounded px-3 text-xs font-medium transition-colors", cls, !allowed && "opacity-40")}>
       {children}
     </button>
   );
