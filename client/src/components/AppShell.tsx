@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client";
-import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { SidebarTree } from "./SidebarTree";
 import { useAuth } from "../store/auth";
@@ -9,13 +9,6 @@ import { HEALTH } from "../graphql";
 import { UI_VERSION, THEME_KEY } from "../config";
 import { cn } from "../lib/utils";
 import { useTranslation } from "react-i18next";
-
-const NAV = [
-  { to: "/", key: "nav.dashboard", Icon: LayoutDashboard, end: true },
-  { to: "/analytics", key: "nav.analytics", Icon: BarChart3, end: false },
-  { to: "/settings", key: "nav.settings", Icon: Settings, end: false },
-  { to: "/help", key: "nav.help", Icon: HelpCircle, end: false },
-];
 
 function toggleTheme() {
   const el = document.documentElement;
@@ -53,7 +46,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
-          {NAV.map(({ to, key, Icon, end }) => (
+          {[
+            { to: "/", label: t("nav.dashboard"), Icon: LayoutDashboard, end: true, tree: true },
+            { to: "/issues", label: "All issues", Icon: ListChecks, end: true, tree: false },
+            ...(user?.role === "ENGINEER"
+              ? [{ to: "/assigned", label: "Assigned to me", Icon: Inbox, end: true, tree: false }]
+              : []),
+            { to: "/analytics", label: t("nav.analytics"), Icon: BarChart3, end: false, tree: false },
+            { to: "/settings", label: t("nav.settings"), Icon: Settings, end: false, tree: false },
+            { to: "/help", label: t("nav.help"), Icon: HelpCircle, end: false, tree: false },
+          ].map(({ to, label, Icon, end, tree }) => (
             <div key={to}>
               <NavLink
                 to={to}
@@ -68,9 +70,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {t(key)}
+                {label}
               </NavLink>
-              {to === "/" && <SidebarTree />}
+              {tree && <SidebarTree />}
             </div>
           ))}
         </nav>

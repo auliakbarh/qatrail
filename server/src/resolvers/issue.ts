@@ -80,6 +80,13 @@ export const issueResolvers = {
       requireAuth(ctx);
       return ctx.prisma.issue.findUnique({ where: { id: args.id } });
     },
+    async assignedToMe(_: unknown, __: unknown, ctx: Context) {
+      const userId = requireAuth(ctx);
+      return ctx.prisma.issue.findMany({
+        where: { assigneeId: userId, archived: false },
+        orderBy: { createdAt: "desc" },
+      });
+    },
   },
   Mutation: {
     async createIssue(_: unknown, args: { input: IssueInput }, ctx: Context) {

@@ -56,6 +56,14 @@ export const ISSUE = gql`
   }
 `;
 
+export const ASSIGNED_TO_ME = gql`
+  query AssignedToMe {
+    assignedToMe {
+      id title type priority status review environment platform createdAt
+    }
+  }
+`;
+
 export const CREATE_ISSUE = gql`
   mutation CreateIssue($input: IssueInput!) {
     createIssue(input: $input) { id }

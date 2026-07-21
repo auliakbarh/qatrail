@@ -310,6 +310,7 @@ export const typeDefs = /* GraphQL */ `
     recordTests(testCaseId: ID!): [RecordTest!]!
     issues(testCaseId: ID, archived: Boolean): [Issue!]!
     issue(id: ID!): Issue
+    assignedToMe: [Issue!]!
 
     notifications: [Notification!]!
     unreadCount: Int!
