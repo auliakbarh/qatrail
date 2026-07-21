@@ -5,6 +5,7 @@ import { Field, inputCls, FormActions } from "../../components/Form";
 import { ISSUE_SOLVE } from "../../graphql/workflow";
 import { ISSUE, ISSUES } from "../../graphql/issue";
 import { useNav } from "../../store/nav";
+import { withToast } from "../../store/toast";
 
 interface Form {
   rootCause: string;
@@ -27,18 +28,22 @@ export function PostmortemForm({ issueId, testCaseId }: { issueId: string; testC
   });
 
   const onSubmit = async (v: Form) => {
-    await solve({
-      variables: {
-        id: issueId,
-        postmortem: {
-          rootCause: v.rootCause,
-          resolution: v.resolution,
-          impact: v.impact || null,
-          prevention: v.prevention || null,
+    const ok = await withToast(
+      solve({
+        variables: {
+          id: issueId,
+          postmortem: {
+            rootCause: v.rootCause,
+            resolution: v.resolution,
+            impact: v.impact || null,
+            prevention: v.prevention || null,
+          },
         },
-      },
-    });
-    closePanel();
+      }),
+      "Issue solved — sent for review",
+      "Couldn't solve issue",
+    );
+    if (ok) closePanel();
   };
 
   return (

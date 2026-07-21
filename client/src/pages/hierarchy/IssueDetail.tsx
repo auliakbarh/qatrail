@@ -17,6 +17,7 @@ import { useNav } from "../../store/nav";
 import { useAuth } from "../../store/auth";
 import { cn } from "../../lib/utils";
 import { TextPromptModal } from "../../components/TextPromptModal";
+import { withToast } from "../../store/toast";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -37,7 +38,6 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [modal, setModal] = useState<null | "reject" | "clarify" | "clarifyRespond" | "reopen">(null);
   const [jiraKey, setJiraKey] = useState("");
-  const [jiraMsg, setJiraMsg] = useState<string | null>(null);
   const [postToJira, { loading: posting }] = useMutation(POST_ISSUE_TO_JIRA, {
     refetchQueries: [{ query: ISSUE, variables: { id } }],
   });
@@ -150,15 +150,13 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
                   </div>
                   <button
                     disabled={posting || !(jiraKey || i.jiraKey)}
-                    onClick={async () => {
-                      setJiraMsg(null);
-                      try {
-                        await postToJira({ variables: { id, jiraKey: jiraKey || i.jiraKey } });
-                        setJiraMsg("✅ Comment posted to JIRA");
-                      } catch (e: any) {
-                        setJiraMsg(e?.message ?? "Failed");
-                      }
-                    }}
+                    onClick={() =>
+                      withToast(
+                        postToJira({ variables: { id, jiraKey: jiraKey || i.jiraKey } }),
+                        "Comment posted to JIRA",
+                        "Couldn't post to JIRA (check the ticket key)",
+                      )
+                    }
                     className="h-9 rounded bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
                     {posting ? "Posting…" : i.jiraCommentId ? "Update comment" : "Post comment"}
@@ -167,7 +165,6 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
                 <p className="mt-2 text-xs text-muted-foreground">
                   Posts a formatted comment (issue link + all fields). Re-posting edits the same comment.
                 </p>
-                {jiraMsg && <p className="mt-1 text-xs">{jiraMsg}</p>}
               </>
             ) : (
               <p className="text-xs text-muted-foreground">JIRA is not configured on the server.</p>
@@ -203,7 +200,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           {/* Engineer */}
           {canEngineer && (i.status === "OPEN" || i.status === "REOPENED") && (
             <>
-              <ActBtn primary onClick={() => accept({ variables: { id } })}>Accept</ActBtn>
+              <ActBtn primary onClick={() => withToast(accept({ variables: { id } }), "Issue accepted", "Couldn't accept issue")}>Accept</ActBtn>
               <ActBtn onClick={() => setModal("clarify")}>Need clarification</ActBtn>
               <ActBtn destructive onClick={() => setModal("reject")}>Reject</ActBtn>
             </>
@@ -211,11 +208,11 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           {canEngineer && i.status === "IN_PROGRESS" && (
             <>
               <ActBtn primary onClick={() => openPanel({ kind: "postmortem", mode: "create", id })}>Solve</ActBtn>
-              <ActBtn onClick={() => hold({ variables: { id } })}>Hold</ActBtn>
+              <ActBtn onClick={() => withToast(hold({ variables: { id } }), "Issue put on hold", "Couldn't hold issue")}>Hold</ActBtn>
             </>
           )}
           {canEngineer && i.status === "HOLD" && (
-            <ActBtn primary onClick={() => resume({ variables: { id } })}>Resume</ActBtn>
+            <ActBtn primary onClick={() => withToast(resume({ variables: { id } }), "Issue resumed", "Couldn't resume issue")}>Resume</ActBtn>
           )}
           {/* QA */}
           {canQA && i.review === "NEED_CLARIFY" && (
@@ -223,7 +220,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           )}
           {canQA && i.status === "NEED_REVIEW" && (
             <>
-              <ActBtn primary onClick={() => review({ variables: { id, pass: true } })}>Approve → Close</ActBtn>
+              <ActBtn primary onClick={() => withToast(review({ variables: { id, pass: true } }), "Issue approved & closed", "Couldn't approve issue")}>Approve → Close</ActBtn>
               <ActBtn destructive onClick={() => setModal("reopen")}>Reopen</ActBtn>
             </>
           )}
@@ -233,7 +230,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
             </ActBtn>
           )}
           {canQA && (
-            <ActBtn onClick={() => setArchived({ variables: { id, archived: !i.archived } })}>
+            <ActBtn onClick={() => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? "Issue unarchived" : "Issue archived", "Couldn't update issue")}>
               {i.archived ? (
                 <><ArchiveRestore className="mr-1 inline h-3.5 w-3.5" />Unarchive</>
               ) : (
@@ -279,7 +276,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
         destructive
         confirmLabel="Reject"
         onClose={() => setModal(null)}
-        onSubmit={(reason) => reject({ variables: { id, reason } })}
+        onSubmit={(reason) => withToast(reject({ variables: { id, reason } }), "Issue rejected", "Couldn't reject issue")}
       />
       <TextPromptModal
         open={modal === "clarify"}
@@ -288,14 +285,14 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
         required
         confirmLabel="Send"
         onClose={() => setModal(null)}
-        onSubmit={(note) => needClarify({ variables: { id, note } })}
+        onSubmit={(note) => withToast(needClarify({ variables: { id, note } }), "Clarification requested", "Couldn't send request")}
       />
       <TextPromptModal
         open={modal === "clarifyRespond"}
         title="Respond to clarification"
         label="Clarification note"
         onClose={() => setModal(null)}
-        onSubmit={(note) => clarifyRespond({ variables: { id, note: note || null } })}
+        onSubmit={(note) => withToast(clarifyRespond({ variables: { id, note: note || null } }), "Clarification sent", "Couldn't send clarification")}
       />
       <TextPromptModal
         open={modal === "reopen"}
@@ -304,7 +301,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
         destructive
         confirmLabel="Reopen"
         onClose={() => setModal(null)}
-        onSubmit={(note) => review({ variables: { id, pass: false, note: note || null } })}
+        onSubmit={(note) => withToast(review({ variables: { id, pass: false, note: note || null } }), "Issue reopened", "Couldn't reopen issue")}
       />
     </div>
   );

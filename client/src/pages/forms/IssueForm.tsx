@@ -13,6 +13,7 @@ import {
 } from "../../graphql/issue";
 import { TEST_CASES } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
+import { withToast } from "../../store/toast";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
 
@@ -152,14 +153,15 @@ export function IssueForm({
         .filter((a) => a.url.trim())
         .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
     };
+    let ok;
     if (editing) {
       delete input.testCaseId;
       delete input.recordTestId;
-      await updateIssue({ variables: { id: panel.id, input: { ...input, testCaseId } } });
+      ok = await withToast(updateIssue({ variables: { id: panel.id, input: { ...input, testCaseId } } }), "Issue updated", "Couldn't update issue");
     } else {
-      await createIssue({ variables: { input } });
+      ok = await withToast(createIssue({ variables: { input } }), "Issue created", "Couldn't create issue");
     }
-    closePanel();
+    if (ok) closePanel();
   };
 
   const engineers = engData?.engineers ?? [];

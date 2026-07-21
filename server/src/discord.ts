@@ -42,14 +42,24 @@ export async function notifyDiscord(field: string, actor: string | null): Promis
     const s = await prisma.setting.findUnique({ where: { id: "singleton" } });
     if (!s?.discordEnabled || !s.discordWebhookUrl) return;
     const title = LABELS[field] ?? field;
+    // Pick an accent color by action kind for quick scanning.
+    const color = field.startsWith("delete")
+      ? 0xe03131 // red
+      : field.startsWith("create") || field === "issueSolve" || field === "issueReview"
+        ? 0x2f9e44 // green
+        : 0x1971c2; // blue (updates / workflow)
     const body = {
       embeds: [
         {
-          title: `🐞 ${title}`,
-          description: `By: **${actor ?? "system"}**\n\`${field}\``,
-          color: 0x2b2d31,
-          footer: { text: "QA Reporting" },
+          title,
           url: env.frontendBaseUrl,
+          color,
+          fields: [
+            { name: "Actor", value: actor ?? "system", inline: true },
+            { name: "Action", value: `\`${field}\``, inline: true },
+          ],
+          footer: { text: "QA Reporting" },
+          timestamp: new Date().toISOString(),
         },
       ],
     };

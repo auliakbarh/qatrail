@@ -16,6 +16,7 @@ import ResetPassword from "./pages/ResetPassword";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
+import { Toaster } from "./components/Toaster";
 
 function ProtectedLayout() {
   const { user, ready } = useAuth();
@@ -55,7 +56,9 @@ export default function App() {
   if (!ready) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
 
   return (
-    <Routes>
+    <>
+      <Toaster />
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -67,6 +70,7 @@ export default function App() {
         <Route path="/help" element={<Help />} />
       </Route>
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }

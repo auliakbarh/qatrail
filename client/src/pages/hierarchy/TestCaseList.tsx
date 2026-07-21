@@ -8,6 +8,7 @@ import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows } from "../../lib/list";
+import { withToast } from "../../store/toast";
 import { cn } from "../../lib/utils";
 
 function ResultBadge({ result }: { result: string | null }) {
@@ -123,7 +124,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && deleteTestCase({ variables: { id: del.id } })}
+        onConfirm={() => del && withToast(deleteTestCase({ variables: { id: del.id } }), "Test case deleted", "Couldn't delete test case")}
         label={del?.name ?? ""}
         note="Its records and issues are removed."
       />

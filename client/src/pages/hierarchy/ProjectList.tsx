@@ -9,6 +9,7 @@ import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
+import { withToast } from "../../store/toast";
 
 export function ProjectList() {
   const { selectProject, openPanel } = useNav();
@@ -134,7 +135,7 @@ export function ProjectList() {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && deleteProject({ variables: { id: del.id } })}
+        onConfirm={() => del && withToast(deleteProject({ variables: { id: del.id } }), "Project deleted", "Couldn't delete project")}
         label={del?.name ?? ""}
         note="All features, test cases, records and issues under it are removed."
       />

@@ -4,6 +4,7 @@ import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_FEATURE, UPDATE_FEATURE, FEATURES } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
+import { withToast } from "../../store/toast";
 
 interface Form {
   name: string;
@@ -32,9 +33,10 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
       description: v.description || null,
       minPassPercent: Number(v.minPassPercent),
     };
-    if (editing) await updateFeature({ variables: { id: panel.id, input } });
-    else await createFeature({ variables: { projectId, input } });
-    closePanel();
+    const ok = editing
+      ? await withToast(updateFeature({ variables: { id: panel.id, input } }), "Feature updated", "Couldn't update feature")
+      : await withToast(createFeature({ variables: { projectId, input } }), "Feature created", "Couldn't create feature");
+    if (ok) closePanel();
   };
 
   return (

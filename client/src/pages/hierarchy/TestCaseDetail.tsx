@@ -7,6 +7,7 @@ import { useNav } from "../../store/nav";
 import { cn } from "../../lib/utils";
 import { IconBtn } from "../../components/IconBtn";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
+import { withToast } from "../../store/toast";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -162,7 +163,7 @@ function RecordsTab({ testCaseId }: { testCaseId: string }) {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && deleteRecord({ variables: { id: del } })}
+        onConfirm={() => del && withToast(deleteRecord({ variables: { id: del } }), "Record deleted", "Couldn't delete record")}
         label="record"
       />
     </div>
@@ -226,7 +227,7 @@ function IssuesTab({ testCaseId }: { testCaseId: string }) {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && deleteIssue({ variables: { id: del.id } })}
+        onConfirm={() => del && withToast(deleteIssue({ variables: { id: del.id } }), "Issue deleted", "Couldn't delete issue")}
         label={del?.title ?? ""}
       />
     </div>

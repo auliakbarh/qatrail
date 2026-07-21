@@ -11,6 +11,7 @@ import {
   TEST_CASE,
 } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
+import { withToast } from "../../store/toast";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
 
@@ -80,9 +81,10 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
         .filter((a) => a.url.trim())
         .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
     };
-    if (editing) await updateTestCase({ variables: { id: panel.id, input } });
-    else await createTestCase({ variables: { featureId, input } });
-    closePanel();
+    const ok = editing
+      ? await withToast(updateTestCase({ variables: { id: panel.id, input } }), "Test case updated", "Couldn't update test case")
+      : await withToast(createTestCase({ variables: { featureId, input } }), "Test case created", "Couldn't create test case");
+    if (ok) closePanel();
   };
 
   return (

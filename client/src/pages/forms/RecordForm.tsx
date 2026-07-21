@@ -6,6 +6,7 @@ import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_RECORD_TEST, RECORD_TESTS } from "../../graphql/issue";
 import { TEST_CASES } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
+import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
@@ -40,19 +41,24 @@ export function RecordForm({ testCaseId, featureId }: { testCaseId: string; feat
   });
 
   const onSubmit = async (v: Form) => {
-    const res = await createRecordTest({
-      variables: {
-        testCaseId,
-        input: {
-          executedAt: new Date(v.executedAt).toISOString(),
-          result: v.result,
-          note: v.note || null,
-          attachments: v.attachments
-            .filter((a) => a.url.trim())
-            .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
+    const res = await withToast(
+      createRecordTest({
+        variables: {
+          testCaseId,
+          input: {
+            executedAt: new Date(v.executedAt).toISOString(),
+            result: v.result,
+            note: v.note || null,
+            attachments: v.attachments
+              .filter((a) => a.url.trim())
+              .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
+          },
         },
-      },
-    });
+      }),
+      "Record saved",
+      "Couldn't save record",
+    );
+    if (!res) return;
     const rec = res.data?.createRecordTest;
     // FAIL → open a prefilled Issue form (per requirement).
     if (rec?.result === "FAIL") {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useSubscription } from "@apollo/client";
+import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import {
   NOTIFICATIONS,
@@ -13,6 +14,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString();
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const { data, refetch } = useQuery(NOTIFICATIONS, { fetchPolicy: "cache-and-network" });
   const [markRead] = useMutation(MARK_NOTIFICATION_READ);
   const [markAll] = useMutation(MARK_ALL_READ);
@@ -58,7 +60,12 @@ export function NotificationBell() {
             {items.map((n: any) => (
               <button
                 key={n.id}
-                onClick={() => markRead({ variables: { id: n.id } }).then(() => refetch())}
+                onClick={async () => {
+                  await markRead({ variables: { id: n.id } });
+                  await refetch();
+                  setOpen(false);
+                  if (n.issueId) navigate(`/issues/${n.issueId}`);
+                }}
                 className={cn(
                   "block w-full border-b border-border/50 px-3 py-2 text-left last:border-0 hover:bg-muted/40",
                   !n.read && "bg-muted/30",

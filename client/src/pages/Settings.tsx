@@ -12,6 +12,7 @@ import { inputCls, Field } from "../components/Form";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { PasswordInput } from "../components/PasswordInput";
+import { copyWithToast, withToast } from "../store/toast";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
 const ROLES = ["QA", "ENGINEER", "ADMIN", "SUPER_ADMIN"];
@@ -74,8 +75,8 @@ function ChangePasswordCard() {
       setMsg({ ok: true, text: "Password changed" });
       setCur("");
       setNext("");
-    } catch (err: any) {
-      setMsg({ ok: false, text: err?.message ?? "Failed" });
+    } catch {
+      setMsg({ ok: false, text: "Couldn't change password. Check your current password." });
     }
   };
 
@@ -122,11 +123,14 @@ function UsersCard() {
     if (!form) return;
     const input = { email: form.email, name: form.name, role: form.role, active: form.active };
     if (form.id) {
-      await updateUser({ variables: { id: form.id, input } });
-      setForm(null);
+      const ok = await withToast(updateUser({ variables: { id: form.id, input } }), "User updated", "Couldn't update user");
+      if (ok) setForm(null);
     } else {
-      const res = await createUser({ variables: { input } });
-      setGenerated(res.data?.createUser?.defaultPassword ?? null);
+      const res = await withToast(createUser({ variables: { input } }), "User created", "Couldn't create user");
+      if (!res) return;
+      const pw = res.data?.createUser?.defaultPassword ?? null;
+      setGenerated(pw);
+      if (pw) await copyWithToast(pw, "Default password");
       setForm(null);
     }
   };
@@ -172,8 +176,11 @@ function UsersCard() {
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">
                         <IconBtn title="Reset password" onClick={async () => {
-                          const r = await resetPw({ variables: { id: u.id } });
-                          setGenerated(r.data?.resetUserPassword ?? null);
+                          const r = await withToast(resetPw({ variables: { id: u.id } }), "Password reset", "Couldn't reset password");
+                          if (!r) return;
+                          const pw = r.data?.resetUserPassword ?? null;
+                          setGenerated(pw);
+                          if (pw) await copyWithToast(pw, "New password");
                         }}>
                           <KeyRound className="h-3.5 w-3.5" />
                         </IconBtn>
@@ -220,7 +227,7 @@ function UsersCard() {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && deleteUser({ variables: { id: del.id } })}
+        onConfirm={() => del && withToast(deleteUser({ variables: { id: del.id } }), "User deleted", "Couldn't delete user")}
         label={del?.name ?? ""}
       />
     </div>
@@ -242,8 +249,8 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
       kind === "maintenance"
         ? { maintenanceMode: !!v.maintenanceMode, maintenanceMessage: v.maintenanceMessage || null }
         : { discordEnabled: !!v.discordEnabled, discordWebhookUrl: v.discordWebhookUrl || null };
-    await updateSetting({ variables: { input } });
-    setLocal(null);
+    const ok = await withToast(updateSetting({ variables: { input } }), "Settings saved", "Couldn't save settings");
+    if (ok) setLocal(null);
   };
 
   if (kind === "maintenance") {
@@ -297,7 +304,8 @@ function SlaCard() {
   const [update, { loading }] = useMutation(UPDATE_SLA_TARGET, { refetchQueries: [SLA_TARGETS] });
   const [edits, setEdits] = useState<Record<string, { respondMins: string; resolveMins: string }>>({});
 
-  const rows = data?.slaTargets ?? [];
+  const ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2 } as Record<string, number>;
+  const rows = [...(data?.slaTargets ?? [])].sort((a: any, b: any) => (ORDER[a.priority] ?? 9) - (ORDER[b.priority] ?? 9));
   const val = (p: string, field: "respondMins" | "resolveMins", fallback: any) =>
     edits[p]?.[field] ?? (fallback == null ? "" : String(fallback));
 
@@ -331,7 +339,11 @@ function SlaCard() {
                     onClick={() => {
                       const respond = val(t.priority, "respondMins", t.respondMins).trim();
                       const resolve = val(t.priority, "resolveMins", t.resolveMins).trim();
-                      update({ variables: { priority: t.priority, respondMins: respond === "" ? null : parseInt(respond, 10), resolveMins: parseInt(resolve, 10) } });
+                      withToast(
+                        update({ variables: { priority: t.priority, respondMins: respond === "" ? null : parseInt(respond, 10), resolveMins: parseInt(resolve, 10) } }),
+                        `SLA saved for ${t.priority}`,
+                        "Couldn't save SLA target",
+                      );
                     }}
                     className="h-7 rounded border border-border px-3 text-xs hover:bg-muted"
                   >

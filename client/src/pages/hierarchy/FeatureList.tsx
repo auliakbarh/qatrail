@@ -9,6 +9,7 @@ import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows } from "../../lib/list";
+import { withToast } from "../../store/toast";
 
 export function FeatureList({ projectId }: { projectId: string }) {
   const { selectFeature, openPanel } = useNav();
@@ -108,7 +109,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && deleteFeature({ variables: { id: del.id } })}
+        onConfirm={() => del && withToast(deleteFeature({ variables: { id: del.id } }), "Feature deleted", "Couldn't delete feature")}
         label={del?.name ?? ""}
         note="All test cases, records and issues under it are removed."
       />

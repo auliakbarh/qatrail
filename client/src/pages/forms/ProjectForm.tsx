@@ -4,6 +4,7 @@ import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_PROJECT, UPDATE_PROJECT, PROJECTS } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
+import { withToast } from "../../store/toast";
 
 interface Form {
   name: string;
@@ -34,9 +35,10 @@ export function ProjectForm({ panel }: { panel: PanelState }) {
       squad: v.squad || null,
       minPassPercent: Number(v.minPassPercent),
     };
-    if (editing) await updateProject({ variables: { id: panel.id, input } });
-    else await createProject({ variables: { input } });
-    closePanel();
+    const ok = editing
+      ? await withToast(updateProject({ variables: { id: panel.id, input } }), "Project updated", "Couldn't update project")
+      : await withToast(createProject({ variables: { input } }), "Project created", "Couldn't create project");
+    if (ok) closePanel();
   };
 
   return (
