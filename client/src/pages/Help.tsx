@@ -9,6 +9,7 @@ const SECTIONS = [
   { id: "structure", label: "Projects, features, test cases" },
   { id: "records", label: "Test records & coverage" },
   { id: "issues", label: "Issues" },
+  { id: "defect-bug", label: "Defect vs Bug" },
   { id: "workflow", label: "Issue workflow" },
   { id: "sla", label: "SLA" },
   { id: "analytics", label: "Analytics" },
@@ -16,6 +17,7 @@ const SECTIONS = [
   { id: "jira", label: "JIRA integration" },
   { id: "settings", label: "Settings & admin" },
   { id: "account", label: "Account & password" },
+  { id: "glossary", label: "Glossary" },
   { id: "faq", label: "FAQ" },
 ];
 
@@ -119,6 +121,27 @@ export default function Help() {
             <P>Open an issue from the Issues tab to see its detail, timeline, and available actions.</P>
           </Doc>
 
+          <Doc id="defect-bug" title="Defect vs Bug">
+            <P>Both are findings from testing, but they carry different consequences — pick the right type when
+              you raise an issue.</P>
+            <P><B>Defect</B> — found during testing and <B>should block</B> the Story/Task from being deployed.
+              Think of it as a sub-task of the original work: while it's open, the story isn't done.</P>
+            <P><B>Bug</B> — found during testing but <B>not blocking</B> (minor, can be fixed later), or found in
+              the live production system (by a customer or by us). It sits at the same level as a Story/Task and
+              is tracked and reported on separately.</P>
+            <Table
+              head={["Aspect", "Defect", "Bug"]}
+              rows={[
+                ["Blocks release?", "Yes — must be fixed first", "No — backlog / fix later"],
+                ["Typical origin", "Testing, pre-deploy", "Minor issue, or found in production"],
+                ["Relationship", "Sub-task of the story/task", "Same level as a story/task"],
+                ["Severity feel", "Higher — gates the release", "Lower — scheduled separately"],
+              ]}
+            />
+            <Callout>Rule of thumb: <B>if it must be fixed before this release ships, it's a Defect;</B> if it
+              can wait, it's a Bug.</Callout>
+          </Doc>
+
           <Doc id="workflow" title="Issue workflow">
             <P>Every transition is recorded in the issue timeline.</P>
             <Pre>{`QA creates ................. OPEN
@@ -181,6 +204,45 @@ Hold / Resume ............. pause & resume IN_PROGRESS`}</Pre>
           <Doc id="account" title="Account & password">
             <P>Passwords need ≥9 characters with upper- and lower-case, a number, and a symbol. Forgot yours?
               Use the link on the sign-in page — you'll get a reset email (valid 1 hour, single use).</P>
+          </Doc>
+
+          <Doc id="glossary" title="Glossary">
+            <P>Terms used in QA work and throughout this app.</P>
+            <Dl
+              items={[
+                ["Project / App", "The top-level system under test. Contains features and a minimum pass % target."],
+                ["Feature / Module", "A slice of a project. Groups related test cases with its own pass % target."],
+                ["Test Case", "A documented scenario: precondition, ordered steps, and expected results."],
+                ["Precondition", "The state that must hold before the steps are executed."],
+                ["Step / Expected Result", "One action to perform and the outcome it should produce."],
+                ["Record Test (Test Run)", "One execution of a test case with a PASS/FAIL result, executor, and time."],
+                ["Steps to Reproduce", "The exact sequence that triggers an issue, so an engineer can reproduce it."],
+                ["Actual vs Expected Result", "What happened vs what should have happened — the core of any issue."],
+                ["Defect", "A blocking finding: prevents the story/task from being deployed until fixed."],
+                ["Bug", "A non-blocking finding (minor, or found in production); tracked separately from stories."],
+                ["Issue", "A raised Defect or Bug, with fields, workflow status, and an assignee."],
+                ["Severity / Priority", "How urgent an issue is. Here: LOW, MEDIUM, HIGH — drives SLA."],
+                ["Environment", "Where testing happened: STAGING or PRODUCTION. SLA applies to production."],
+                ["Platform", "WEB, ANDROID, or IOS. App version is required for the mobile platforms."],
+                ["Reporter", "The QA who raised the issue."],
+                ["Assignee", "The engineer responsible for resolving the issue."],
+                ["Review state", "The engineer's response: PENDING, ACCEPTED, NEED_CLARIFY, or REJECTED."],
+                ["Status", "Lifecycle: OPEN → IN_PROGRESS → NEED_REVIEW → CLOSED, plus REOPENED and HOLD."],
+                ["Reopen", "QA sends a solved issue back to the engineer because it isn't actually fixed."],
+                ["Regression", "A previously working feature that breaks again — often caught by re-running test cases."],
+                ["Postmortem", "The engineer's write-up on solving: root cause, resolution, impact, prevention."],
+                ["Root Cause", "The underlying reason an issue occurred (not just the symptom)."],
+                ["Pass %", "Passed test cases ÷ total, where a test case passes if its latest record is PASS."],
+                ["Coverage", "How much of a feature/project has been validated by passing test cases."],
+                ["Confidence / Ready", "A level is Ready when its pass % meets the configured minimum."],
+                ["SLA", "Service Level Agreement: target respond and resolve times for production issues."],
+                ["Respond / Resolve time", "Time from creation to first engineer action / to resolution."],
+                ["Squad", "The team owning a project (also derivable from a JIRA key prefix, e.g. ATH-901 → ATH)."],
+                ["Archive", "Hide an issue from active lists (e.g. after rejection) without deleting it."],
+                ["Recreate", "Start a new issue prefilled from a rejected one, keeping a link to the original."],
+                ["Attachment", "A supporting file referenced by URL (screenshot, video, doc, log)."],
+              ]}
+            />
           </Doc>
 
           <Doc id="faq" title="FAQ">
@@ -269,6 +331,18 @@ function Table({ head, rows }: { head: string[]; rows: string[][] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+function Dl({ items }: { items: [string, string][] }) {
+  return (
+    <dl className="divide-y divide-border/60 rounded border border-border">
+      {items.map(([term, def]) => (
+        <div key={term} className="grid grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-[10rem_1fr] sm:gap-3">
+          <dt className="text-sm font-medium text-foreground">{term}</dt>
+          <dd className="text-sm text-muted-foreground">{def}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 function Faq({ q, children }: { q: string; children: any }) {
