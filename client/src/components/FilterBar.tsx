@@ -54,14 +54,17 @@ export function FilterBar(p: FilterBarProps) {
         </>
       )}
       {p.groupOptions && p.onGroupKey && (
-        <select value={p.groupKey} onChange={(e) => p.onGroupKey!(e.target.value)} className={small} title="Group by">
-          <option value="">Group by…</option>
-          {p.groupOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Group by:</span>
+          <select value={p.groupKey} onChange={(e) => p.onGroupKey!(e.target.value)} className={small}>
+            <option value="">-</option>
+            {p.groupOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
-import { Plus, FolderOpen, Pencil, Trash2 } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { PROJECTS, DELETE_PROJECT } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
@@ -24,6 +24,13 @@ export function ProjectList() {
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [groupKey, setGroupKey] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (label: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
   const onSort = (key: string) => {
@@ -62,6 +69,7 @@ export function ProjectList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
+                  <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                   <SortableTh label="Project" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label="Squad" colKey="squad" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label="Features" colKey="featureCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -72,14 +80,14 @@ export function ProjectList() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
                       Loading…
                     </td>
                   </tr>
                 )}
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
                       No projects yet
                     </td>
                   </tr>
@@ -87,14 +95,18 @@ export function ProjectList() {
                 {groups.map(([label, groupRows_]) => (
                   <Fragment key={label || "all"}>
                     {groupKey && (
-                      <tr className="bg-muted/40">
-                        <td colSpan={5} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                          {label} · {groupRows_.length}
+                      <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
+                        <td colSpan={6} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            {label} · {groupRows_.length}
+                          </span>
                         </td>
                       </tr>
                     )}
-                    {groupRows_.map((p: any) => (
+                    {!collapsed.has(label) && groupRows_.map((p: any, idx: number) => (
                   <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                     <td className="px-3 py-2">
                       <button onClick={() => selectProject(p.id)} className="font-medium hover:underline">
                         {p.name}

@@ -52,6 +52,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
+                <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label="Test cases" colKey="testCaseCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass %</th>
@@ -61,20 +62,21 @@ export function FeatureList({ projectId }: { projectId: string }) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
                     No features yet
                   </td>
                 </tr>
               )}
-              {rows.map((f: any) => (
+              {rows.map((f: any, idx: number) => (
                 <tr key={f.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                  <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2">
                     <button onClick={() => selectFeature(f.id)} className="font-medium hover:underline">
                       {f.name}

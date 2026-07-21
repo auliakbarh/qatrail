@@ -17,7 +17,7 @@ import { useNav } from "../../store/nav";
 import { useAuth } from "../../store/auth";
 import { cn } from "../../lib/utils";
 import { TextPromptModal } from "../../components/TextPromptModal";
-import { withToast, useToast } from "../../store/toast";
+import { withToast, useToast, copyWithToast } from "../../store/toast";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -74,7 +74,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   };
 
   const copyLink = () => {
-    void navigator.clipboard.writeText(`${location.origin}/issues/${i.id}`);
+    void copyWithToast(`${location.origin}/issues/${i.id}`, "Issue link");
   };
 
   return (
