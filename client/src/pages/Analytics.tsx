@@ -45,9 +45,15 @@ export default function Analytics() {
 
   const maxCvR = Math.max(1, ...(a?.createdVsResolved ?? []).flatMap((p: any) => [p.created, p.resolved]));
   const sla = a?.slaBreakdown ?? { met: 0, atRisk: 0, breached: 0 };
-  const slaTotal = Math.max(1, sla.met + sla.atRisk + sla.breached);
+  const slaCount = sla.met + sla.atRisk + sla.breached;
+  const hasSla = slaCount > 0;
+  const slaTotal = Math.max(1, slaCount);
   const metPct = (sla.met / slaTotal) * 100;
   const riskPct = (sla.atRisk / slaTotal) * 100;
+  // No production issues → neutral grey ring instead of a misleading full-red one.
+  const slaGradient = hasSla
+    ? `conic-gradient(var(--good) 0 ${metPct}%, var(--warn) ${metPct}% ${metPct + riskPct}%, var(--destructive) ${metPct + riskPct}% 100%)`
+    : `conic-gradient(var(--muted) 0 100%)`;
 
   return (
     <div className="h-full space-y-4 overflow-y-auto p-6">
@@ -121,13 +127,11 @@ export default function Analytics() {
               <div className="flex items-center gap-5">
                 <div
                   className="flex h-28 w-28 items-center justify-center rounded-full"
-                  style={{
-                    background: `conic-gradient(var(--good) 0 ${metPct}%, var(--warn) ${metPct}% ${metPct + riskPct}%, var(--destructive) ${metPct + riskPct}% 100%)`,
-                  }}
+                  style={{ background: slaGradient }}
                 >
                   <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
-                    <span className="text-lg font-semibold">{a.slaCompliance ?? 0}%</span>
-                    <span className="text-[10px] text-muted-foreground">met</span>
+                    <span className="text-lg font-semibold">{hasSla ? `${a.slaCompliance ?? 0}%` : "—"}</span>
+                    <span className="text-[10px] text-muted-foreground">{hasSla ? "met" : "no data"}</span>
                   </div>
                 </div>
                 <div className="space-y-1.5 text-xs">
