@@ -27,6 +27,20 @@ function SlaBadge({ s }: { s: string }) {
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+
+function Filter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}:</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={small}>
+        <option value="">all</option>
+        {options.map((o) => (
+          <option key={o} value={o}>{o === "AT_RISK" ? "At risk" : o}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "IN_REVIEW", "CLOSED", "REOPENED", "HOLD"];
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 
@@ -35,6 +49,8 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fPriority, setFPriority] = useState("");
+  const [fSla, setFSla] = useState("");
+  const [fType, setFType] = useState("");
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [groupKey, setGroupKey] = useState("");
@@ -45,25 +61,20 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
   let rows = searchRows(issues ?? [], search, ["title", "status", "priority"]);
   if (fStatus) rows = rows.filter((r: any) => r.status === fStatus);
   if (fPriority) rows = rows.filter((r: any) => r.priority === fPriority);
+  if (fSla) rows = rows.filter((r: any) => r.slaStatus === fSla);
+  if (fType) rows = rows.filter((r: any) => r.type === fType);
   rows = sortRows(rows, sortKey as any, sortDir);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
   const colCount = showPeople ? 8 : 6;
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+      {/* Row 1: search ↔ group-by */}
+      <div className="mb-2 flex items-center justify-between gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className={`${small} w-44 pl-7`} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className={`${small} w-56 pl-7`} />
         </div>
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={small}>
-          <option value="">Status: all</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className={small}>
-          <option value="">Priority: all</option>
-          {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground">Group by:</span>
           <select value={groupKey} onChange={(e) => setGroupKey(e.target.value)} className={small}>
@@ -73,6 +84,13 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
             <option value="type">type</option>
           </select>
         </div>
+      </div>
+      {/* Row 2: filters */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <Filter label="Status" value={fStatus} onChange={setFStatus} options={STATUSES} />
+        <Filter label="Priority" value={fPriority} onChange={setFPriority} options={PRIORITIES} />
+        <Filter label="Type" value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
+        <Filter label="SLA" value={fSla} onChange={setFSla} options={["MET", "AT_RISK", "BREACHED", "NA"]} />
         <span className="ml-auto text-xs text-muted-foreground">{rows.length} issue(s)</span>
       </div>
       <div className="overflow-x-auto">
