@@ -107,9 +107,10 @@ export default function Help() {
           <Doc id="records" title="Test records & coverage">
             <P>Open a test case and add a <B>Record Test</B> (PASS/FAIL) under the Records tab. The executor and
               time are captured automatically; attach URLs if needed.</P>
-            <P>A test case counts as <B>passed</B> when its most recent record is PASS. <B>Pass %</B> for a
-              feature/project = passed test cases ÷ total. A level is <B>Ready</B> when its pass % meets the
-              minimum you set.</P>
+            <P>A test case counts as <B>passed</B> when its most recent record is PASS <B>and</B> it has no open
+              issue (any issue not yet CLOSED and not archived). So an unresolved issue keeps a test case out of
+              the pass count even if its last run was green. <B>Pass %</B> for a feature/project = passed test
+              cases ÷ total. A level is <B>Ready</B> when its pass % meets the minimum you set.</P>
             <Callout>Saving a <B>FAIL</B> record immediately opens a prefilled Issue form.</Callout>
           </Doc>
 
@@ -232,7 +233,7 @@ Hold / Resume ............. pause & resume IN_PROGRESS`}</Pre>
                 ["Regression", "A previously working feature that breaks again — often caught by re-running test cases."],
                 ["Postmortem", "The engineer's write-up on solving: root cause, resolution, impact, prevention."],
                 ["Root Cause", "The underlying reason an issue occurred (not just the symptom)."],
-                ["Pass %", "Passed test cases ÷ total, where a test case passes if its latest record is PASS."],
+                ["Pass %", "Passed ÷ total, where a test case passes if its latest record is PASS and it has no open issue."],
                 ["Coverage", "How much of a feature/project has been validated by passing test cases."],
                 ["Confidence / Ready", "A level is Ready when its pass % meets the configured minimum."],
                 ["SLA", "Service Level Agreement: target respond and resolve times for production issues."],

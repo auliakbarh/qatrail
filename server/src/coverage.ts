@@ -1,6 +1,8 @@
 import { prisma } from "./db.js";
 
-// A test case is "passed" when its most recent RecordTest result is PASS.
+// A test case is "passed" when its most recent RecordTest result is PASS AND it
+// has no open issue (any issue not CLOSED and not archived). An unresolved issue
+// keeps the case from counting as passed even if the latest run was green.
 // pass% = passed test cases / total test cases (0 when there are none).
 // ponytail: recomputed per query with a small N+1; add caching only if the
 // dashboard gets slow on large projects.
@@ -26,7 +28,12 @@ async function coverageForTestCases(testCaseIds: string[]): Promise<Coverage> {
       orderBy: { executedAt: "desc" },
       select: { result: true },
     });
-    if (latest?.result === "PASS") passed += 1;
+    if (latest?.result !== "PASS") continue;
+    // Any unresolved (not CLOSED, not archived) issue blocks the pass.
+    const openIssues = await prisma.issue.count({
+      where: { testCaseId: id, archived: false, status: { not: "CLOSED" } },
+    });
+    if (openIssues === 0) passed += 1;
   }
   return { total, passed, percent: pct(passed, total) };
 }
