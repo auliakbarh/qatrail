@@ -14,6 +14,7 @@ import { env } from "./env.js";
 import { prisma } from "./db.js";
 import { logger } from "./logger.js";
 import { startScheduler } from "./scheduler.js";
+import { notifyDiscord, NOTIFIABLE } from "./discord.js";
 
 process.on("uncaughtException", (err) => logger.fatal({ err }, "uncaughtException"));
 process.on("unhandledRejection", (reason) => logger.error({ err: reason }, "unhandledRejection"));
@@ -61,6 +62,26 @@ const server = new ApolloServer({
         return {
           async drainServer() {
             await wsCleanup.dispose();
+          },
+        };
+      },
+    },
+    // Broadcast successful project-domain mutations to Discord (fire-and-forget).
+    {
+      async requestDidStart() {
+        return {
+          async willSendResponse(rc: any) {
+            try {
+              if (rc.operation?.operation !== "mutation") return;
+              if (rc.errors?.length) return;
+              const actor = rc.contextValue?.userName ?? null;
+              for (const sel of rc.operation.selectionSet.selections) {
+                const field = sel.name?.value;
+                if (field && NOTIFIABLE.has(field)) void notifyDiscord(field, actor);
+              }
+            } catch {
+              /* never break the response */
+            }
           },
         };
       },

@@ -135,6 +135,38 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
   }
 
+  type Setting {
+    maintenanceMode: Boolean!
+    maintenanceMessage: String
+    discordEnabled: Boolean!
+    discordWebhookUrl: String
+  }
+
+  type SlaTargetType {
+    priority: Priority!
+    respondMins: Int
+    resolveMins: Int!
+  }
+
+  type CreateUserResult {
+    user: User!
+    defaultPassword: String!
+  }
+
+  input UserInput {
+    email: String!
+    name: String!
+    role: Role!
+    active: Boolean
+  }
+
+  input SettingInput {
+    maintenanceMode: Boolean
+    maintenanceMessage: String
+    discordEnabled: Boolean
+    discordWebhookUrl: String
+  }
+
   type StatusCount { status: String!, count: Int! }
   type SlaBreakdown { met: Int!, atRisk: Int!, breached: Int! }
   type MonthPoint { period: String!, created: Int!, resolved: Int! }
@@ -275,11 +307,17 @@ export const typeDefs = /* GraphQL */ `
     unreadCount: Int!
 
     analytics(projectId: ID, featureId: ID): Analytics!
+
+    users: [User!]!
+    setting: Setting!
+    slaTargets: [SlaTargetType!]!
   }
 
   type Mutation {
     login(email: String!, password: String!): AuthPayload!
     changePassword(currentPassword: String!, newPassword: String!): Boolean!
+    forgotPassword(email: String!): Boolean!
+    resetPassword(token: String!, newPassword: String!): Boolean!
 
     createProject(input: ProjectInput!): Project!
     updateProject(id: ID!, input: ProjectInput!): Project!
@@ -314,6 +352,15 @@ export const typeDefs = /* GraphQL */ `
 
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Boolean!
+
+    createUser(input: UserInput!): CreateUserResult!
+    updateUser(id: ID!, input: UserInput!): User!
+    deleteUser(id: ID!): Boolean!
+    resetUserPassword(id: ID!): String!
+
+    updateSetting(input: SettingInput!): Setting!
+    testDiscord(url: String!): Boolean!
+    updateSlaTarget(priority: Priority!, respondMins: Int, resolveMins: Int!): SlaTargetType!
   }
 
   type Subscription {

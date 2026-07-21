@@ -3,8 +3,12 @@ import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { hashPassword, verifyPassword, signToken } from "../auth.js";
 import { assertStrongPassword } from "../passwordPolicy.js";
-import { assertNotLocked, recordFailure, recordSuccess } from "../rateLimit.js";
+import { assertNotLocked, recordFailure, recordSuccess, assertWithinRate } from "../rateLimit.js";
+import { sendPasswordResetEmail } from "../mail.js";
+import { env } from "../env.js";
 import { API_VERSION } from "../env.public.js";
+
+const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
 export const authResolvers = {
   Query: {
@@ -63,6 +67,40 @@ export const authResolvers = {
         where: { id: userId },
         data: { passwordHash, mustChangePassword: false },
       });
+      return true;
+    },
+
+    async forgotPassword(_: unknown, args: { email: string }, ctx: Context) {
+      const email = args.email.trim().toLowerCase();
+      assertWithinRate(`forgot:${email}`, 3, 15 * 60_000); // 3 per 15 min
+      const user = await ctx.prisma.user.findUnique({ where: { email } });
+      // Always return true — don't leak whether the email exists.
+      if (user && user.active) {
+        const token = crypto.randomBytes(32).toString("base64url");
+        const expiresAt = new Date(Date.now() + 60 * 60_000); // 1h
+        await ctx.prisma.passwordReset.create({
+          data: { userId: user.id, tokenHash: sha256(token), expiresAt },
+        });
+        const url = `${env.frontendBaseUrl}/reset-password/${token}`;
+        await sendPasswordResetEmail(email, url, user.name);
+      }
+      return true;
+    },
+
+    async resetPassword(_: unknown, args: { token: string; newPassword: string }, ctx: Context) {
+      const row = await ctx.prisma.passwordReset.findUnique({ where: { tokenHash: sha256(args.token) } });
+      if (!row || row.usedAt || row.expiresAt < new Date()) {
+        throw new Error("Reset link is invalid or has expired.");
+      }
+      assertStrongPassword(args.newPassword);
+      const passwordHash = await hashPassword(args.newPassword);
+      await ctx.prisma.$transaction([
+        ctx.prisma.user.update({
+          where: { id: row.userId },
+          data: { passwordHash, mustChangePassword: false, sessionId: null },
+        }),
+        ctx.prisma.passwordReset.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
+      ]);
       return true;
     },
   },

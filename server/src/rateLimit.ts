@@ -39,3 +39,17 @@ export function recordFailure(key: string): void {
 export function recordSuccess(key: string): void {
   store.delete(key);
 }
+
+// Sliding-window rate limit for costly actions (e.g. password-reset emails).
+const rateStore = new Map<string, number[]>();
+
+export function assertWithinRate(key: string, max: number, windowMs: number): void {
+  const t = now();
+  const hits = (rateStore.get(key) ?? []).filter((ts) => t - ts < windowMs);
+  if (hits.length >= max) {
+    const retry = Math.ceil((windowMs - (t - hits[0])) / 1000);
+    throw new Error(`Rate limit exceeded — try again in ${retry}s.`);
+  }
+  hits.push(t);
+  rateStore.set(key, hits);
+}

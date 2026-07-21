@@ -7,6 +7,7 @@ import { issueResolvers } from "./issue.js";
 import { workflowResolvers } from "./workflow.js";
 import { notificationResolvers } from "./notification.js";
 import { analyticsResolvers } from "./analytics.js";
+import { adminResolvers } from "./admin.js";
 
 export const resolvers = {
   Query: {
@@ -18,6 +19,7 @@ export const resolvers = {
     ...issueResolvers.Query,
     ...notificationResolvers.Query,
     ...analyticsResolvers.Query,
+    ...adminResolvers.Query,
   },
   Mutation: {
     ...authResolvers.Mutation,
@@ -28,6 +30,7 @@ export const resolvers = {
     ...issueResolvers.Mutation,
     ...workflowResolvers.Mutation,
     ...notificationResolvers.Mutation,
+    ...adminResolvers.Mutation,
   },
   Subscription: {
     ...notificationResolvers.Subscription,

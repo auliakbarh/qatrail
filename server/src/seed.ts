@@ -1,23 +1,11 @@
-import crypto from "crypto";
 import { prisma } from "./db.js";
 import { env } from "./env.js";
 import { hashPassword } from "./auth.js";
 import { isStrongPassword } from "./passwordPolicy.js";
+import { generatePassword } from "./genPassword.js";
 import { logger } from "./logger.js";
 
 const log = logger.child({ mod: "seed" });
-
-// Generate a policy-compliant password (used when SUPER_ADMIN_PASSWORD is unset).
-function generatePassword(): string {
-  const pick = (set: string) => set[crypto.randomInt(set.length)];
-  const base =
-    pick("ABCDEFGHJKLMNPQRSTUVWXYZ") +
-    pick("abcdefghijkmnpqrstuvwxyz") +
-    pick("23456789") +
-    pick("!@#$%^&*") +
-    crypto.randomBytes(8).toString("base64url").slice(0, 8);
-  return base;
-}
 
 async function main() {
   // 1. Singleton Setting row.

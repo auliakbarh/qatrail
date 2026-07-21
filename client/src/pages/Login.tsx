@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@apollo/client";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { LOGIN } from "../graphql";
@@ -80,9 +80,9 @@ export default function Login() {
             <span className="rounded border border-border px-1.5 py-0.5 text-[10px]">{t("login.soon")}</span>
           </button>
           <div className="text-center">
-            <a className="text-xs text-primary underline underline-offset-2 hover:text-primary/80" href="#">
+            <Link to="/forgot-password" className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
               {t("login.forgot")}
-            </a>
+            </Link>
           </div>
         </form>
       </div>
