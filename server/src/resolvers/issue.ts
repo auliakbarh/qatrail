@@ -1,0 +1,158 @@
+import type { Context } from "../context.js";
+import { requireAuth, requireQA } from "../context.js";
+import { encryptSecret, decryptSecret } from "../crypto.js";
+import { env } from "../env.js";
+
+type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
+
+interface IssueInput {
+  testCaseId: string;
+  recordTestId?: string | null;
+  type: "DEFECT" | "BUG";
+  title: string;
+  description: string;
+  environment: "STAGING" | "PRODUCTION";
+  platform: "ANDROID" | "IOS" | "WEB";
+  appVersion?: string | null;
+  backendVersion?: string | null;
+  testAccount: string;
+  testPassword?: string | null;
+  testedAt: string;
+  preconditions?: string | null;
+  steps: string;
+  actualResult: string;
+  expectedResult: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  note?: string | null;
+  assigneeId: string;
+  attachments: { url: string; kind: AttachKind; label?: string | null }[];
+}
+
+// appVersion is required for mobile platforms (per requirement).
+function validate(input: IssueInput) {
+  if ((input.platform === "IOS" || input.platform === "ANDROID") && !input.appVersion?.trim()) {
+    throw new Error("App version is required for iOS/Android platforms.");
+  }
+}
+
+function encPw(pw?: string | null): string | null {
+  return pw && pw.trim() ? encryptSecret(pw, env.secretEncKey) : null;
+}
+
+// Scalar fields shared by create/update (excludes relations + attachments).
+function scalarData(input: IssueInput) {
+  return {
+    type: input.type,
+    title: input.title.trim(),
+    description: input.description,
+    environment: input.environment,
+    platform: input.platform,
+    appVersion: input.appVersion ?? null,
+    backendVersion: input.backendVersion ?? null,
+    testAccount: input.testAccount,
+    testedAt: new Date(input.testedAt),
+    preconditions: input.preconditions ?? null,
+    steps: input.steps,
+    actualResult: input.actualResult,
+    expectedResult: input.expectedResult,
+    priority: input.priority,
+    note: input.note ?? null,
+    assigneeId: input.assigneeId,
+  };
+}
+
+export const issueResolvers = {
+  Query: {
+    async issues(_: unknown, args: { testCaseId?: string; archived?: boolean }, ctx: Context) {
+      requireAuth(ctx);
+      return ctx.prisma.issue.findMany({
+        where: {
+          ...(args.testCaseId ? { testCaseId: args.testCaseId } : {}),
+          ...(args.archived === undefined ? {} : { archived: args.archived }),
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+    async issue(_: unknown, args: { id: string }, ctx: Context) {
+      requireAuth(ctx);
+      return ctx.prisma.issue.findUnique({ where: { id: args.id } });
+    },
+  },
+  Mutation: {
+    async createIssue(_: unknown, args: { input: IssueInput }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const { input } = args;
+      validate(input);
+      const issue = await ctx.prisma.issue.create({
+        data: {
+          ...scalarData(input),
+          testCaseId: input.testCaseId,
+          recordTestId: input.recordTestId ?? null,
+          testPassword: encPw(input.testPassword),
+          reporterId: user.id,
+          attachments: {
+            create: input.attachments.map((a, i) => ({
+              order: i + 1,
+              url: a.url,
+              kind: a.kind,
+              label: a.label ?? null,
+            })),
+          },
+          history: {
+            create: { kind: "created", toVal: "OPEN", byId: user.id },
+          },
+        },
+      });
+      return issue;
+    },
+    async updateIssue(_: unknown, args: { id: string; input: IssueInput }, ctx: Context) {
+      await requireQA(ctx);
+      const { input } = args;
+      validate(input);
+      // Replace attachments wholesale. Only overwrite the password when a new one is given.
+      return ctx.prisma.issue.update({
+        where: { id: args.id },
+        data: {
+          ...scalarData(input),
+          ...(input.testPassword && input.testPassword.trim()
+            ? { testPassword: encPw(input.testPassword) }
+            : {}),
+          attachments: {
+            deleteMany: {},
+            create: input.attachments.map((a, i) => ({
+              order: i + 1,
+              url: a.url,
+              kind: a.kind,
+              label: a.label ?? null,
+            })),
+          },
+        },
+      });
+    },
+    async deleteIssue(_: unknown, args: { id: string }, ctx: Context) {
+      await requireQA(ctx);
+      await ctx.prisma.issue.delete({ where: { id: args.id } });
+      return true;
+    },
+  },
+  Issue: {
+    testedAt: (i: any) => i.testedAt.toISOString(),
+    createdAt: (i: any) => i.createdAt.toISOString(),
+    updatedAt: (i: any) => i.updatedAt.toISOString(),
+    reporter: (i: any, _: unknown, ctx: Context) =>
+      ctx.prisma.user.findUnique({ where: { id: i.reporterId } }),
+    assignee: (i: any, _: unknown, ctx: Context) =>
+      ctx.prisma.user.findUnique({ where: { id: i.assigneeId } }),
+    attachments: (i: any, _: unknown, ctx: Context) =>
+      ctx.prisma.issueAttachment.findMany({ where: { issueId: i.id }, orderBy: { order: "asc" } }),
+    // Decrypt on read for authorized users. Returns null when unset or undecryptable.
+    testPassword: (i: any) => {
+      if (!i.testPassword) return null;
+      try {
+        return decryptSecret(i.testPassword, env.secretEncKey);
+      } catch {
+        return null;
+      }
+    },
+  },
+};

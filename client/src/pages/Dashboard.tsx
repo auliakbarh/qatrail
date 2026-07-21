@@ -9,6 +9,8 @@ import { TestCaseDetail } from "./hierarchy/TestCaseDetail";
 import { ProjectForm } from "./forms/ProjectForm";
 import { FeatureForm } from "./forms/FeatureForm";
 import { TestCaseForm } from "./forms/TestCaseForm";
+import { RecordForm } from "./forms/RecordForm";
+import { IssueForm } from "./forms/IssueForm";
 
 export default function Dashboard() {
   const { projectId, featureId, testCaseId, panel, selectProject, selectFeature } = useNav();
@@ -71,6 +73,12 @@ export default function Dashboard() {
       {panel?.kind === "project" && <ProjectForm panel={panel} />}
       {panel?.kind === "feature" && projectId && <FeatureForm panel={panel} projectId={projectId} />}
       {panel?.kind === "testcase" && featureId && <TestCaseForm panel={panel} featureId={featureId} />}
+      {panel?.kind === "record" && testCaseId && featureId && (
+        <RecordForm testCaseId={testCaseId} featureId={featureId} />
+      )}
+      {panel?.kind === "issue" && testCaseId && featureId && (
+        <IssueForm panel={panel} testCaseId={testCaseId} featureId={featureId} />
+      )}
     </div>
   );
 }

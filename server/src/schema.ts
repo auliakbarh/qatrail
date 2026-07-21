@@ -1,7 +1,14 @@
-// GraphQL type definitions. M0: auth + health. M1: project/feature/test-case.
+// GraphQL type definitions. M0: auth+health. M1: hierarchy. M2: records+issues.
 export const typeDefs = /* GraphQL */ `
   enum Role { SUPER_ADMIN ADMIN QA ENGINEER }
   enum AttachKind { IMAGE VIDEO MARKDOWN JSON DOC XLS CSV PDF OTHER }
+  enum FindingType { DEFECT BUG }
+  enum Platform { ANDROID IOS WEB }
+  enum Environment { STAGING PRODUCTION }
+  enum Priority { LOW MEDIUM HIGH }
+  enum WorkStatus { OPEN IN_PROGRESS NEED_REVIEW IN_REVIEW CLOSED REOPENED HOLD }
+  enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
+  enum TestResult { PASS FAIL }
 
   type User {
     id: ID!
@@ -87,30 +94,68 @@ export const typeDefs = /* GraphQL */ `
     updatedAt: String!
   }
 
+  type RecordTest {
+    id: ID!
+    testCaseId: ID!
+    executedBy: User!
+    executedAt: String!
+    note: String
+    result: TestResult!
+    attachments: [Attachment!]!
+    issueId: ID
+    createdAt: String!
+  }
+
+  type Issue {
+    id: ID!
+    testCaseId: ID!
+    recordTestId: ID
+    type: FindingType!
+    title: String!
+    description: String!
+    environment: Environment!
+    platform: Platform!
+    appVersion: String
+    backendVersion: String
+    testAccount: String!
+    testPassword: String
+    testedAt: String!
+    preconditions: String
+    steps: String!
+    actualResult: String!
+    expectedResult: String!
+    priority: Priority!
+    note: String
+    status: WorkStatus!
+    review: ReviewState!
+    archived: Boolean!
+    reporter: User!
+    assignee: User!
+    attachments: [Attachment!]!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   input StepInput {
     step: String!
     expectedResult: String
   }
-
   input AttachmentInput {
     url: String!
     kind: AttachKind!
     label: String
   }
-
   input ProjectInput {
     name: String!
     description: String
     squad: String
     minPassPercent: Int!
   }
-
   input FeatureInput {
     name: String!
     description: String
     minPassPercent: Int!
   }
-
   input TestCaseInput {
     name: String!
     description: String
@@ -119,10 +164,39 @@ export const typeDefs = /* GraphQL */ `
     steps: [StepInput!]!
     attachments: [AttachmentInput!]!
   }
+  input RecordTestInput {
+    executedAt: String!
+    note: String
+    result: TestResult!
+    attachments: [AttachmentInput!]!
+  }
+  input IssueInput {
+    testCaseId: ID!
+    recordTestId: ID
+    type: FindingType!
+    title: String!
+    description: String!
+    environment: Environment!
+    platform: Platform!
+    appVersion: String
+    backendVersion: String
+    testAccount: String!
+    testPassword: String
+    testedAt: String!
+    preconditions: String
+    steps: String!
+    actualResult: String!
+    expectedResult: String!
+    priority: Priority!
+    note: String
+    assigneeId: ID!
+    attachments: [AttachmentInput!]!
+  }
 
   type Query {
     health: Health!
     me: User
+    engineers: [User!]!
 
     projects: [Project!]!
     project(id: ID!): Project
@@ -130,6 +204,10 @@ export const typeDefs = /* GraphQL */ `
     feature(id: ID!): Feature
     testCases(featureId: ID!): [TestCase!]!
     testCase(id: ID!): TestCase
+
+    recordTests(testCaseId: ID!): [RecordTest!]!
+    issues(testCaseId: ID, archived: Boolean): [Issue!]!
+    issue(id: ID!): Issue
   }
 
   type Mutation {
@@ -147,5 +225,12 @@ export const typeDefs = /* GraphQL */ `
     createTestCase(featureId: ID!, input: TestCaseInput!): TestCase!
     updateTestCase(id: ID!, input: TestCaseInput!): TestCase!
     deleteTestCase(id: ID!): Boolean!
+
+    createRecordTest(testCaseId: ID!, input: RecordTestInput!): RecordTest!
+    deleteRecordTest(id: ID!): Boolean!
+
+    createIssue(input: IssueInput!): Issue!
+    updateIssue(id: ID!, input: IssueInput!): Issue!
+    deleteIssue(id: ID!): Boolean!
   }
 `;

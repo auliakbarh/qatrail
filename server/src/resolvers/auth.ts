@@ -22,6 +22,13 @@ export const authResolvers = {
       if (!ctx.userId) return null;
       return ctx.prisma.user.findUnique({ where: { id: ctx.userId } });
     },
+    async engineers(_: unknown, __: unknown, ctx: Context) {
+      requireAuth(ctx);
+      return ctx.prisma.user.findMany({
+        where: { role: "ENGINEER", active: true },
+        orderBy: { name: "asc" },
+      });
+    },
   },
   Mutation: {
     async login(_: unknown, args: { email: string; password: string }, ctx: Context) {
