@@ -29,12 +29,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { data } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
 
-  const initials = (user?.name ?? "?")
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const ROLE_SHORT: Record<string, string> = {
+    SUPER_ADMIN: "SA",
+    ADMIN: "A",
+    QA: "QA",
+    ENGINEER: "EN",
+  };
+  const roleShort = ROLE_SHORT[user?.role ?? ""] ?? "?";
 
   const switchLang = () => {
     const next = i18n.language === "en" ? "id" : "en";
@@ -46,7 +47,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-screen bg-background text-foreground">
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar">
         <div className="flex h-12 items-center gap-2 border-b border-border px-3">
-          <span className="h-4 w-4 rounded bg-primary" />
           <span className="text-sm font-semibold">{t("app")}</span>
           <div className="ml-auto">
             <NotificationBell />
@@ -75,12 +75,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="flex items-center gap-2 border-t border-border p-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-muted text-xs font-semibold">
-            {initials}
+          <span
+            className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center rounded bg-muted text-[10px] font-semibold"
+            title={user?.role}
+          >
+            {roleShort}
           </span>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-xs font-semibold">{user?.name}</div>
-            <div className="text-xs text-muted-foreground">{user?.role}</div>
           </div>
           <button
             onClick={toggleTheme}
