@@ -75,9 +75,21 @@ const server = new ApolloServer({
               if (rc.operation?.operation !== "mutation") return;
               if (rc.errors?.length) return;
               const actor = rc.contextValue?.userName ?? null;
+              const vars = rc.request?.variables ?? {};
+              const data = rc.response?.body?.singleResult?.data ?? {};
               for (const sel of rc.operation.selectionSet.selections) {
                 const field = sel.name?.value;
-                if (field && NOTIFIABLE.has(field)) void notifyDiscord(field, actor);
+                if (!field || !NOTIFIABLE.has(field)) continue;
+                const input = vars.input ?? {};
+                const name = input.title ?? input.name ?? null; // issue/testcase title or project/feature name
+                const note = vars.reason ?? vars.note ?? null;
+                // Deep-link when the mutation concerns an issue.
+                const issueId = field.toLowerCase().includes("issue") ? (data[field]?.id ?? vars.id ?? null) : null;
+                const url = issueId ? `${env.frontendBaseUrl}/issues/${issueId}` : null;
+                const extra: { name: string; value: string }[] = [];
+                if (vars.jiraKey) extra.push({ name: "JIRA", value: String(vars.jiraKey) });
+                if (typeof vars.archived === "boolean") extra.push({ name: "Archived", value: String(vars.archived) });
+                void notifyDiscord(field, actor, { name, note, url, extra });
               }
             } catch {
               /* never break the response */

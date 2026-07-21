@@ -35,29 +35,43 @@ const LABELS: Record<string, string> = {
 // user management, settings, and notification reads.
 export const NOTIFIABLE = new Set(Object.keys(LABELS));
 
+export interface DiscordDetail {
+  name?: string | null; // entity name/title
+  note?: string | null; // reason / note / clarification
+  url?: string | null; // deep link (e.g. issue)
+  extra?: { name: string; value: string }[]; // extra inline fields
+}
+
 // Post a formatted embed to the admin-configured Discord webhook.
 // Fire-and-forget: never throws into the caller. No-op when disabled/unset.
-export async function notifyDiscord(field: string, actor: string | null): Promise<void> {
+export async function notifyDiscord(field: string, actor: string | null, detail: DiscordDetail = {}): Promise<void> {
   try {
     const s = await prisma.setting.findUnique({ where: { id: "singleton" } });
     if (!s?.discordEnabled || !s.discordWebhookUrl) return;
     const title = LABELS[field] ?? field;
     // Pick an accent color by action kind for quick scanning.
-    const color = field.startsWith("delete")
+    const color = field.startsWith("delete") || field === "issueReject"
       ? 0xe03131 // red
-      : field.startsWith("create") || field === "issueSolve" || field === "issueReview"
+      : field.startsWith("create") || field === "issueSolve"
         ? 0x2f9e44 // green
         : 0x1971c2; // blue (updates / workflow)
+
+    const fields: { name: string; value: string; inline?: boolean }[] = [
+      { name: "Actor", value: actor ?? "system", inline: true },
+    ];
+    if (detail.name) fields.push({ name: "Item", value: detail.name.slice(0, 256), inline: true });
+    fields.push({ name: "Action", value: `\`${field}\``, inline: true });
+    for (const e of detail.extra ?? []) fields.push({ name: e.name, value: e.value.slice(0, 256), inline: true });
+    if (detail.note) fields.push({ name: "Note", value: detail.note.slice(0, 512) });
+    if (detail.url) fields.push({ name: "Link", value: detail.url });
+
     const body = {
       embeds: [
         {
-          title,
-          url: env.frontendBaseUrl,
+          title: detail.name ? `${title}: ${detail.name.slice(0, 100)}` : title,
+          url: detail.url || env.frontendBaseUrl,
           color,
-          fields: [
-            { name: "Actor", value: actor ?? "system", inline: true },
-            { name: "Action", value: `\`${field}\``, inline: true },
-          ],
+          fields,
           footer: { text: "QA Reporting" },
           timestamp: new Date().toISOString(),
         },

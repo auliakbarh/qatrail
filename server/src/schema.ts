@@ -103,6 +103,7 @@ export const typeDefs = /* GraphQL */ `
     executedAt: String!
     note: String
     result: TestResult!
+    retestIssueId: ID
     attachments: [Attachment!]!
     issueId: ID
     createdAt: String!
@@ -260,6 +261,7 @@ export const typeDefs = /* GraphQL */ `
     executedAt: String!
     note: String
     result: TestResult!
+    retestIssueId: ID
     attachments: [AttachmentInput!]!
   }
   input PostmortemInput {

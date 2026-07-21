@@ -93,7 +93,7 @@ export default function Dashboard() {
       {panel?.kind === "feature" && projectId && <FeatureForm panel={panel} projectId={projectId} />}
       {panel?.kind === "testcase" && featureId && <TestCaseForm panel={panel} featureId={featureId} />}
       {panel?.kind === "record" && testCaseId && featureId && (
-        <RecordForm testCaseId={testCaseId} featureId={featureId} />
+        <RecordForm testCaseId={testCaseId} featureId={featureId} retestIssueId={panel.initial?.retestIssueId} />
       )}
       {panel?.kind === "issue" && testCaseId && featureId && (
         <IssueForm panel={panel} testCaseId={testCaseId} featureId={featureId} />

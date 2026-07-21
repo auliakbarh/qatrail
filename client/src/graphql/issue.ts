@@ -9,7 +9,7 @@ export const ENGINEERS = gql`
 export const RECORD_TESTS = gql`
   query RecordTests($testCaseId: ID!) {
     recordTests(testCaseId: $testCaseId) {
-      id executedAt result note issueId
+      id executedAt result note issueId retestIssueId
       executedBy { id name }
       attachments { order url kind label }
       createdAt

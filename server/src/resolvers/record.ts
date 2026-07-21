@@ -7,6 +7,7 @@ interface RecordTestInput {
   executedAt: string;
   note?: string | null;
   result: "PASS" | "FAIL";
+  retestIssueId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
 }
 
@@ -31,6 +32,7 @@ export const recordResolvers = {
           executedAt: new Date(input.executedAt),
           note: input.note ?? null,
           result: input.result,
+          retestIssueId: input.retestIssueId ?? null,
           attachments: {
             create: input.attachments.map((a) => ({
               url: a.url,

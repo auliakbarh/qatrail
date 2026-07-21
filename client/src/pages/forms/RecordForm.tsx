@@ -3,7 +3,8 @@ import { useMutation } from "@apollo/client";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
-import { CREATE_RECORD_TEST, RECORD_TESTS } from "../../graphql/issue";
+import { CREATE_RECORD_TEST, RECORD_TESTS, ISSUE, ISSUES } from "../../graphql/issue";
+import { ISSUE_REVIEW } from "../../graphql/workflow";
 import { TEST_CASES } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
@@ -25,7 +26,15 @@ interface Form {
   attachments: { url: string; kind: string; label: string }[];
 }
 
-export function RecordForm({ testCaseId, featureId }: { testCaseId: string; featureId: string }) {
+export function RecordForm({
+  testCaseId,
+  featureId,
+  retestIssueId,
+}: {
+  testCaseId: string;
+  featureId: string;
+  retestIssueId?: string;
+}) {
   const { closePanel, openPanel } = useNav();
   const { user } = useAuth();
   const { register, handleSubmit, control, formState } = useForm<Form>({
@@ -39,6 +48,13 @@ export function RecordForm({ testCaseId, featureId }: { testCaseId: string; feat
       { query: TEST_CASES, variables: { featureId } },
     ],
   });
+  const [reviewIssue] = useMutation(ISSUE_REVIEW, {
+    refetchQueries: [
+      ...(retestIssueId ? [{ query: ISSUE, variables: { id: retestIssueId } }] : []),
+      { query: ISSUES, variables: { testCaseId } },
+      { query: TEST_CASES, variables: { featureId } },
+    ],
+  });
 
   const onSubmit = async (v: Form) => {
     const res = await withToast(
@@ -49,6 +65,7 @@ export function RecordForm({ testCaseId, featureId }: { testCaseId: string; feat
             executedAt: new Date(v.executedAt).toISOString(),
             result: v.result,
             note: v.note || null,
+            retestIssueId: retestIssueId ?? null,
             attachments: v.attachments
               .filter((a) => a.url.trim())
               .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
@@ -60,7 +77,20 @@ export function RecordForm({ testCaseId, featureId }: { testCaseId: string; feat
     );
     if (!res) return;
     const rec = res.data?.createRecordTest;
-    // FAIL → open a prefilled Issue form (per requirement).
+
+    // Retest mode: this record verifies an issue's fix. PASS closes it, FAIL reopens it.
+    if (retestIssueId) {
+      const pass = rec?.result === "PASS";
+      await withToast(
+        reviewIssue({ variables: { id: retestIssueId, pass, note: v.note || null } }),
+        pass ? "Retest passed — issue closed" : "Retest failed — issue reopened",
+        "Couldn't update issue",
+      );
+      closePanel();
+      return;
+    }
+
+    // Normal mode: FAIL → open a prefilled Issue form (per requirement).
     if (rec?.result === "FAIL") {
       openPanel({
         kind: "issue",
@@ -73,8 +103,14 @@ export function RecordForm({ testCaseId, featureId }: { testCaseId: string; feat
   };
 
   return (
-    <RightPanel title="Add Record Test" dirty={formState.isDirty} onClose={closePanel}>
+    <RightPanel title={retestIssueId ? "Retest — verify fix" : "Add Record Test"} dirty={formState.isDirty} onClose={closePanel}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {retestIssueId && (
+          <div className="rounded border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            🔁 Retest of the fixed issue. <b className="text-foreground">PASS</b> closes it,{" "}
+            <b className="text-foreground">FAIL</b> reopens it. The issue is linked on this record.
+          </div>
+        )}
         <Field label="Tested at">
           <input type="datetime-local" className={inputCls} {...register("executedAt", { required: true })} />
         </Field>
@@ -125,7 +161,9 @@ export function RecordForm({ testCaseId, featureId }: { testCaseId: string; feat
           ))}
         </div>
 
-        <p className="text-xs text-muted-foreground">FAIL → the Issue form opens next, prefilled.</p>
+        {!retestIssueId && (
+          <p className="text-xs text-muted-foreground">FAIL → the Issue form opens next, prefilled.</p>
+        )}
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel="Save record" />
       </form>
     </RightPanel>

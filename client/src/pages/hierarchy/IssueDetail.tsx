@@ -220,7 +220,9 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           )}
           {canQA && i.status === "NEED_REVIEW" && (
             <>
-              <ActBtn primary onClick={() => withToast(review({ variables: { id, pass: true } }), "Issue approved & closed", "Couldn't approve issue")}>Approve → Close</ActBtn>
+              <ActBtn primary onClick={() => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } })}>
+                Retest &amp; review
+              </ActBtn>
               <ActBtn destructive onClick={() => setModal("reopen")}>Reopen</ActBtn>
             </>
           )}

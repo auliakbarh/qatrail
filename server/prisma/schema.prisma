@@ -185,6 +185,9 @@ model RecordTest {
   executedAt   DateTime
   note         String?
   result       TestResult
+  // Set when this record is a retest of a previously-failed issue (plain ref,
+  // no FK) — marks it as verification of that issue's fix.
+  retestIssueId String?
   createdAt    DateTime   @default(now())
 
   attachments RecordTestAttachment[]

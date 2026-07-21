@@ -115,6 +115,7 @@ export function TestCaseDetail({ id }: { id: string }) {
 }
 
 function RecordsTab({ testCaseId }: { testCaseId: string }) {
+  const { selectIssue } = useNav();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
   const [del, setDel] = useState<string | null>(null);
   const [deleteRecord] = useMutation(DELETE_RECORD_TEST, {
@@ -147,7 +148,18 @@ function RecordsTab({ testCaseId }: { testCaseId: string }) {
               <td className="px-3 py-2 text-xs">{fmt(r.executedAt)}</td>
               <td className="px-3 py-2">{r.executedBy.name}</td>
               <td className="px-3 py-2">
-                <Badge variant={r.result === "PASS" ? "primary" : "destructive"}>{r.result}</Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={r.result === "PASS" ? "primary" : "destructive"}>{r.result}</Badge>
+                  {r.retestIssueId && (
+                    <button
+                      onClick={() => selectIssue(r.retestIssueId)}
+                      title="Retest of a fixed issue — open it"
+                      className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
+                    >
+                      🔁 retest
+                    </button>
+                  )}
+                </div>
               </td>
               <td className="px-3 py-2 text-xs text-muted-foreground">{r.note || "—"}</td>
               <td className="px-3 py-2 text-xs">{r.attachments.length}</td>
