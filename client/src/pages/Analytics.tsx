@@ -143,21 +143,7 @@ export default function Analytics() {
             </Card>
 
             <Card title="Progress by status">
-              <div className="space-y-2">
-                {a.statusBreakdown.length === 0 && <div className="text-xs text-muted-foreground">No issues</div>}
-                {a.statusBreakdown.map((s: any) => {
-                  const max = Math.max(1, ...a.statusBreakdown.map((x: any) => x.count));
-                  return (
-                    <div key={s.status} className="flex items-center gap-2 text-xs">
-                      <span className="w-28 shrink-0 text-muted-foreground">{s.status}</span>
-                      <div className="h-2 flex-1 rounded-full bg-muted">
-                        <div className="h-2 rounded-full bg-primary" style={{ width: `${(s.count / max) * 100}%` }} />
-                      </div>
-                      <span className="w-6 text-right tabular-nums">{s.count}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <StatusPie breakdown={a.statusBreakdown} />
             </Card>
           </div>
 
@@ -197,6 +183,65 @@ export default function Analytics() {
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+// Distinct color per issue status (semantic, separate from the mono accent).
+const STATUS_COLORS: Record<string, string> = {
+  OPEN: "#1971c2",
+  IN_PROGRESS: "#f08c00",
+  NEED_REVIEW: "#ae3ec9",
+  IN_REVIEW: "#1098ad",
+  CLOSED: "#2f9e44",
+  REOPENED: "#e03131",
+  HOLD: "#868e96",
+};
+
+function StatusPie({ breakdown }: { breakdown: { status: string; count: number }[] }) {
+  const total = breakdown.reduce((s, b) => s + b.count, 0);
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-5">
+        <div className="flex h-28 w-28 items-center justify-center rounded-full" style={{ background: "var(--muted)" }}>
+          <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
+            <span className="text-lg font-semibold">—</span>
+            <span className="text-[10px] text-muted-foreground">no data</span>
+          </div>
+        </div>
+        <span className="text-xs text-muted-foreground">No issues</span>
+      </div>
+    );
+  }
+  // Build conic-gradient segments in order.
+  let acc = 0;
+  const stops = breakdown
+    .map((b) => {
+      const start = (acc / total) * 100;
+      acc += b.count;
+      const end = (acc / total) * 100;
+      const color = STATUS_COLORS[b.status] ?? "#868e96";
+      return `${color} ${start}% ${end}%`;
+    })
+    .join(", ");
+
+  return (
+    <div className="flex flex-wrap items-center gap-5">
+      <div className="flex h-28 w-28 items-center justify-center rounded-full" style={{ background: `conic-gradient(${stops})` }}>
+        <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
+          <span className="text-lg font-semibold tabular-nums">{total}</span>
+          <span className="text-[10px] text-muted-foreground">issues</span>
+        </div>
+      </div>
+      <div className="space-y-1.5 text-xs">
+        {breakdown.map((b) => (
+          <div key={b.status} className="flex items-center gap-1.5">
+            <i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: STATUS_COLORS[b.status] ?? "#868e96" }} />
+            <span className="text-muted-foreground">{b.status}</span>
+            <span className="tabular-nums">{b.count}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
