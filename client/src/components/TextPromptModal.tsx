@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 
 interface Props {
@@ -19,11 +20,12 @@ export function TextPromptModal({
   title,
   label,
   required,
-  confirmLabel = "Submit",
+  confirmLabel,
   destructive,
   onClose,
   onSubmit,
 }: Props) {
+  const { t } = useTranslation();
   const [text, setText] = useState("");
   const close = () => {
     setText("");
@@ -38,7 +40,7 @@ export function TextPromptModal({
       footer={
         <>
           <button onClick={close} className="h-7 rounded border border-border px-3 text-xs hover:bg-muted">
-            Cancel
+            {t("c.cancel")}
           </button>
           <button
             disabled={disabled}
@@ -52,13 +54,13 @@ export function TextPromptModal({
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             }`}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("c.submit")}
           </button>
         </>
       }
     >
       <label className="mb-1.5 block text-sm font-medium">
-        {label} {!required && <span className="font-normal text-muted-foreground">(optional)</span>}
+        {label} {!required && <span className="font-normal text-muted-foreground">({t("c.optional")})</span>}
       </label>
       <textarea
         value={text}

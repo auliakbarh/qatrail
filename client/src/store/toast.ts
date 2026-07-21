@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "../i18n";
 
 export type ToastType = "success" | "error" | "warning";
 export interface Toast {
@@ -26,8 +27,8 @@ export const useToast = create<ToastState>((set) => ({
 }));
 
 // Standard "no access" toast for guarded-but-clickable actions.
-export function denied(message = "You don't have permission for this action") {
-  useToast.getState().push(message, "error");
+export function denied(message?: string) {
+  useToast.getState().push(message ?? i18n.t("c.permissionDenied"), "error");
 }
 
 // Run a mutation with success/failure toasts. On failure the real error is
@@ -36,8 +37,9 @@ export function denied(message = "You don't have permission for this action") {
 export async function withToast<T>(
   op: Promise<T>,
   successMsg: string,
-  failMsg = "Something went wrong. Please try again.",
+  failMsg?: string,
 ): Promise<T | null> {
+  failMsg = failMsg ?? i18n.t("c.somethingWrong");
   const { push } = useToast.getState();
   try {
     const r = await op;
@@ -55,8 +57,8 @@ export async function copyWithToast(text: string, label: string) {
   const { push } = useToast.getState();
   try {
     await navigator.clipboard.writeText(text);
-    push(`${label} copied to clipboard`, "success");
+    push(i18n.t("t.copied", { label }), "success");
   } catch {
-    push(`${label}: ${text} (copy manually)`, "warning");
+    push(i18n.t("t.copyManual", { label, text }), "warning");
   }
 }

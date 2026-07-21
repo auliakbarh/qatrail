@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_FEATURE, UPDATE_FEATURE, FEATURES } from "../../graphql/hierarchy";
@@ -13,6 +14,7 @@ interface Form {
 }
 
 export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId: string }) {
+  const { t } = useTranslation();
   const { closePanel } = useNav();
   const editing = panel.mode === "edit";
   const init = panel.initial ?? {};
@@ -34,25 +36,25 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
       minPassPercent: Number(v.minPassPercent),
     };
     const ok = editing
-      ? await withToast(updateFeature({ variables: { id: panel.id, input } }), "Feature updated", "Couldn't update feature")
-      : await withToast(createFeature({ variables: { projectId, input } }), "Feature created", "Couldn't create feature");
+      ? await withToast(updateFeature({ variables: { id: panel.id, input } }), t("t.featureUpdated"), t("t.featureUpdateFail"))
+      : await withToast(createFeature({ variables: { projectId, input } }), t("t.featureCreated"), t("t.featureCreateFail"));
     if (ok) closePanel();
   };
 
   return (
     <RightPanel
-      title={editing ? "Edit Feature" : "Add Feature"}
+      title={editing ? t("form.editFeature") : t("dash.addFeature")}
       dirty={formState.isDirty}
       onClose={closePanel}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Field label="Name" error={formState.errors.name && "Required"}>
+        <Field label={t("c.name")} error={formState.errors.name && t("c.required")}>
           <input className={inputCls} {...register("name", { required: true })} />
         </Field>
-        <Field label="Description" optional>
+        <Field label={t("c.description")} optional>
           <textarea className={inputCls} rows={3} {...register("description")} />
         </Field>
-        <Field label="Min pass % (collective of all test cases)">
+        <Field label={t("form.minPassTestCases")}>
           <input
             type="number"
             min={0}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
 import { useNav } from "../store/nav";
@@ -59,13 +60,14 @@ function ProjectNode({ project, expanded, onToggle }: { project: any; expanded: 
 }
 
 function FeatureBranch({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
   const { data, loading } = useQuery(FEATURES, { variables: { projectId } });
   const { featureId, selectFeature } = useNav();
   const navigate = useNavigate();
   const features = data?.features ?? [];
 
-  if (loading) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">Loading…</div>;
-  if (features.length === 0) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">No features</div>;
+  if (loading) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">{t("c.loading")}</div>;
+  if (features.length === 0) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">{t("an.noFeatures")}</div>;
 
   return (
     <div className="flex flex-col gap-0.5">

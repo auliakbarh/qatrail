@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 
 interface DeleteConfirmProps {
@@ -11,6 +12,7 @@ interface DeleteConfirmProps {
 
 // Destructive-action guard: user must type DELETE to enable the button (per requirement).
 export function DeleteConfirm({ open, onClose, onConfirm, label, note }: DeleteConfirmProps) {
+  const { t } = useTranslation();
   const [text, setText] = useState("");
   const armed = text === "DELETE";
 
@@ -23,11 +25,11 @@ export function DeleteConfirm({ open, onClose, onConfirm, label, note }: DeleteC
     <Modal
       open={open}
       onClose={close}
-      title={`Delete ${label}`}
+      title={`${t("c.delete")} ${label}`}
       footer={
         <>
           <button onClick={close} className="h-7 rounded border border-border px-3 text-xs hover:bg-muted">
-            Cancel
+            {t("c.cancel")}
           </button>
           <button
             disabled={!armed}
@@ -37,13 +39,13 @@ export function DeleteConfirm({ open, onClose, onConfirm, label, note }: DeleteC
             }}
             className="h-7 rounded bg-destructive px-3 text-xs font-medium text-white hover:bg-destructive/90 disabled:opacity-50"
           >
-            Confirm delete
+            {t("del.confirm")}
           </button>
         </>
       }
     >
       <p className="mb-3 text-sm text-muted-foreground">
-        This cannot be undone.{note ? ` ${note}` : ""} Type <b className="text-foreground">DELETE</b> to confirm.
+        {t("del.cannotUndo")}{note ? ` ${note}` : ""} {t("del.typePre")} <b className="text-foreground">DELETE</b> {t("del.typePost")}
       </p>
       <input
         value={text}

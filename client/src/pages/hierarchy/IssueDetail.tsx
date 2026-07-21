@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Archive, ArchiveRestore, Copy } from "lucide-react";
 import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA } from "../../graphql/issue";
 import { HEALTH } from "../../graphql";
@@ -18,6 +19,7 @@ import { useAuth } from "../../store/auth";
 import { cn } from "../../lib/utils";
 import { TextPromptModal } from "../../components/TextPromptModal";
 import { withToast, useToast, copyWithToast } from "../../store/toast";
+import { AttachmentList } from "../../components/AttachmentList";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -32,6 +34,7 @@ function Badge({ children, variant = "muted" }: { children: any; variant?: "mute
 const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : "—");
 
 export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string }) {
+  const { t } = useTranslation();
   const { selectIssue, openPanel } = useNav();
   const { user } = useAuth();
   const { data, loading } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
@@ -57,9 +60,9 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const [review] = useMutation(ISSUE_REVIEW, refetch);
   const [setArchived] = useMutation(SET_ISSUE_ARCHIVED, refetch);
 
-  if (loading && !data) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">Loading…</div>;
+  if (loading && !data) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
   const i = data?.issue;
-  if (!i) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">Not found</div>;
+  if (!i) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.notFound")}</div>;
 
   const isAssignee = user?.id === i.assignee.id;
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
@@ -70,11 +73,11 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   // of acting. Keeps the UI discoverable while the server stays the real gate.
   const guard = (allowed: boolean, fn: () => void) => () => {
     if (allowed) fn();
-    else useToast.getState().push("You don't have permission for this action", "error");
+    else useToast.getState().push(t("c.permissionDenied"), "error");
   };
 
   const copyLink = () => {
-    void copyWithToast(`${location.origin}/issues/${i.id}`, "Issue link");
+    void copyWithToast(`${location.origin}/issues/${i.id}`, t("iss.linkLabel"));
   };
 
   return (
@@ -90,8 +93,8 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
             <h2 className="text-sm font-semibold">{i.title}</h2>
           </div>
           <div className="flex items-center gap-1.5">
-            <button onClick={copyLink} title="Copy issue link" className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
-              <Copy className="h-3 w-3" /> Link
+            <button onClick={copyLink} title={t("iss.copyLinkTitle")} className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
+              <Copy className="h-3 w-3" /> {t("iss.link")}
             </button>
             <Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge>
             <Badge variant="outline">{i.priority}</Badge>
@@ -101,36 +104,33 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 px-5 py-4 text-xs md:grid-cols-4">
-          <Info label="Environment" value={i.environment} />
-          <Info label="Platform" value={i.platform} />
-          <Info label="App ver" value={i.appVersion ?? "—"} />
-          <Info label="Backend ver" value={i.backendVersion ?? "—"} />
-          <Info label="Reporter" value={i.reporter.name} />
-          <Info label="Assignee" value={i.assignee.name} />
-          <Info label="Test account" value={i.testAccount} />
-          <Info label="Tested at" value={fmt(i.testedAt)} />
+          <Info label={t("iss.environment")} value={i.environment} />
+          <Info label={t("iss.platform")} value={i.platform} />
+          <Info label={t("iss.appVer")} value={i.appVersion ?? "—"} />
+          <Info label={t("iss.backendVer")} value={i.backendVersion ?? "—"} />
+          <Info label={t("c.reporter")} value={i.reporter.name} />
+          <Info label={t("c.assignee")} value={i.assignee.name} />
+          <Info label={t("iss.testAccount")} value={i.testAccount} />
+          <Info label={t("iss.testedAt")} value={fmt(i.testedAt)} />
         </div>
       </div>
 
       {/* Detail */}
       <div className="rounded border border-border px-5 py-4 text-sm">
         <div className="space-y-3">
-          <Block label="Description" text={i.description} />
-          {i.preconditions && <Block label="Preconditions" text={i.preconditions} />}
-          <Block label="Steps to reproduce" text={i.steps} />
-          <Block label="Actual result" text={i.actualResult} />
-          <Block label="Expected result" text={i.expectedResult} />
-          {i.note && <Block label="Note" text={i.note} />}
+          <Block label={t("c.description")} text={i.description} />
+          {i.preconditions && <Block label={t("iss.preconditions")} text={i.preconditions} />}
+          <Block label={t("iss.steps")} text={i.steps} />
+          <Block label={t("iss.actualResult")} text={i.actualResult} />
+          <Block label={t("iss.expectedResult")} text={i.expectedResult} />
+          {i.note && <Block label={t("c.note")} text={i.note} />}
           {i.attachments.length > 0 && (
             <div>
-              <div className="mb-1 font-medium">Attachments</div>
-              <div className="flex flex-wrap gap-2">
-                {i.attachments.map((a: any) => (
-                  <a key={a.order} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted">
-                    {a.order}. {a.label || a.kind}
-                  </a>
-                ))}
-              </div>
+              <div className="mb-1 font-medium">{t("c.attachments")}</div>
+              <AttachmentList
+                items={i.attachments}
+                onOpenText={(a) => openPanel({ kind: "attachment", mode: "create", initial: a })}
+              />
             </div>
           )}
         </div>
@@ -140,15 +140,15 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {canQA && (
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h3 className="text-sm font-semibold">Post to JIRA</h3>
-            {i.jiraKey && <Badge variant="outline">Linked: {i.jiraKey}</Badge>}
+            <h3 className="text-sm font-semibold">{t("jira.title")}</h3>
+            {i.jiraKey && <Badge variant="outline">{t("jira.linked", { key: i.jiraKey })}</Badge>}
           </div>
           <div className="px-5 py-4">
             {healthData?.health?.jiraConfigured ? (
               <>
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
-                    <label className="mb-1.5 block text-xs font-medium">JIRA ticket key</label>
+                    <label className="mb-1.5 block text-xs font-medium">{t("jira.ticketKey")}</label>
                     <input
                       value={jiraKey || i.jiraKey || ""}
                       onChange={(e) => setJiraKey(e.target.value)}
@@ -161,21 +161,21 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
                     onClick={() =>
                       withToast(
                         postToJira({ variables: { id, jiraKey: jiraKey || i.jiraKey } }),
-                        "Comment posted to JIRA",
-                        "Couldn't post to JIRA (check the ticket key)",
+                        t("t.jiraPosted"),
+                        t("t.jiraPostFail"),
                       )
                     }
                     className="h-9 rounded bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
-                    {posting ? "Posting…" : i.jiraCommentId ? "Update comment" : "Post comment"}
+                    {posting ? t("jira.posting") : i.jiraCommentId ? t("jira.updateComment") : t("jira.postComment")}
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Posts a formatted comment (issue link + all fields). Re-posting edits the same comment.
+                  {t("jira.help")}
                 </p>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">JIRA is not configured on the server.</p>
+              <p className="text-xs text-muted-foreground">{t("jira.notConfigured")}</p>
             )}
           </div>
         </div>
@@ -185,15 +185,15 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {i.postmortem && (
         <div className="rounded border border-border">
           <div className="border-b border-border px-5 py-4">
-            <h3 className="text-sm font-semibold">Postmortem</h3>
+            <h3 className="text-sm font-semibold">{t("pm.title")}</h3>
           </div>
           <div className="space-y-3 px-5 py-4 text-sm">
-            <Block label="Root cause" text={i.postmortem.rootCause} />
-            <Block label="Resolution" text={i.postmortem.resolution} />
-            {i.postmortem.impact && <Block label="Impact" text={i.postmortem.impact} />}
-            {i.postmortem.prevention && <Block label="Prevention" text={i.postmortem.prevention} />}
+            <Block label={t("pm.rootCause")} text={i.postmortem.rootCause} />
+            <Block label={t("pm.resolution")} text={i.postmortem.resolution} />
+            {i.postmortem.impact && <Block label={t("pm.impact")} text={i.postmortem.impact} />}
+            {i.postmortem.prevention && <Block label={t("pm.prevention")} text={i.postmortem.prevention} />}
             <p className="text-xs text-muted-foreground">
-              by {i.postmortem.resolvedBy.name} · {fmt(i.postmortem.resolvedAt)}
+              {t("pm.by", { name: i.postmortem.resolvedBy.name, date: fmt(i.postmortem.resolvedAt) })}
             </p>
           </div>
         </div>
@@ -202,48 +202,48 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {/* Actions */}
       <div className="rounded border border-border">
         <div className="border-b border-border px-5 py-4">
-          <h3 className="text-sm font-semibold">Actions</h3>
+          <h3 className="text-sm font-semibold">{t("c.actions")}</h3>
         </div>
         <div className="flex flex-wrap gap-2 px-5 py-4">
           {/* Engineer actions — shown by status; role checked on click. */}
           {(i.status === "OPEN" || i.status === "REOPENED") && (
             <>
-              <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => withToast(accept({ variables: { id } }), "Issue accepted", "Couldn't accept issue"))}>Accept</ActBtn>
-              <ActBtn allowed={canEngineer} onClick={guard(canEngineer, () => setModal("clarify"))}>Need clarification</ActBtn>
-              <ActBtn allowed={canEngineer} destructive onClick={guard(canEngineer, () => setModal("reject"))}>Reject</ActBtn>
+              <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => withToast(accept({ variables: { id } }), t("t.issueAccepted"), t("t.issueAcceptFail")))}>{t("act.accept")}</ActBtn>
+              <ActBtn allowed={canEngineer} onClick={guard(canEngineer, () => setModal("clarify"))}>{t("act.needClarify")}</ActBtn>
+              <ActBtn allowed={canEngineer} destructive onClick={guard(canEngineer, () => setModal("reject"))}>{t("act.reject")}</ActBtn>
             </>
           )}
           {i.status === "IN_PROGRESS" && (
             <>
-              <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => openPanel({ kind: "postmortem", mode: "create", id }))}>Solve</ActBtn>
-              <ActBtn allowed={canEngineer} onClick={guard(canEngineer, () => withToast(hold({ variables: { id } }), "Issue put on hold", "Couldn't hold issue"))}>Hold</ActBtn>
+              <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => openPanel({ kind: "postmortem", mode: "create", id }))}>{t("act.solve")}</ActBtn>
+              <ActBtn allowed={canEngineer} onClick={guard(canEngineer, () => withToast(hold({ variables: { id } }), t("t.issueHeld"), t("t.issueHoldFail")))}>{t("act.hold")}</ActBtn>
             </>
           )}
           {i.status === "HOLD" && (
-            <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => withToast(resume({ variables: { id } }), "Issue resumed", "Couldn't resume issue"))}>Resume</ActBtn>
+            <ActBtn allowed={canEngineer} primary onClick={guard(canEngineer, () => withToast(resume({ variables: { id } }), t("t.issueResumed"), t("t.issueResumeFail")))}>{t("act.resume")}</ActBtn>
           )}
           {/* QA actions — shown by status; role checked on click. */}
           {i.review === "NEED_CLARIFY" && (
-            <ActBtn allowed={canQA} primary onClick={guard(canQA, () => setModal("clarifyRespond"))}>Respond clarification</ActBtn>
+            <ActBtn allowed={canQA} primary onClick={guard(canQA, () => setModal("clarifyRespond"))}>{t("act.respondClarify")}</ActBtn>
           )}
           {i.status === "NEED_REVIEW" && (
             <>
               <ActBtn allowed={canQA} primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } }))}>
-                Retest &amp; review
+                {t("act.retestReview")}
               </ActBtn>
-              <ActBtn allowed={canQA} destructive onClick={guard(canQA, () => setModal("reopen"))}>Reopen</ActBtn>
+              <ActBtn allowed={canQA} destructive onClick={guard(canQA, () => setModal("reopen"))}>{t("act.reopen")}</ActBtn>
             </>
           )}
           {i.review === "REJECTED" && !i.archived && (
             <ActBtn allowed={canQA} onClick={guard(canQA, () => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } }))}>
-              Recreate
+              {t("act.recreate")}
             </ActBtn>
           )}
-          <ActBtn allowed={canQA} onClick={guard(canQA, () => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? "Issue unarchived" : "Issue archived", "Couldn't update issue"))}>
+          <ActBtn allowed={canQA} onClick={guard(canQA, () => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? t("t.issueUnarchived") : t("t.issueArchived"), t("t.issueUpdateFail")))}>
             {i.archived ? (
-              <><ArchiveRestore className="mr-1 inline h-3.5 w-3.5" />Unarchive</>
+              <><ArchiveRestore className="mr-1 inline h-3.5 w-3.5" />{t("act.unarchive")}</>
             ) : (
-              <><Archive className="mr-1 inline h-3.5 w-3.5" />Archive</>
+              <><Archive className="mr-1 inline h-3.5 w-3.5" />{t("act.archive")}</>
             )}
           </ActBtn>
         </div>
@@ -252,7 +252,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {/* Timeline */}
       <div className="rounded border border-border">
         <div className="border-b border-border px-5 py-4">
-          <h3 className="text-sm font-semibold">Status timeline</h3>
+          <h3 className="text-sm font-semibold">{t("tl.title")}</h3>
         </div>
         <div className="px-5 py-4">
           <div className="space-y-0">
@@ -277,38 +277,38 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {/* Modals */}
       <TextPromptModal
         open={modal === "reject"}
-        title="Reject issue"
-        label="Reason (sent to QA)"
+        title={t("mod.rejectTitle")}
+        label={t("mod.rejectLabel")}
         required
         destructive
-        confirmLabel="Reject"
+        confirmLabel={t("act.reject")}
         onClose={() => setModal(null)}
-        onSubmit={(reason) => withToast(reject({ variables: { id, reason } }), "Issue rejected", "Couldn't reject issue")}
+        onSubmit={(reason) => withToast(reject({ variables: { id, reason } }), t("t.issueRejected"), t("t.issueRejectFail"))}
       />
       <TextPromptModal
         open={modal === "clarify"}
-        title="Need clarification"
-        label="What's unclear? (sent to QA)"
+        title={t("act.needClarify")}
+        label={t("mod.clarifyLabel")}
         required
-        confirmLabel="Send"
+        confirmLabel={t("c.send")}
         onClose={() => setModal(null)}
-        onSubmit={(note) => withToast(needClarify({ variables: { id, note } }), "Clarification requested", "Couldn't send request")}
+        onSubmit={(note) => withToast(needClarify({ variables: { id, note } }), t("t.clarifyRequested"), t("t.clarifyRequestFail"))}
       />
       <TextPromptModal
         open={modal === "clarifyRespond"}
-        title="Respond to clarification"
-        label="Clarification note"
+        title={t("mod.respondTitle")}
+        label={t("mod.clarifyNote")}
         onClose={() => setModal(null)}
-        onSubmit={(note) => withToast(clarifyRespond({ variables: { id, note: note || null } }), "Clarification sent", "Couldn't send clarification")}
+        onSubmit={(note) => withToast(clarifyRespond({ variables: { id, note: note || null } }), t("t.clarifySent"), t("t.clarifySendFail"))}
       />
       <TextPromptModal
         open={modal === "reopen"}
-        title="Reopen issue"
-        label="Why is it not resolved?"
+        title={t("mod.reopenTitle")}
+        label={t("mod.reopenLabel")}
         destructive
-        confirmLabel="Reopen"
+        confirmLabel={t("act.reopen")}
         onClose={() => setModal(null)}
-        onSubmit={(note) => withToast(review({ variables: { id, pass: false, note: note || null } }), "Issue reopened", "Couldn't reopen issue")}
+        onSubmit={(note) => withToast(review({ variables: { id, pass: false, note: note || null } }), t("t.issueReopened"), t("t.issueReopenFail"))}
       />
     </div>
   );

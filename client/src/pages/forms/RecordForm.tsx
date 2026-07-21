@@ -1,5 +1,6 @@
 import { useForm, useFieldArray } from "react-hook-form";
 import { useMutation } from "@apollo/client";
+import { useTranslation, Trans } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
@@ -35,6 +36,7 @@ export function RecordForm({
   featureId: string;
   retestIssueId?: string;
 }) {
+  const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
   const { user } = useAuth();
   const { register, handleSubmit, control, formState } = useForm<Form>({
@@ -72,8 +74,8 @@ export function RecordForm({
           },
         },
       }),
-      "Record saved",
-      "Couldn't save record",
+      t("t.recordSaved"),
+      t("t.recordSaveFail"),
     );
     if (!res) return;
     const rec = res.data?.createRecordTest;
@@ -83,8 +85,8 @@ export function RecordForm({
       const pass = rec?.result === "PASS";
       await withToast(
         reviewIssue({ variables: { id: retestIssueId, pass, note: v.note || null } }),
-        pass ? "Retest passed — issue closed" : "Retest failed — issue reopened",
-        "Couldn't update issue",
+        pass ? t("t.retestPassed") : t("t.retestFailed"),
+        t("t.issueUpdateFail"),
       );
       closePanel();
       return;
@@ -103,41 +105,40 @@ export function RecordForm({
   };
 
   return (
-    <RightPanel title={retestIssueId ? "Retest — verify fix" : "Add Record Test"} dirty={formState.isDirty} onClose={closePanel}>
+    <RightPanel title={retestIssueId ? t("form.retestVerify") : t("form.addRecordTest")} dirty={formState.isDirty} onClose={closePanel}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {retestIssueId && (
           <div className="rounded border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            🔁 Retest of the fixed issue. <b className="text-foreground">PASS</b> closes it,{" "}
-            <b className="text-foreground">FAIL</b> reopens it. The issue is linked on this record.
+            <Trans i18nKey="form.retestBanner" components={{ b: <b className="text-foreground" /> }} />
           </div>
         )}
-        <Field label="Tested at">
+        <Field label={t("iss.testedAt")}>
           <input type="datetime-local" className={inputCls} {...register("executedAt", { required: true })} />
         </Field>
-        <Field label="QA">
-          <input className={inputCls} value={`${user?.name} (auto)`} disabled />
+        <Field label={t("rec.qa")}>
+          <input className={inputCls} value={t("form.autoName", { name: user?.name })} disabled />
         </Field>
-        <Field label="Result">
+        <Field label={t("c.result")}>
           <select className={inputCls} {...register("result")}>
             <option value="PASS">PASS</option>
             <option value="FAIL">FAIL</option>
           </select>
         </Field>
-        <Field label="Note" optional>
+        <Field label={t("c.note")} optional>
           <textarea className={inputCls} rows={2} {...register("note")} />
         </Field>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">
-              Attachments <span className="font-normal text-muted-foreground">(URL)</span>
+              {t("c.attachments")} <span className="font-normal text-muted-foreground">({t("form.url")})</span>
             </label>
             <button
               type="button"
               onClick={() => atts.append({ url: "", kind: "IMAGE", label: "" })}
               className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
             >
-              <Plus className="h-3 w-3" /> Attachment
+              <Plus className="h-3 w-3" /> {t("form.attachment")}
             </button>
           </div>
           {atts.fields.map((f, i) => (
@@ -162,9 +163,9 @@ export function RecordForm({
         </div>
 
         {!retestIssueId && (
-          <p className="text-xs text-muted-foreground">FAIL → the Issue form opens next, prefilled.</p>
+          <p className="text-xs text-muted-foreground">{t("form.failOpensIssue")}</p>
         )}
-        <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel="Save record" />
+        <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel={t("form.saveRecord")} />
       </form>
     </RightPanel>
   );

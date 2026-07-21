@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -20,6 +21,7 @@ export function DateRangePicker({
   to: string | null;
   onChange: (from: string | null, to: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const startDate = from ? new Date(from) : null;
   const endDate = to ? new Date(to) : null;
@@ -63,7 +65,7 @@ export function DateRangePicker({
   };
 
   const label =
-    startDate && endDate ? `${fmt(startDate)} – ${fmt(endDate)}` : "Last 6 months";
+    startDate && endDate ? `${fmt(startDate)} – ${fmt(endDate)}` : t("an.last6");
 
   return (
     <div className="relative">
@@ -113,14 +115,14 @@ export function DateRangePicker({
             </div>
             <div className="mt-2 flex items-center justify-between">
               <button onClick={reset} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
-                Last 6 months
+                {t("an.last6")}
               </button>
               <button
                 onClick={apply}
                 disabled={!pStart || !pEnd}
                 className="h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                Apply
+                {t("c.apply")}
               </button>
             </div>
           </div>

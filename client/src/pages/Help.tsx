@@ -1,27 +1,29 @@
 import { useState } from "react";
+import { useTranslation, Trans } from "react-i18next";
 import { UI_VERSION } from "../config";
 
 // Documentation-style help page: sticky table of contents + long-form sections.
-const SECTIONS = [
-  { id: "overview", label: "Overview" },
-  { id: "roles", label: "Roles & access" },
-  { id: "start", label: "Getting started" },
-  { id: "structure", label: "Projects, features, test cases" },
-  { id: "records", label: "Test records & coverage" },
-  { id: "issues", label: "Issues" },
-  { id: "defect-bug", label: "Defect vs Bug" },
-  { id: "workflow", label: "Issue workflow" },
-  { id: "sla", label: "SLA" },
-  { id: "analytics", label: "Analytics" },
-  { id: "notifications", label: "Notifications" },
-  { id: "jira", label: "JIRA integration" },
-  { id: "settings", label: "Settings & admin" },
-  { id: "account", label: "Account & password" },
-  { id: "glossary", label: "Glossary" },
-  { id: "faq", label: "FAQ" },
+const SECTION_IDS = [
+  "overview",
+  "roles",
+  "start",
+  "structure",
+  "records",
+  "issues",
+  "defect-bug",
+  "workflow",
+  "sla",
+  "analytics",
+  "notifications",
+  "jira",
+  "settings",
+  "account",
+  "glossary",
+  "faq",
 ];
 
 export default function Help() {
+  const { t } = useTranslation();
   const [active, setActive] = useState("overview");
   const go = (id: string) => {
     setActive(id);
@@ -33,18 +35,18 @@ export default function Help() {
       {/* TOC */}
       <aside className="hidden w-56 shrink-0 overflow-y-auto border-r border-border p-4 lg:block">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-          Documentation
+          {t("help.doc")}
         </div>
         <nav className="flex flex-col gap-0.5">
-          {SECTIONS.map((s) => (
+          {SECTION_IDS.map((id) => (
             <button
-              key={s.id}
-              onClick={() => go(s.id)}
+              key={id}
+              onClick={() => go(id)}
               className={`rounded px-2 py-1 text-left text-xs transition-colors ${
-                active === s.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+                active === id ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {s.label}
+              {t(`help.sec.${id}`)}
             </button>
           ))}
         </nav>
@@ -54,208 +56,141 @@ export default function Help() {
       <div className="flex-1 overflow-y-auto">
         <article className="mx-auto max-w-3xl px-6 py-8 md:px-10">
           <header className="mb-8 border-b border-border pb-6">
-            <h1 className="text-2xl font-semibold">QA Reporting — User Guide</h1>
+            <h1 className="text-2xl font-semibold">{t("help.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              How the app is organized and how to run the QA workflow end to end. UI v{UI_VERSION}.
+              {t("help.subtitle", { v: UI_VERSION })}
             </p>
           </header>
 
-          <Doc id="overview" title="Overview">
-            <P>
-              QA Reporting organizes testing as a hierarchy — <B>Project → Feature → Test Case</B> — and turns
-              failed tests into tracked <B>Issues</B> that flow through an engineer review workflow with SLA
-              tracking, postmortems, and analytics.
-            </P>
-            <P>The left panel is navigation: the project tree, Dashboard, Analytics, Settings, and Help.
-              Data lists open in the main area; forms open in a right-side panel (never a pop-up).</P>
+          <Doc id="overview" title={t("help.sec.overview")}>
+            <P><Trans i18nKey="help.overview.p1" components={{ b: <B /> }} /></P>
+            <P>{t("help.overview.p2")}</P>
           </Doc>
 
-          <Doc id="roles" title="Roles & access">
+          <Doc id="roles" title={t("help.sec.roles")}>
             <Table
-              head={["Role", "Can do"]}
+              head={[t("help.roles.head.role"), t("help.roles.head.can")]}
               rows={[
-                ["SUPER_ADMIN", "Everything, including managing admins. Seeded from the environment."],
-                ["ADMIN", "All features + user/maintenance/SLA/Discord settings. Cannot manage super admins."],
-                ["QA", "Manage projects, features, test cases, records; raise, review, archive issues."],
-                ["ENGINEER", "Act on assigned issues: accept, reject, need-clarify, solve (postmortem)."],
+                ["SUPER_ADMIN", t("help.roles.superadmin")],
+                ["ADMIN", t("help.roles.admin")],
+                ["QA", t("help.roles.qa")],
+                ["ENGINEER", t("help.roles.engineer")],
               ]}
             />
-            <P>Accounts are created by an admin. New users get a generated default password and must change it
-              on first login.</P>
+            <P>{t("help.roles.p")}</P>
           </Doc>
 
-          <Doc id="start" title="Getting started">
+          <Doc id="start" title={t("help.sec.start")}>
             <Ol
               items={[
-                "Sign in with your email + password (an admin creates your account).",
-                "On first login you'll be asked to set a new password.",
-                "Pick a project in the sidebar tree, or open Dashboard to see all projects.",
-                "Drill down: Project → Feature → Test Case.",
+                t("help.start.1"),
+                t("help.start.2"),
+                t("help.start.3"),
+                t("help.start.4"),
               ]}
             />
           </Doc>
 
-          <Doc id="structure" title="Projects, features, test cases">
-            <P><B>Project</B> — an app/system. Holds features and a minimum pass % target.</P>
-            <P><B>Feature / Module</B> — a slice of a project. Holds test cases and its own minimum pass %.</P>
-            <P><B>Test Case</B> — name, description, precondition, ordered steps (each with an optional expected
-              result), attachments (paste URLs), and a note.</P>
-            <P>Use the <B>Add</B> button in each list header. Edit/delete via the row actions. Deleting cascades
-              to everything beneath it — you must type <Code>DELETE</Code> to confirm.</P>
+          <Doc id="structure" title={t("help.sec.structure")}>
+            <P><Trans i18nKey="help.structure.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.structure.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.structure.p3" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.structure.p4" components={{ b: <B />, code: <Code /> }} /></P>
           </Doc>
 
-          <Doc id="records" title="Test records & coverage">
-            <P>Open a test case and add a <B>Record Test</B> (PASS/FAIL) under the Records tab. The executor and
-              time are captured automatically; attach URLs if needed.</P>
-            <P>A test case counts as <B>passed</B> when its most recent record is PASS <B>and</B> it has no open
-              issue (any issue not yet CLOSED and not archived). So an unresolved issue keeps a test case out of
-              the pass count even if its last run was green. <B>Pass %</B> for a feature/project = passed test
-              cases ÷ total. A level is <B>Ready</B> when its pass % meets the minimum you set.</P>
-            <Callout>Saving a <B>FAIL</B> record immediately opens a prefilled Issue form.</Callout>
+          <Doc id="records" title={t("help.sec.records")}>
+            <P><Trans i18nKey="help.records.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.records.p2" components={{ b: <B /> }} /></P>
+            <Callout><Trans i18nKey="help.records.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
-          <Doc id="issues" title="Issues">
-            <P>An issue is a <B>Defect</B> (blocks release) or a <B>Bug</B> (fix later / production). Fields
-              include environment, platform (app version required for iOS/Android), test account (password stored
-              encrypted), steps to reproduce, actual vs expected result, priority, attachments, and an assignee
-              (an engineer).</P>
-            <P>Open an issue from the Issues tab to see its detail, timeline, and available actions.</P>
+          <Doc id="issues" title={t("help.sec.issues")}>
+            <P><Trans i18nKey="help.issues.p1" components={{ b: <B /> }} /></P>
+            <P>{t("help.issues.p2")}</P>
           </Doc>
 
-          <Doc id="defect-bug" title="Defect vs Bug">
-            <P>Both are findings from testing, but they carry different consequences — pick the right type when
-              you raise an issue.</P>
-            <P><B>Defect</B> — found during testing and <B>should block</B> the Story/Task from being deployed.
-              Think of it as a sub-task of the original work: while it's open, the story isn't done.</P>
-            <P><B>Bug</B> — found during testing but <B>not blocking</B> (minor, can be fixed later), or found in
-              the live production system (by a customer or by us). It sits at the same level as a Story/Task and
-              is tracked and reported on separately.</P>
+          <Doc id="defect-bug" title={t("help.sec.defect-bug")}>
+            <P>{t("help.defectbug.p1")}</P>
+            <P><Trans i18nKey="help.defectbug.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.defectbug.p3" components={{ b: <B /> }} /></P>
             <Table
-              head={["Aspect", "Defect", "Bug"]}
+              head={[t("help.defectbug.head.aspect"), t("help.defectbug.head.defect"), t("help.defectbug.head.bug")]}
               rows={[
-                ["Blocks release?", "Yes — must be fixed first", "No — backlog / fix later"],
-                ["Typical origin", "Testing, pre-deploy", "Minor issue, or found in production"],
-                ["Relationship", "Sub-task of the story/task", "Same level as a story/task"],
-                ["Severity feel", "Higher — gates the release", "Lower — scheduled separately"],
+                [t("help.defectbug.r1a"), t("help.defectbug.r1b"), t("help.defectbug.r1c")],
+                [t("help.defectbug.r2a"), t("help.defectbug.r2b"), t("help.defectbug.r2c")],
+                [t("help.defectbug.r3a"), t("help.defectbug.r3b"), t("help.defectbug.r3c")],
+                [t("help.defectbug.r4a"), t("help.defectbug.r4b"), t("help.defectbug.r4c")],
               ]}
             />
-            <Callout>Rule of thumb: <B>if it must be fixed before this release ships, it's a Defect;</B> if it
-              can wait, it's a Bug.</Callout>
+            <Callout><Trans i18nKey="help.defectbug.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
-          <Doc id="workflow" title="Issue workflow">
-            <P>Every transition is recorded in the issue timeline.</P>
-            <Pre>{`QA creates ................. OPEN
-Engineer:
-  accept ................... IN_PROGRESS
-  need clarification ....... back to QA (respond → re-queued)
-  reject (reason) .......... QA can archive or recreate
-Engineer solves (postmortem) NEED_REVIEW
-QA reviews:
-  approve .................. CLOSED
-  reopen ................... REOPENED → engineer
-Hold / Resume ............. pause & resume IN_PROGRESS`}</Pre>
-            <P><B>Postmortem</B> (root cause, resolution, impact, prevention) is filled by the engineer on
-              solve and visible to QA on the issue.</P>
+          <Doc id="workflow" title={t("help.sec.workflow")}>
+            <P>{t("help.workflow.p1")}</P>
+            <Pre>{t("help.workflow.pre")}</Pre>
+            <P><Trans i18nKey="help.workflow.p2" components={{ b: <B /> }} /></P>
           </Doc>
 
-          <Doc id="sla" title="SLA">
-            <P>SLA applies to <B>production</B> issues only. Targets are per priority and admin-editable
-              (Settings → SLA). Default targets:</P>
+          <Doc id="sla" title={t("help.sec.sla")}>
+            <P><Trans i18nKey="help.sla.p1" components={{ b: <B /> }} /></P>
             <Table
-              head={["Priority", "Respond within", "Resolve within"]}
+              head={[t("help.sla.head.priority"), t("help.sla.head.respond"), t("help.sla.head.resolve")]}
               rows={[
-                ["HIGH", "1 hour", "4 hours"],
-                ["MEDIUM", "4 hours", "24 hours"],
-                ["LOW", "—", "72 hours"],
+                ["HIGH", t("help.sla.high.respond"), t("help.sla.high.resolve")],
+                ["MEDIUM", t("help.sla.medium.respond"), t("help.sla.medium.resolve")],
+                ["LOW", t("help.sla.low.respond"), t("help.sla.low.resolve")],
               ]}
             />
-            <P>Breaches notify the assignee; overall compliance is shown in Analytics.</P>
+            <P>{t("help.sla.p2")}</P>
           </Doc>
 
-          <Doc id="analytics" title="Analytics">
-            <P>Totals (defects vs bugs), resolution rate, average resolve time, SLA compliance, a created-vs-
-              resolved trend, status breakdown, and confidence/coverage per feature. Scope it to <B>all</B>, a
-              <B> project</B>, or a <B>feature</B>.</P>
+          <Doc id="analytics" title={t("help.sec.analytics")}>
+            <P><Trans i18nKey="help.analytics.p1" components={{ b: <B /> }} /></P>
           </Doc>
 
-          <Doc id="notifications" title="Notifications">
-            <P>The bell (top-left) shows live updates: engineers are notified when assigned; QA is notified on
-              reject and need-clarify; assignees on SLA breaches. Click a notification to mark it read.</P>
+          <Doc id="notifications" title={t("help.sec.notifications")}>
+            <P>{t("help.notifications.p1")}</P>
           </Doc>
 
-          <Doc id="jira" title="JIRA integration">
-            <P>On an issue, <B>Copy link</B> copies a deep link. When JIRA is configured, <B>Post to JIRA</B>
-              adds a formatted comment (with the issue link + all fields) to a ticket key you enter; re-posting
-              edits the same comment.</P>
+          <Doc id="jira" title={t("help.sec.jira")}>
+            <P><Trans i18nKey="help.jira.p1" components={{ b: <B /> }} /></P>
           </Doc>
 
-          <Doc id="settings" title="Settings & admin">
-            <P>Everyone can change their password. Admins also get:</P>
+          <Doc id="settings" title={t("help.sec.settings")}>
+            <P>{t("help.settings.p1")}</P>
             <Ul
               items={[
-                "Users — create/edit/delete accounts, reset a user's password.",
-                "Maintenance — lock out non-admins with a message.",
-                "SLA targets — edit respond/resolve minutes per priority.",
-                "Discord — webhook + toggle; broadcasts every project action (test-send available).",
+                t("help.settings.1"),
+                t("help.settings.2"),
+                t("help.settings.3"),
+                t("help.settings.4"),
               ]}
             />
           </Doc>
 
-          <Doc id="account" title="Account & password">
-            <P>Passwords need ≥9 characters with upper- and lower-case, a number, and a symbol. Forgot yours?
-              Use the link on the sign-in page — you'll get a reset email (valid 1 hour, single use).</P>
+          <Doc id="account" title={t("help.sec.account")}>
+            <P>{t("help.account.p1")}</P>
           </Doc>
 
-          <Doc id="glossary" title="Glossary">
-            <P>Terms used in QA work and throughout this app.</P>
+          <Doc id="glossary" title={t("help.sec.glossary")}>
+            <P>{t("help.glossary.p")}</P>
             <Dl
-              items={[
-                ["Project / App", "The top-level system under test. Contains features and a minimum pass % target."],
-                ["Feature / Module", "A slice of a project. Groups related test cases with its own pass % target."],
-                ["Test Case", "A documented scenario: precondition, ordered steps, and expected results."],
-                ["Precondition", "The state that must hold before the steps are executed."],
-                ["Step / Expected Result", "One action to perform and the outcome it should produce."],
-                ["Record Test (Test Run)", "One execution of a test case with a PASS/FAIL result, executor, and time."],
-                ["Steps to Reproduce", "The exact sequence that triggers an issue, so an engineer can reproduce it."],
-                ["Actual vs Expected Result", "What happened vs what should have happened — the core of any issue."],
-                ["Defect", "A blocking finding: prevents the story/task from being deployed until fixed."],
-                ["Bug", "A non-blocking finding (minor, or found in production); tracked separately from stories."],
-                ["Issue", "A raised Defect or Bug, with fields, workflow status, and an assignee."],
-                ["Severity / Priority", "How urgent an issue is. Here: LOW, MEDIUM, HIGH — drives SLA."],
-                ["Environment", "Where testing happened: STAGING or PRODUCTION. SLA applies to production."],
-                ["Platform", "WEB, ANDROID, or IOS. App version is required for the mobile platforms."],
-                ["Reporter", "The QA who raised the issue."],
-                ["Assignee", "The engineer responsible for resolving the issue."],
-                ["Review state", "The engineer's response: PENDING, ACCEPTED, NEED_CLARIFY, or REJECTED."],
-                ["Status", "Lifecycle: OPEN → IN_PROGRESS → NEED_REVIEW → CLOSED, plus REOPENED and HOLD."],
-                ["Reopen", "QA sends a solved issue back to the engineer because it isn't actually fixed."],
-                ["Regression", "A previously working feature that breaks again — often caught by re-running test cases."],
-                ["Postmortem", "The engineer's write-up on solving: root cause, resolution, impact, prevention."],
-                ["Root Cause", "The underlying reason an issue occurred (not just the symptom)."],
-                ["Pass %", "Passed ÷ total, where a test case passes if its latest record is PASS and it has no open issue."],
-                ["Coverage", "How much of a feature/project has been validated by passing test cases."],
-                ["Confidence / Ready", "A level is Ready when its pass % meets the configured minimum."],
-                ["SLA", "Service Level Agreement: target respond and resolve times for production issues."],
-                ["Respond / Resolve time", "Time from creation to first engineer action / to resolution."],
-                ["Squad", "The team owning a project (also derivable from a JIRA key prefix, e.g. ATH-901 → ATH)."],
-                ["Archive", "Hide an issue from active lists (e.g. after rejection) without deleting it."],
-                ["Recreate", "Start a new issue prefilled from a rejected one, keeping a link to the original."],
-                ["Attachment", "A supporting file referenced by URL (screenshot, video, doc, log)."],
-              ]}
+              items={Array.from({ length: 31 }, (_, k) => {
+                const n = k + 1;
+                return [t(`help.gl.${n}.term`), t(`help.gl.${n}.def`)] as [string, string];
+              })}
             />
           </Doc>
 
-          <Doc id="faq" title="FAQ">
-            <Faq q="A delete is blocked — why?">
-              Deletes cascade; confirm by typing <Code>DELETE</Code>. If you lack the role, ask an admin.
+          <Doc id="faq" title={t("help.sec.faq")}>
+            <Faq q={t("help.faq.q1")}>
+              <Trans i18nKey="help.faq.a1" components={{ code: <Code /> }} />
             </Faq>
-            <Faq q="I can't act on an issue.">
-              Engineer actions require you to be the assignee; QA actions require you to be the reporter or have
-              a QA/admin role.
+            <Faq q={t("help.faq.q2")}>
+              {t("help.faq.a2")}
             </Faq>
-            <Faq q="Microsoft sign-in is greyed out.">
-              SSO is prepared but not yet enabled on this server.
+            <Faq q={t("help.faq.q3")}>
+              {t("help.faq.a3")}
             </Faq>
           </Doc>
         </article>
@@ -276,10 +211,10 @@ function Doc({ id, title, children }: { id: string; title: string; children: any
 function P({ children }: { children: any }) {
   return <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>;
 }
-function B({ children }: { children: any }) {
+function B({ children }: { children?: any }) {
   return <b className="font-semibold text-foreground">{children}</b>;
 }
-function Code({ children }: { children: any }) {
+function Code({ children }: { children?: any }) {
   return <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">{children}</code>;
 }
 function Pre({ children }: { children: any }) {

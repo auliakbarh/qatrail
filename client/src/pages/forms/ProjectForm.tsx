@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_PROJECT, UPDATE_PROJECT, PROJECTS } from "../../graphql/hierarchy";
@@ -14,6 +15,7 @@ interface Form {
 }
 
 export function ProjectForm({ panel }: { panel: PanelState }) {
+  const { t } = useTranslation();
   const { closePanel } = useNav();
   const editing = panel.mode === "edit";
   const init = panel.initial ?? {};
@@ -36,28 +38,28 @@ export function ProjectForm({ panel }: { panel: PanelState }) {
       minPassPercent: Number(v.minPassPercent),
     };
     const ok = editing
-      ? await withToast(updateProject({ variables: { id: panel.id, input } }), "Project updated", "Couldn't update project")
-      : await withToast(createProject({ variables: { input } }), "Project created", "Couldn't create project");
+      ? await withToast(updateProject({ variables: { id: panel.id, input } }), t("t.projectUpdated"), t("t.projectUpdateFail"))
+      : await withToast(createProject({ variables: { input } }), t("t.projectCreated"), t("t.projectCreateFail"));
     if (ok) closePanel();
   };
 
   return (
     <RightPanel
-      title={editing ? "Edit Project" : "Add Project"}
+      title={editing ? t("form.editProject") : t("dash.addProject")}
       dirty={formState.isDirty}
       onClose={closePanel}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Field label="Name" error={formState.errors.name && "Required"}>
+        <Field label={t("c.name")} error={formState.errors.name && t("c.required")}>
           <input className={inputCls} {...register("name", { required: true })} />
         </Field>
-        <Field label="Description" optional>
+        <Field label={t("c.description")} optional>
           <textarea className={inputCls} rows={3} {...register("description")} />
         </Field>
-        <Field label="Squad / Team" optional>
+        <Field label={t("form.squadTeam")} optional>
           <input className={inputCls} {...register("squad")} />
         </Field>
-        <Field label="Min pass % (collective of all features)">
+        <Field label={t("form.minPassFeatures")}>
           <input
             type="number"
             min={0}

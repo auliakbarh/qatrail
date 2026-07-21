@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useNav } from "../store/nav";
 import { ANALYTICS } from "../graphql/analytics";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
@@ -38,6 +39,7 @@ function Card({ title, action, children }: { title: string; action?: any; childr
 }
 
 export default function Analytics() {
+  const { t } = useTranslation();
   const [projectId, setProjectId] = useState<string>("");
   const [featureId, setFeatureId] = useState<string>("");
   const [from, setFrom] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function Analytics() {
           }}
           className={small}
         >
-          <option value="">Scope: All</option>
+          <option value="">{t("an.scopeAll")}</option>
           {(projData?.projects ?? []).map((p: any) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -84,7 +86,7 @@ export default function Analytics() {
         </select>
         {projectId && (
           <select value={featureId} onChange={(e) => setFeatureId(e.target.value)} className={small}>
-            <option value="">All features</option>
+            <option value="">{t("an.allFeatures")}</option>
             {(featData?.features ?? []).map((f: any) => (
               <option key={f.id} value={f.id}>
                 {f.name}
@@ -94,24 +96,24 @@ export default function Analytics() {
         )}
       </div>
 
-      {loading && !a && <div className="text-sm text-muted-foreground">Loading…</div>}
+      {loading && !a && <div className="text-sm text-muted-foreground">{t("c.loading")}</div>}
 
       {a && (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat n={String(a.totalFindings)} label={`Total findings · ${a.totalDefects} defect / ${a.totalBugs} bug`} />
-            <Stat n={`${a.resolutionRate}%`} label="Resolution rate" />
-            <Stat n={fmtMins(a.avgResolveMins)} label="Avg resolve (prod)" />
-            <Stat n={a.slaCompliance == null ? "—" : `${a.slaCompliance}%`} label="SLA compliance (prod)" />
+            <Stat n={String(a.totalFindings)} label={t("an.totalFindings", { d: a.totalDefects, b: a.totalBugs })} />
+            <Stat n={`${a.resolutionRate}%`} label={t("an.resolutionRate")} />
+            <Stat n={fmtMins(a.avgResolveMins)} label={t("an.avgResolve")} />
+            <Stat n={a.slaCompliance == null ? "—" : `${a.slaCompliance}%`} label={t("an.slaCompliance")} />
           </div>
 
           <Card
-            title="Created vs resolved"
+            title={t("an.createdVsResolved")}
             action={<DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />}
           >
             {a.createdVsResolved.every((p: any) => p.created === 0 && p.resolved === 0) ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                No data yet
+                {t("an.noDataYet")}
               </div>
             ) : (
             <div className="flex h-40 items-stretch gap-3">
@@ -131,20 +133,20 @@ export default function Analytics() {
                   {/* instant hover tooltip */}
                   <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] shadow-md group-hover:block">
                     <div className="font-medium">{p.period}</div>
-                    <div className="text-muted-foreground">created {p.created} · resolved {p.resolved}</div>
+                    <div className="text-muted-foreground">{t("an.tipCreatedResolved", { c: p.created, r: p.resolved })}</div>
                   </div>
                 </div>
               ))}
             </div>
             )}
             <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-primary" />Created</span>
-              <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-muted-foreground/50" />Resolved</span>
+              <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-primary" />{t("an.created")}</span>
+              <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-muted-foreground/50" />{t("an.resolved")}</span>
             </div>
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Card title="SLA compliance (prod)">
+            <Card title={t("an.slaCompliance")}>
               <div className="flex items-center gap-5">
                 <div className="group relative">
                   <div
@@ -153,36 +155,36 @@ export default function Analytics() {
                   >
                     <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
                       <span className="text-lg font-semibold">{hasSla ? `${a.slaCompliance ?? 0}%` : "—"}</span>
-                      <span className="text-[10px] text-muted-foreground">{hasSla ? "met" : "no data"}</span>
+                      <span className="text-[10px] text-muted-foreground">{hasSla ? t("an.metLower") : t("an.noDataShort")}</span>
                     </div>
                   </div>
                   {hasSla && (
                     <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] shadow-md group-hover:block">
-                      <TipRow color="var(--good)" label="Met" n={sla.met} total={slaCount} />
-                      <TipRow color="var(--warn)" label="At risk" n={sla.atRisk} total={slaCount} />
-                      <TipRow color="var(--destructive)" label="Breached" n={sla.breached} total={slaCount} />
+                      <TipRow color="var(--good)" label={t("sla.met")} n={sla.met} total={slaCount} />
+                      <TipRow color="var(--warn)" label={t("sla.atRisk")} n={sla.atRisk} total={slaCount} />
+                      <TipRow color="var(--destructive)" label={t("sla.breached")} n={sla.breached} total={slaCount} />
                     </div>
                   )}
                 </div>
                 <div className="space-y-1.5 text-xs">
-                  <Legend color="var(--good)" label={`Met ${sla.met}`} />
-                  <Legend color="var(--warn)" label={`At risk ${sla.atRisk}`} />
-                  <Legend color="var(--destructive)" label={`Breached ${sla.breached}`} />
+                  <Legend color="var(--good)" label={`${t("sla.met")} ${sla.met}`} />
+                  <Legend color="var(--warn)" label={`${t("sla.atRisk")} ${sla.atRisk}`} />
+                  <Legend color="var(--destructive)" label={`${t("sla.breached")} ${sla.breached}`} />
                 </div>
               </div>
             </Card>
 
-            <Card title="Progress by status">
+            <Card title={t("an.progressByStatus")}>
               <StatusPie breakdown={a.statusBreakdown} />
             </Card>
           </div>
 
-          <Card title="Confidence / Key coverage">
+          <Card title={t("an.confidenceCoverage")}>
             <div className="mb-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium">Overall readiness</span>
+                <span className="font-medium">{t("an.overallReadiness")}</span>
                 <span className="text-muted-foreground">
-                  {a.confidence.percent}% ({a.confidence.passed}/{a.confidence.total} test cases)
+                  {t("an.readinessDetail", { p: a.confidence.percent, passed: a.confidence.passed, total: a.confidence.total })}
                 </span>
               </div>
               <div className="mt-1 h-2 rounded-full bg-muted">
@@ -209,6 +211,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function StatusPie({ breakdown }: { breakdown: { status: string; count: number }[] }) {
+  const { t } = useTranslation();
   const total = breakdown.reduce((s, b) => s + b.count, 0);
   if (total === 0) {
     return (
@@ -216,10 +219,10 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
         <div className="flex h-28 w-28 items-center justify-center rounded-full" style={{ background: "var(--muted)" }}>
           <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
             <span className="text-lg font-semibold">—</span>
-            <span className="text-[10px] text-muted-foreground">no data</span>
+            <span className="text-[10px] text-muted-foreground">{t("an.noDataShort")}</span>
           </div>
         </div>
-        <span className="text-xs text-muted-foreground">No issues</span>
+        <span className="text-xs text-muted-foreground">{t("issue.none")}</span>
       </div>
     );
   }
@@ -241,7 +244,7 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
         <div className="flex h-28 w-28 items-center justify-center rounded-full" style={{ background: `conic-gradient(${stops})` }}>
           <div className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-card">
             <span className="text-lg font-semibold tabular-nums">{total}</span>
-            <span className="text-[10px] text-muted-foreground">issues</span>
+            <span className="text-[10px] text-muted-foreground">{t("an.issuesLower")}</span>
           </div>
         </div>
         <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] shadow-md group-hover:block">
@@ -268,6 +271,7 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
 }
 
 function KeyCoverageTable({ rows }: { rows: any[] }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const openFeature = (r: any) => {
     useNav.setState({ projectId: r.projectId, featureId: r.featureId, testCaseId: null, issueId: null, panel: null });
@@ -291,17 +295,17 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
           <thead>
             <tr className="border-b border-border">
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-              <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Pass %" colKey="percent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Min %" colKey="min" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Passed" colKey="passed" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Ready" colKey="ready" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("dash.feature")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("dash.passPct")} colKey="percent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("an.minPct")} colKey="min" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("an.passed")} colKey="passed" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("dash.ready")} colKey="ready" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             </tr>
           </thead>
           <tbody>
             {list.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-muted-foreground">No features</td>
+                <td colSpan={6} className="py-8 text-center text-muted-foreground">{t("an.noFeatures")}</td>
               </tr>
             )}
             {list.map((k: any, idx: number) => (
@@ -323,7 +327,7 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
                       k.ready ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
                     }`}
                   >
-                    {k.ready ? "Ready" : "Below"}
+                    {k.ready ? t("dash.ready") : t("dash.below")}
                   </span>
                 </td>
               </tr>

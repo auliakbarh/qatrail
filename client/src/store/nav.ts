@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem";
+export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment";
 export interface PanelState {
   kind: PanelKind;
   mode: "create" | "edit";

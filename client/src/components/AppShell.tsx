@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             onClick={toggleTheme}
             className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted"
-            title="Toggle theme"
+            title={t("c.toggleTheme")}
           >
             <Sun className="h-3.5 w-3.5 dark:hidden" />
             <Moon className="hidden h-3.5 w-3.5 dark:block" />

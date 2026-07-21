@@ -1,5 +1,6 @@
 import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { PROJECTS, DELETE_PROJECT } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
@@ -15,6 +16,7 @@ import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 
 export function ProjectList() {
+  const { t } = useTranslation();
   const { selectProject, openPanel } = useNav();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
@@ -52,9 +54,9 @@ export function ProjectList() {
     <div className="space-y-4 p-6">
       <div className="rounded border border-border">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold">Projects</h2>
+          <h2 className="text-sm font-semibold">{t("dash.projects")}</h2>
           <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "project", mode: "create" })}>
-            Add Project
+            {t("dash.addProject")}
           </HeaderButton>
         </div>
         <div className="px-5 py-4">
@@ -70,10 +72,10 @@ export function ProjectList() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-                  <SortableTh label="Project" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                  <SortableTh label="Squad" colKey="squad" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                  <SortableTh label="Features" colKey="featureCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass %</th>
+                  <SortableTh label={t("dash.project")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh label={t("dash.squad")} colKey="squad" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh label={t("list.features")} colKey="featureCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("dash.passPct")}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -81,14 +83,14 @@ export function ProjectList() {
                 {loading && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                      Loading…
+                      {t("c.loading")}
                     </td>
                   </tr>
                 )}
                 {!loading && rows.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                      No projects yet
+                      {t("dash.noProjects")}
                     </td>
                   </tr>
                 )}
@@ -122,17 +124,17 @@ export function ProjectList() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">
-                        <IconBtn title="Open" onClick={() => selectProject(p.id)}>
+                        <IconBtn title={t("c.open")} onClick={() => selectProject(p.id)}>
                           <FolderOpen className="h-3.5 w-3.5" />
                         </IconBtn>
                         <IconBtn
-                          title="Edit"
+                          title={t("c.edit")}
                           allowed={manage}
                           onClick={() => openPanel({ kind: "project", mode: "edit", id: p.id, initial: p })}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </IconBtn>
-                        <IconBtn title="Delete" allowed={manage} onClick={() => setDel({ id: p.id, name: p.name })}>
+                        <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel({ id: p.id, name: p.name })}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </IconBtn>
                       </div>
@@ -150,9 +152,9 @@ export function ProjectList() {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && withToast(deleteProject({ variables: { id: del.id } }), "Project deleted", "Couldn't delete project")}
+        onConfirm={() => del && withToast(deleteProject({ variables: { id: del.id } }), t("t.projectDeleted"), t("t.projectDeleteFail"))}
         label={del?.name ?? ""}
-        note="All features, test cases, records and issues under it are removed."
+        note={t("del.noteProject")}
       />
     </div>
   );

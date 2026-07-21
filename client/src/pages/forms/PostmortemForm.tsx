@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { ISSUE_SOLVE } from "../../graphql/workflow";
@@ -16,6 +17,7 @@ interface Form {
 
 // Engineer fills this to move an issue IN_PROGRESS -> NEED_REVIEW.
 export function PostmortemForm({ issueId, testCaseId }: { issueId: string; testCaseId: string }) {
+  const { t } = useTranslation();
   const { closePanel } = useNav();
   const { register, handleSubmit, formState } = useForm<Form>({
     defaultValues: { rootCause: "", resolution: "", impact: "", prevention: "" },
@@ -40,29 +42,29 @@ export function PostmortemForm({ issueId, testCaseId }: { issueId: string; testC
           },
         },
       }),
-      "Issue solved — sent for review",
-      "Couldn't solve issue",
+      t("t.issueSolved"),
+      t("t.issueSolveFail"),
     );
     if (ok) closePanel();
   };
 
   return (
-    <RightPanel title="Solve — Postmortem" dirty={formState.isDirty} onClose={closePanel}>
+    <RightPanel title={t("form.solvePostmortem")} dirty={formState.isDirty} onClose={closePanel}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <p className="text-xs text-muted-foreground">Moves the issue to NEED_REVIEW for QA.</p>
-        <Field label="Root cause" error={formState.errors.rootCause && "Required"}>
+        <p className="text-xs text-muted-foreground">{t("form.movesToReview")}</p>
+        <Field label={t("pm.rootCause")} error={formState.errors.rootCause && t("c.required")}>
           <textarea className={inputCls} rows={3} {...register("rootCause", { required: true })} />
         </Field>
-        <Field label="Resolution / fix" error={formState.errors.resolution && "Required"}>
+        <Field label={t("form.resolutionFix")} error={formState.errors.resolution && t("c.required")}>
           <textarea className={inputCls} rows={3} {...register("resolution", { required: true })} />
         </Field>
-        <Field label="Impact" optional>
+        <Field label={t("pm.impact")} optional>
           <textarea className={inputCls} rows={2} {...register("impact")} />
         </Field>
-        <Field label="Prevention / action items" optional>
+        <Field label={t("form.preventionItems")} optional>
           <textarea className={inputCls} rows={2} {...register("prevention")} />
         </Field>
-        <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel="Solve" />
+        <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel={t("act.solve")} />
       </form>
     </RightPanel>
   );

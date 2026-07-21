@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useSubscription } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Bell } from "lucide-react";
 import {
   NOTIFICATIONS,
@@ -13,6 +14,7 @@ import { cn } from "../lib/utils";
 const fmt = (iso: string) => new Date(iso).toLocaleString();
 
 export function NotificationBell() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { data, refetch } = useQuery(NOTIFICATIONS, { fetchPolicy: "cache-and-network" });
@@ -30,7 +32,7 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="relative flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted"
-        title="Notifications"
+        title={t("c.notifications")}
       >
         <Bell className="h-3.5 w-3.5" />
         {unread > 0 && (
@@ -44,18 +46,18 @@ export function NotificationBell() {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="fixed left-2 top-12 z-50 max-h-[80vh] w-80 max-w-[calc(100vw-1rem)] overflow-y-auto rounded border border-border bg-background shadow-md">
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <span className="text-xs font-semibold">Notifications</span>
+              <span className="text-xs font-semibold">{t("c.notifications")}</span>
               {unread > 0 && (
                 <button
                   onClick={() => markAll().then(() => refetch())}
                   className="text-xs text-primary underline underline-offset-2"
                 >
-                  Mark all read
+                  {t("notif.markAll")}
                 </button>
               )}
             </div>
             {items.length === 0 && (
-              <div className="px-3 py-8 text-center text-xs text-muted-foreground">No notifications</div>
+              <div className="px-3 py-8 text-center text-xs text-muted-foreground">{t("notif.empty")}</div>
             )}
             {items.map((n: any) => (
               <button

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { ISSUE } from "../graphql/issue";
 import { useNav } from "../store/nav";
 
@@ -8,6 +9,7 @@ import { useNav } from "../store/nav";
 // chain, primes nav, and redirects into the dashboard drilldown. If the issue was
 // deleted (query resolves to null), shows a not-found state instead of hanging.
 export default function IssuePage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { data, loading, error } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
@@ -29,15 +31,15 @@ export default function IssuePage() {
   if (notFound) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/30 px-4 text-center">
-        <h1 className="text-lg font-semibold">Issue not found</h1>
+        <h1 className="text-lg font-semibold">{t("issuePage.notFoundTitle")}</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          This issue doesn't exist or has been deleted.
+          {t("issuePage.notFoundText")}
         </p>
         <Link to="/" className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
-          Back to dashboard
+          {t("nf.back")}
         </Link>
       </div>
     );
   }
-  return <div className="p-6 text-sm text-muted-foreground">Loading issue…</div>;
+  return <div className="p-6 text-sm text-muted-foreground">{t("issuePage.loading")}</div>;
 }

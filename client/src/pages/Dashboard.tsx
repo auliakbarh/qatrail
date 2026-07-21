@@ -1,4 +1,5 @@
 import { useQuery } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { useNav } from "../store/nav";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
@@ -13,8 +14,10 @@ import { TestCaseForm } from "./forms/TestCaseForm";
 import { RecordForm } from "./forms/RecordForm";
 import { IssueForm } from "./forms/IssueForm";
 import { PostmortemForm } from "./forms/PostmortemForm";
+import { AttachmentPanel } from "./forms/AttachmentPanel";
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { projectId, featureId, testCaseId, issueId, panel, selectProject, selectFeature, selectTestCase } =
     useNav();
 
@@ -31,7 +34,7 @@ export default function Dashboard() {
         {projectId && (
           <div className="flex items-center gap-1.5 border-b border-border px-6 py-3 text-xs text-muted-foreground">
             <button onClick={() => selectProject(null)} className="hover:text-foreground">
-              Projects
+              {t("dash.projects")}
             </button>
             {projName && (
               <>
@@ -58,7 +61,7 @@ export default function Dashboard() {
             {testCaseId && issueId && (
               <>
                 <ChevronRight className="h-3 w-3" />
-                <span className="font-medium text-foreground">Issue</span>
+                <span className="font-medium text-foreground">{t("dash.issueBreadcrumb")}</span>
               </>
             )}
           </div>
@@ -101,6 +104,7 @@ export default function Dashboard() {
       {panel?.kind === "postmortem" && panel.id && testCaseId && (
         <PostmortemForm issueId={panel.id} testCaseId={testCaseId} />
       )}
+      {panel?.kind === "attachment" && <AttachmentPanel panel={panel} />}
     </div>
   );
 }

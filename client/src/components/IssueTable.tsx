@@ -1,5 +1,6 @@
 import { useState, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
 import { SortableTh, nextSort } from "./SortableTh";
 import { searchRows, sortRows, groupRows } from "../lib/list";
@@ -16,24 +17,27 @@ function Badge({ children, variant = "muted" }: { children: any; variant?: "mute
 }
 
 function SlaBadge({ s }: { s: string }) {
+  const { t } = useTranslation();
   if (s === "NA") return <span className="text-xs text-muted-foreground">—</span>;
   const map: Record<string, string> = {
     MET: "bg-[var(--good)] text-white",
     AT_RISK: "bg-[var(--warn)] text-white",
     BREACHED: "bg-destructive text-white",
   };
-  const label = s === "AT_RISK" ? "At risk" : s.charAt(0) + s.slice(1).toLowerCase();
+  const labels: Record<string, string> = { MET: t("sla.met"), AT_RISK: t("sla.atRisk"), BREACHED: t("sla.breached") };
+  const label = labels[s] ?? s.charAt(0) + s.slice(1).toLowerCase();
   return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", map[s] ?? "bg-muted")}>{label}</span>;
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
 function Filter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-xs text-muted-foreground">{label}:</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={small}>
-        <option value="">ALL</option>
+        <option value="">{t("c.all")}</option>
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
         ))}
@@ -45,6 +49,7 @@ const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "IN_REVIEW", "CLOSED", "
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 
 export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loading: boolean; showPeople?: boolean }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -74,45 +79,45 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className={`${small} w-56 pl-7`} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("c.search")} className={`${small} w-56 pl-7`} />
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Group by:</span>
+          <span className="text-xs text-muted-foreground">{t("c.groupBy")}</span>
           <select value={groupKey} onChange={(e) => setGroupKey(e.target.value)} className={small}>
-            <option value="">-</option>
-            <option value="status">STATUS</option>
-            <option value="priority">PRIORITY</option>
-            <option value="type">TYPE</option>
+            <option value="">{t("c.none")}</option>
+            <option value="status">{t("it.grpStatus")}</option>
+            <option value="priority">{t("it.grpPriority")}</option>
+            <option value="type">{t("it.grpType")}</option>
           </select>
         </div>
       </div>
       {/* Row 2: filters */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Filter label="Status" value={fStatus} onChange={setFStatus} options={STATUSES} />
-        <Filter label="Priority" value={fPriority} onChange={setFPriority} options={PRIORITIES} />
-        <Filter label="Type" value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
-        <Filter label="SLA" value={fSla} onChange={setFSla} options={["MET", "AT_RISK", "BREACHED", "NA"]} />
-        <span className="ml-auto text-xs text-muted-foreground">{rows.length} issue(s)</span>
+        <Filter label={t("c.status")} value={fStatus} onChange={setFStatus} options={STATUSES} />
+        <Filter label={t("c.priority")} value={fPriority} onChange={setFPriority} options={PRIORITIES} />
+        <Filter label={t("c.type")} value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
+        <Filter label={t("c.sla")} value={fSla} onChange={setFSla} options={["MET", "AT_RISK", "BREACHED", "NA"]} />
+        <span className="ml-auto text-xs text-muted-foreground">{t("issue.count", { n: rows.length })}</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-              <SortableTh label="ID" colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Issue" colKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Type" colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Priority" colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Status" colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="SLA" colKey="slaStatus" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label="Created" colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assignee</th>}
-              {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Reporter</th>}
+              <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("issue.colIssue")} colKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("c.type")} colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("c.priority")} colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("c.sla")} colKey="slaStatus" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label={t("c.created")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>}
+              {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.reporter")}</th>}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">No issues</td></tr>}
+            {loading && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("issue.none")}</td></tr>}
             {groups.map(([label, gr]) => (
               <Fragment key={label || "all"}>
                 {groupKey && (

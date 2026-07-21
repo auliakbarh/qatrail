@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
@@ -53,6 +54,7 @@ export function IssueForm({
   testCaseId: string;
   featureId: string;
 }) {
+  const { t } = useTranslation();
   const { closePanel } = useNav();
   const editing = panel.mode === "edit";
   const init = panel.initial ?? {};
@@ -157,9 +159,9 @@ export function IssueForm({
     if (editing) {
       delete input.testCaseId;
       delete input.recordTestId;
-      ok = await withToast(updateIssue({ variables: { id: panel.id, input: { ...input, testCaseId } } }), "Issue updated", "Couldn't update issue");
+      ok = await withToast(updateIssue({ variables: { id: panel.id, input: { ...input, testCaseId } } }), t("t.issueUpdated"), t("t.issueUpdateFail"));
     } else {
-      ok = await withToast(createIssue({ variables: { input } }), "Issue created", "Couldn't create issue");
+      ok = await withToast(createIssue({ variables: { input } }), t("t.issueCreated"), t("t.issueCreateFail"));
     }
     if (ok) closePanel();
   };
@@ -167,16 +169,16 @@ export function IssueForm({
   const engineers = engData?.engineers ?? [];
 
   return (
-    <RightPanel title={editing ? "Edit Issue" : "Add Issue"} dirty={formState.isDirty} onClose={closePanel}>
+    <RightPanel title={editing ? t("form.editIssue") : t("tc.addIssue")} dirty={formState.isDirty} onClose={closePanel}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="flex gap-2">
-          <Field label="Type">
+          <Field label={t("c.type")}>
             <select className={inputCls} {...register("type")}>
               <option value="DEFECT">DEFECT</option>
               <option value="BUG">BUG</option>
             </select>
           </Field>
-          <Field label="Priority">
+          <Field label={t("c.priority")}>
             <select className={inputCls} {...register("priority")}>
               <option value="LOW">LOW</option>
               <option value="MEDIUM">MEDIUM</option>
@@ -184,20 +186,20 @@ export function IssueForm({
             </select>
           </Field>
         </div>
-        <Field label="Title" error={formState.errors.title && "Required"}>
+        <Field label={t("form.titleField")} error={formState.errors.title && t("c.required")}>
           <input className={inputCls} {...register("title", { required: true })} />
         </Field>
-        <Field label="Description" error={formState.errors.description && "Required"}>
+        <Field label={t("c.description")} error={formState.errors.description && t("c.required")}>
           <textarea className={inputCls} rows={2} {...register("description", { required: true })} />
         </Field>
         <div className="flex gap-2">
-          <Field label="Environment">
+          <Field label={t("iss.environment")}>
             <select className={inputCls} {...register("environment")}>
               <option value="STAGING">STAGING</option>
               <option value="PRODUCTION">PRODUCTION</option>
             </select>
           </Field>
-          <Field label="Platform">
+          <Field label={t("iss.platform")}>
             <select className={inputCls} {...register("platform")}>
               <option value="WEB">WEB</option>
               <option value="ANDROID">ANDROID</option>
@@ -206,42 +208,42 @@ export function IssueForm({
           </Field>
         </div>
         <div className="flex gap-2">
-          <Field label={`App version${mobileVersionRequired ? "" : ""}`} optional={!mobileVersionRequired} error={formState.errors.appVersion && "Required for mobile"}>
+          <Field label={t("form.appVersion")} optional={!mobileVersionRequired} error={formState.errors.appVersion && t("form.requiredMobile")}>
             <input
               className={inputCls}
               {...register("appVersion", { validate: (v) => !mobileVersionRequired || !!v.trim() })}
             />
           </Field>
-          <Field label="Backend version" optional>
+          <Field label={t("form.backendVersion")} optional>
             <input className={inputCls} {...register("backendVersion")} />
           </Field>
         </div>
         <div className="flex gap-2">
-          <Field label="Test account" error={formState.errors.testAccount && "Required"}>
+          <Field label={t("iss.testAccount")} error={formState.errors.testAccount && t("c.required")}>
             <input className={inputCls} {...register("testAccount", { required: true })} />
           </Field>
-          <Field label="Test password" optional>
+          <Field label={t("form.testPassword")} optional>
             <input className={inputCls} {...register("testPassword")} />
           </Field>
         </div>
-        <Field label="Tested at">
+        <Field label={t("iss.testedAt")}>
           <input type="datetime-local" className={inputCls} {...register("testedAt", { required: true })} />
         </Field>
-        <Field label="Preconditions" optional>
+        <Field label={t("iss.preconditions")} optional>
           <textarea className={inputCls} rows={2} {...register("preconditions")} />
         </Field>
-        <Field label="Steps to reproduce" error={formState.errors.steps && "Required"}>
+        <Field label={t("iss.steps")} error={formState.errors.steps && t("c.required")}>
           <textarea className={inputCls} rows={3} {...register("steps", { required: true })} />
         </Field>
-        <Field label="Actual result" error={formState.errors.actualResult && "Required"}>
+        <Field label={t("iss.actualResult")} error={formState.errors.actualResult && t("c.required")}>
           <textarea className={inputCls} rows={2} {...register("actualResult", { required: true })} />
         </Field>
-        <Field label="Expected result" error={formState.errors.expectedResult && "Required"}>
+        <Field label={t("iss.expectedResult")} error={formState.errors.expectedResult && t("c.required")}>
           <textarea className={inputCls} rows={2} {...register("expectedResult", { required: true })} />
         </Field>
-        <Field label="Assignee (Engineer)" error={formState.errors.assigneeId && "Required"}>
+        <Field label={t("form.assigneeEngineer")} error={formState.errors.assigneeId && t("c.required")}>
           <select className={inputCls} {...register("assigneeId", { required: true })}>
-            <option value="">Select engineer…</option>
+            <option value="">{t("form.selectEngineer")}</option>
             {engineers.map((e: any) => (
               <option key={e.id} value={e.id}>
                 {e.name}
@@ -253,14 +255,14 @@ export function IssueForm({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">
-              Attachments <span className="font-normal text-muted-foreground">(URL)</span>
+              {t("c.attachments")} <span className="font-normal text-muted-foreground">({t("form.url")})</span>
             </label>
             <button
               type="button"
               onClick={() => atts.append({ url: "", kind: "IMAGE", label: "" })}
               className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
             >
-              <Plus className="h-3 w-3" /> Attachment
+              <Plus className="h-3 w-3" /> {t("form.attachment")}
             </button>
           </div>
           {atts.fields.map((f, i) => (
@@ -284,7 +286,7 @@ export function IssueForm({
           ))}
         </div>
 
-        <Field label="Note / Summary" optional>
+        <Field label={t("form.noteSummary")} optional>
           <textarea className={inputCls} rows={2} {...register("note")} />
         </Field>
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} />

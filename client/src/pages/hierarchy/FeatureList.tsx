@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { Plus, FolderOpen, Pencil, Trash2 } from "lucide-react";
 import { FEATURES, DELETE_FEATURE } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
@@ -15,6 +16,7 @@ import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 
 export function FeatureList({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
   const { selectFeature, openPanel } = useNav();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
@@ -41,9 +43,9 @@ export function FeatureList({ projectId }: { projectId: string }) {
   return (
     <div className="rounded border border-border">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="text-sm font-semibold">Features / Modules</h2>
+        <h2 className="text-sm font-semibold">{t("dash.features")}</h2>
         <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "feature", mode: "create" })}>
-          Add Feature
+          {t("dash.addFeature")}
         </HeaderButton>
       </div>
       <div className="px-5 py-4">
@@ -53,10 +55,10 @@ export function FeatureList({ projectId }: { projectId: string }) {
             <thead>
               <tr className="border-b border-border">
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-                <SortableTh label="ID" colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortableTh label="Test cases" colKey="testCaseCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Pass %</th>
+                <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("dash.feature")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("list.testCases")} colKey="testCaseCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("dash.passPct")}</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -64,14 +66,14 @@ export function FeatureList({ projectId }: { projectId: string }) {
               {loading && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Loading…
+                    {t("c.loading")}
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    No features yet
+                    {t("dash.noFeatures")}
                   </td>
                 </tr>
               )}
@@ -91,17 +93,17 @@ export function FeatureList({ projectId }: { projectId: string }) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
-                      <IconBtn title="Open" onClick={() => selectFeature(f.id)}>
+                      <IconBtn title={t("c.open")} onClick={() => selectFeature(f.id)}>
                         <FolderOpen className="h-3.5 w-3.5" />
                       </IconBtn>
                       <IconBtn
-                        title="Edit"
+                        title={t("c.edit")}
                         allowed={manage}
                         onClick={() => openPanel({ kind: "feature", mode: "edit", id: f.id, initial: f })}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </IconBtn>
-                      <IconBtn title="Delete" allowed={manage} onClick={() => setDel({ id: f.id, name: f.name })}>
+                      <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel({ id: f.id, name: f.name })}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </IconBtn>
                     </div>
@@ -116,9 +118,9 @@ export function FeatureList({ projectId }: { projectId: string }) {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && withToast(deleteFeature({ variables: { id: del.id } }), "Feature deleted", "Couldn't delete feature")}
+        onConfirm={() => del && withToast(deleteFeature({ variables: { id: del.id } }), t("t.featureDeleted"), t("t.featureDeleteFail"))}
         label={del?.name ?? ""}
-        note="All test cases, records and issues under it are removed."
+        note={t("del.noteFeature")}
       />
     </div>
   );

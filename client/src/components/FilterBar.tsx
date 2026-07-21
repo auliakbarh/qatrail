@@ -1,4 +1,5 @@
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Opt {
   value: string;
@@ -22,6 +23,7 @@ interface FilterBarProps {
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
 export function FilterBar(p: FilterBarProps) {
+  const { t } = useTranslation();
   const showSort = p.sortOptions && p.onSortKey;
   return (
     <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -30,7 +32,7 @@ export function FilterBar(p: FilterBarProps) {
         <input
           value={p.search}
           onChange={(e) => p.onSearch(e.target.value)}
-          placeholder="Search…"
+          placeholder={t("c.search")}
           className={`${small} w-48 pl-7`}
         />
       </div>
@@ -39,7 +41,7 @@ export function FilterBar(p: FilterBarProps) {
           <select value={p.sortKey} onChange={(e) => p.onSortKey!(e.target.value)} className={small}>
             {p.sortOptions!.map((o) => (
               <option key={o.value} value={o.value}>
-                Sort: {o.label}
+                {t("c.sortLabel", { label: o.label })}
               </option>
             ))}
           </select>
@@ -47,7 +49,7 @@ export function FilterBar(p: FilterBarProps) {
             type="button"
             onClick={() => p.onSortDir!(p.sortDir === "asc" ? "desc" : "asc")}
             className={`${small} w-9`}
-            title="Toggle direction"
+            title={t("c.toggleDir")}
           >
             {p.sortDir === "asc" ? "↑" : "↓"}
           </button>
@@ -55,7 +57,7 @@ export function FilterBar(p: FilterBarProps) {
       )}
       {p.groupOptions && p.onGroupKey && (
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Group by:</span>
+          <span className="text-xs text-muted-foreground">{t("c.groupBy")}</span>
           <select value={p.groupKey} onChange={(e) => p.onGroupKey!(e.target.value)} className={small}>
             <option value="">-</option>
             {p.groupOptions.map((o) => (

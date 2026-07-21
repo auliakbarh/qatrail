@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { TEST_CASE } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
@@ -8,6 +9,7 @@ import { cn } from "../../lib/utils";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
+import { AttachmentList } from "../../components/AttachmentList";
 import { withToast, denied } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
@@ -27,15 +29,16 @@ function fmt(iso: string) {
 }
 
 export function TestCaseDetail({ id }: { id: string }) {
+  const { t } = useTranslation();
   const { openPanel } = useNav();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(TEST_CASE, { variables: { id } });
   const [tab, setTab] = useState<"records" | "issues">("records");
 
-  if (loading) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">Loading…</div>;
+  if (loading) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
   const tc = data?.testCase;
-  if (!tc) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">Not found</div>;
+  if (!tc) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.notFound")}</div>;
 
   return (
     <div className="space-y-4">
@@ -52,43 +55,40 @@ export function TestCaseDetail({ id }: { id: string }) {
               !manage && "opacity-40",
             )}
           >
-            <Pencil className="h-3.5 w-3.5" /> Edit
+            <Pencil className="h-3.5 w-3.5" /> {t("c.edit")}
           </button>
         </div>
         <div className="space-y-3 px-5 py-4 text-sm">
           {tc.description && <p className="text-muted-foreground">{tc.description}</p>}
           {tc.precondition && (
             <p>
-              <span className="font-medium">Precondition:</span> {tc.precondition}
+              <span className="font-medium">{t("tc.precondition")}:</span> {tc.precondition}
             </p>
           )}
           <div>
-            <div className="mb-1 font-medium">Steps</div>
+            <div className="mb-1 font-medium">{t("tc.steps")}</div>
             <div className="space-y-1">
               {tc.steps.map((s: any) => (
                 <div key={s.id} className="text-xs">
                   {s.order}. {s.step}
-                  {s.expectedResult && <span className="text-muted-foreground"> → Expected: {s.expectedResult}</span>}
+                  {s.expectedResult && <span className="text-muted-foreground"> → {t("tc.expected")}: {s.expectedResult}</span>}
                 </div>
               ))}
-              {tc.steps.length === 0 && <div className="text-xs text-muted-foreground">No steps</div>}
+              {tc.steps.length === 0 && <div className="text-xs text-muted-foreground">{t("tc.noSteps")}</div>}
             </div>
           </div>
           {tc.attachments.length > 0 && (
             <div>
-              <div className="mb-1 font-medium">Attachments</div>
-              <div className="flex flex-wrap gap-2">
-                {tc.attachments.map((a: any) => (
-                  <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted">
-                    {a.order}. {a.label || a.kind}
-                  </a>
-                ))}
-              </div>
+              <div className="mb-1 font-medium">{t("c.attachments")}</div>
+              <AttachmentList
+                items={tc.attachments}
+                onOpenText={(a) => openPanel({ kind: "attachment", mode: "create", initial: a })}
+              />
             </div>
           )}
           {tc.note && (
             <p>
-              <span className="font-medium">Note:</span> {tc.note}
+              <span className="font-medium">{t("c.note")}:</span> {tc.note}
             </p>
           )}
         </div>
@@ -107,7 +107,7 @@ export function TestCaseDetail({ id }: { id: string }) {
                     tab === k ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {k}
+                  {k === "records" ? t("tc.tabRecords") : t("tc.tabIssues")}
                 </button>
               ))}
             </div>
@@ -116,7 +116,7 @@ export function TestCaseDetail({ id }: { id: string }) {
               icon={Plus}
               onClick={() => openPanel({ kind: tab === "records" ? "record" : "issue", mode: "create" })}
             >
-              {tab === "records" ? "Add Record" : "Add Issue"}
+              {tab === "records" ? t("tc.addRecord") : t("tc.addIssue")}
             </HeaderButton>
           </div>
           {tab === "records" ? <RecordsTab testCaseId={id} manage={manage} /> : <IssuesTab testCaseId={id} manage={manage} />}
@@ -127,6 +127,7 @@ export function TestCaseDetail({ id }: { id: string }) {
 }
 
 function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
+  const { t } = useTranslation();
   const { selectIssue } = useNav();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
   const [del, setDel] = useState<string | null>(null);
@@ -141,21 +142,21 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
         <thead>
           <tr className="border-b border-border">
             <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ID</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Date/time</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">QA</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Result</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Note</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Attach</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.id")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.datetime")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.qa")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.result")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.note")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.attach")}</th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading…</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No records yet</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
           )}
           {rows.map((r: any, idx: number) => (
             <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
@@ -169,10 +170,10 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
                   {r.retestIssueId && (
                     <button
                       onClick={() => selectIssue(r.retestIssueId)}
-                      title="Retest of a fixed issue — open it"
+                      title={t("rec.retestTitle")}
                       className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
                     >
-                      🔁 retest
+                      🔁 {t("rec.retest")}
                     </button>
                   )}
                 </div>
@@ -180,7 +181,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
               <td className="px-3 py-2 text-xs text-muted-foreground">{r.note || "—"}</td>
               <td className="px-3 py-2 text-xs">{r.attachments.length}</td>
               <td className="px-3 py-2 text-right">
-                <IconBtn title="Delete" allowed={manage} onClick={() => setDel(r.id)}>
+                <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel(r.id)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </IconBtn>
               </td>
@@ -191,14 +192,15 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && withToast(deleteRecord({ variables: { id: del } }), "Record deleted", "Couldn't delete record")}
-        label="record"
+        onConfirm={() => del && withToast(deleteRecord({ variables: { id: del } }), t("t.recordDeleted"), t("t.recordDeleteFail"))}
+        label={t("rec.recordLabel")}
       />
     </div>
   );
 }
 
 function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
+  const { t } = useTranslation();
   const { openPanel, selectIssue } = useNav();
   const { data, loading } = useQuery(ISSUES, { variables: { testCaseId } });
   const [del, setDel] = useState<{ id: string; title: string } | null>(null);
@@ -213,21 +215,21 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
         <thead>
           <tr className="border-b border-border">
             <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">ID</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Issue</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Priority</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assignee</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.id")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("issue.colIssue")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.type")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.priority")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.status")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading…</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No issues yet</td></tr>
+            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("tc.noIssuesYet")}</td></tr>
           )}
           {rows.map((i: any, idx: number) => (
             <tr key={i.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
@@ -244,10 +246,10 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
               <td className="px-3 py-2 text-muted-foreground">{i.assignee.name}</td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-1">
-                  <IconBtn title="Edit" allowed={manage} onClick={() => openPanel({ kind: "issue", mode: "edit", id: i.id })}>
+                  <IconBtn title={t("c.edit")} allowed={manage} onClick={() => openPanel({ kind: "issue", mode: "edit", id: i.id })}>
                     <Pencil className="h-3.5 w-3.5" />
                   </IconBtn>
-                  <IconBtn title="Delete" allowed={manage} onClick={() => setDel({ id: i.id, title: i.title })}>
+                  <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel({ id: i.id, title: i.title })}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </IconBtn>
                 </div>
@@ -259,7 +261,7 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && withToast(deleteIssue({ variables: { id: del.id } }), "Issue deleted", "Couldn't delete issue")}
+        onConfirm={() => del && withToast(deleteIssue({ variables: { id: del.id } }), t("t.issueDeleted"), t("t.issueDeleteFail"))}
         label={del?.title ?? ""}
       />
     </div>

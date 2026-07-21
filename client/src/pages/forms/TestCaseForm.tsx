@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useMutation, useQuery } from "@apollo/client";
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
@@ -34,6 +35,7 @@ const EMPTY: Form = {
 };
 
 export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureId: string }) {
+  const { t } = useTranslation();
   const { closePanel } = useNav();
   const editing = panel.mode === "edit";
 
@@ -82,38 +84,38 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
         .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
     };
     const ok = editing
-      ? await withToast(updateTestCase({ variables: { id: panel.id, input } }), "Test case updated", "Couldn't update test case")
-      : await withToast(createTestCase({ variables: { featureId, input } }), "Test case created", "Couldn't create test case");
+      ? await withToast(updateTestCase({ variables: { id: panel.id, input } }), t("t.testCaseUpdated"), t("t.testCaseUpdateFail"))
+      : await withToast(createTestCase({ variables: { featureId, input } }), t("t.testCaseCreated"), t("t.testCaseCreateFail"));
     if (ok) closePanel();
   };
 
   return (
     <RightPanel
-      title={editing ? "Edit Test Case" : "Add Test Case"}
+      title={editing ? t("form.editTestCase") : t("dash.addTestCase")}
       dirty={formState.isDirty}
       onClose={closePanel}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Field label="Name" error={formState.errors.name && "Required"}>
+        <Field label={t("c.name")} error={formState.errors.name && t("c.required")}>
           <input className={inputCls} {...register("name", { required: true })} />
         </Field>
-        <Field label="Description" optional>
+        <Field label={t("c.description")} optional>
           <textarea className={inputCls} rows={2} {...register("description")} />
         </Field>
-        <Field label="Precondition" optional>
+        <Field label={t("tc.precondition")} optional>
           <textarea className={inputCls} rows={2} {...register("precondition")} />
         </Field>
 
         {/* Steps */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Steps</label>
+            <label className="text-sm font-medium">{t("tc.steps")}</label>
             <button
               type="button"
               onClick={() => steps.append({ step: "", expectedResult: "" })}
               className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
             >
-              <Plus className="h-3 w-3" /> Step
+              <Plus className="h-3 w-3" /> {t("form.step")}
             </button>
           </div>
           {steps.fields.map((f, i) => (
@@ -122,7 +124,7 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
                 <span className="text-xs text-muted-foreground">#{i + 1}</span>
                 <input
                   className={inputCls}
-                  placeholder="Step"
+                  placeholder={t("form.stepPlaceholder")}
                   {...register(`steps.${i}.step` as const)}
                 />
                 <button
@@ -135,7 +137,7 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
               </div>
               <input
                 className={inputCls}
-                placeholder="Expected result (optional)"
+                placeholder={t("form.expectedOptional")}
                 {...register(`steps.${i}.expectedResult` as const)}
               />
             </div>
@@ -146,14 +148,14 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">
-              Attachments <span className="font-normal text-muted-foreground">(URL)</span>
+              {t("c.attachments")} <span className="font-normal text-muted-foreground">({t("form.url")})</span>
             </label>
             <button
               type="button"
               onClick={() => atts.append({ url: "", kind: "IMAGE", label: "" })}
               className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
             >
-              <Plus className="h-3 w-3" /> Attachment
+              <Plus className="h-3 w-3" /> {t("form.attachment")}
             </button>
           </div>
           {atts.fields.map((f, i) => (
@@ -178,7 +180,7 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
           ))}
         </div>
 
-        <Field label="Note / Summary" optional>
+        <Field label={t("form.noteSummary")} optional>
           <textarea className={inputCls} rows={2} {...register("note")} />
         </Field>
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} />

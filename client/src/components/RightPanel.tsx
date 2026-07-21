@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Modal } from "./Modal";
 
@@ -12,6 +13,7 @@ interface RightPanelProps {
 // Right-side form panel (DESIGN.md: input goes here, not in a modal). Guards
 // against losing unsaved input via a confirm modal when `dirty`.
 export function RightPanel({ title, dirty, onClose, children }: RightPanelProps) {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const requestClose = () => {
@@ -35,14 +37,14 @@ export function RightPanel({ title, dirty, onClose, children }: RightPanelProps)
       <Modal
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title="Discard changes?"
+        title={t("rp.discardTitle")}
         footer={
           <>
             <button
               onClick={() => setConfirmOpen(false)}
               className="h-7 rounded border border-border px-3 text-xs hover:bg-muted"
             >
-              Keep editing
+              {t("rp.keepEditing")}
             </button>
             <button
               onClick={() => {
@@ -51,12 +53,12 @@ export function RightPanel({ title, dirty, onClose, children }: RightPanelProps)
               }}
               className="h-7 rounded bg-destructive px-3 text-xs font-medium text-white hover:bg-destructive/90"
             >
-              Discard
+              {t("rp.discard")}
             </button>
           </>
         }
       >
-        <p className="text-sm text-muted-foreground">You have unsaved changes. Discard them?</p>
+        <p className="text-sm text-muted-foreground">{t("rp.unsaved")}</p>
       </Modal>
     </aside>
   );

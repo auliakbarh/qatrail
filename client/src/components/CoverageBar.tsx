@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils";
 
 interface CoverageBarProps {
@@ -9,6 +10,7 @@ interface CoverageBarProps {
 // Compact pass% bar + ready/below badge. Bar is monochrome per DESIGN.md;
 // the badge carries the ready state.
 export function CoverageBar({ percent, min, ready }: CoverageBarProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-16 rounded-full bg-muted">
@@ -20,9 +22,9 @@ export function CoverageBar({ percent, min, ready }: CoverageBarProps) {
           "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
           ready ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground",
         )}
-        title={`min ${min}%`}
+        title={t("coverage.min", { min })}
       >
-        {ready ? "Ready" : "Below"}
+        {ready ? t("dash.ready") : t("dash.below")}
       </span>
     </div>
   );
