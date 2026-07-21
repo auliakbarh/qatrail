@@ -33,9 +33,9 @@ function Filter({ label, value, onChange, options }: { label: string; value: str
     <div className="flex items-center gap-1.5">
       <span className="text-xs text-muted-foreground">{label}:</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={small}>
-        <option value="">all</option>
+        <option value="">ALL</option>
         {options.map((o) => (
-          <option key={o} value={o}>{o === "AT_RISK" ? "At risk" : o}</option>
+          <option key={o} value={o}>{o}</option>
         ))}
       </select>
     </div>
@@ -79,9 +79,9 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
           <span className="text-xs text-muted-foreground">Group by:</span>
           <select value={groupKey} onChange={(e) => setGroupKey(e.target.value)} className={small}>
             <option value="">-</option>
-            <option value="status">status</option>
-            <option value="priority">priority</option>
-            <option value="type">type</option>
+            <option value="status">STATUS</option>
+            <option value="priority">PRIORITY</option>
+            <option value="type">TYPE</option>
           </select>
         </div>
       </div>

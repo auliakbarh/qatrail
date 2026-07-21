@@ -60,7 +60,7 @@ export function FilterBar(p: FilterBarProps) {
             <option value="">-</option>
             {p.groupOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {o.label.toUpperCase()}
               </option>
             ))}
           </select>
