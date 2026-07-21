@@ -65,7 +65,8 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
   if (fType) rows = rows.filter((r: any) => r.type === fType);
   rows = sortRows(rows, sortKey as any, sortDir);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
-  const colCount = showPeople ? 8 : 6;
+  const colCount = showPeople ? 9 : 7;
+  const fmtDate = (iso: string) => new Date(iso).toLocaleString();
 
   return (
     <div>
@@ -103,6 +104,7 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
               <SortableTh label="Priority" colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="Status" colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label="SLA" colKey="slaStatus" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label="Created" colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assignee</th>}
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Reporter</th>}
             </tr>
@@ -130,6 +132,7 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
                     <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
                     <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
                     <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDate(i.createdAt)}</td>
                     {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.assignee?.name ?? "—"}</td>}
                     {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.reporter?.name ?? "—"}</td>}
                   </tr>
