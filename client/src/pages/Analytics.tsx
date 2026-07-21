@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { ANALYTICS } from "../graphql/analytics";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
+import { FilterBar } from "../components/FilterBar";
+import { SortableTh, nextSort } from "../components/SortableTh";
+import { searchRows, sortRows } from "../lib/list";
 
 function fmtMins(m: number | null): string {
   if (m == null) return "—";
@@ -97,25 +100,34 @@ export default function Analytics() {
           </div>
 
           <Card title="Created vs resolved (6 mo)">
+            {a.createdVsResolved.every((p: any) => p.created === 0 && p.resolved === 0) ? (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                No data yet
+              </div>
+            ) : (
             <div className="flex h-40 items-end gap-3">
               {a.createdVsResolved.map((p: any) => (
-                <div key={p.period} className="flex flex-1 flex-col items-center justify-end gap-1">
+                <div key={p.period} className="group relative flex flex-1 flex-col items-center justify-end gap-1">
                   <div className="flex h-full w-full items-end justify-center gap-1">
                     <div
                       className="w-3 rounded-t bg-primary"
-                      style={{ height: `${(p.created / maxCvR) * 100}%` }}
-                      title={`created ${p.created}`}
+                      style={{ height: `${Math.max(p.created ? 2 : 0, (p.created / maxCvR) * 100)}%` }}
                     />
                     <div
                       className="w-3 rounded-t bg-muted-foreground/50"
-                      style={{ height: `${(p.resolved / maxCvR) * 100}%` }}
-                      title={`resolved ${p.resolved}`}
+                      style={{ height: `${Math.max(p.resolved ? 2 : 0, (p.resolved / maxCvR) * 100)}%` }}
                     />
                   </div>
                   <span className="text-[10px] text-muted-foreground">{p.period.slice(5)}</span>
+                  {/* instant hover tooltip */}
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] shadow-md group-hover:block">
+                    <div className="font-medium">{p.period}</div>
+                    <div className="text-muted-foreground">created {p.created} · resolved {p.resolved}</div>
+                  </div>
                 </div>
               ))}
             </div>
+            )}
             <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-primary" />Created</span>
               <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-muted-foreground/50" />Resolved</span>
@@ -159,27 +171,7 @@ export default function Analytics() {
                 <div className="h-2 rounded-full bg-primary" style={{ width: `${a.confidence.percent}%` }} />
               </div>
             </div>
-            <div className="space-y-1.5">
-              {a.keyCoverage.length === 0 && <div className="text-xs text-muted-foreground">No features</div>}
-              {a.keyCoverage.map((k: any) => (
-                <div key={k.name} className="flex items-center gap-2 text-xs">
-                  <span className="w-40 shrink-0 truncate">{k.name}</span>
-                  <div className="h-1.5 flex-1 rounded-full bg-muted">
-                    <div className="h-1.5 rounded-full bg-primary" style={{ width: `${k.percent}%` }} />
-                  </div>
-                  <span className="w-24 text-right tabular-nums text-muted-foreground">
-                    {k.percent}% · {k.passed}/{k.total}
-                  </span>
-                  <span
-                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                      k.ready ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
-                    }`}
-                  >
-                    {k.ready ? "Ready" : "Below"}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <KeyCoverageTable rows={a.keyCoverage} />
           </Card>
         </>
       )}
@@ -241,6 +233,66 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
             <span className="tabular-nums">{b.count}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function KeyCoverageTable({ rows }: { rows: any[] }) {
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const onSort = (key: string) => {
+    const n = nextSort({ key: sortKey, dir: sortDir }, key);
+    setSortKey(n.key);
+    setSortDir(n.dir);
+  };
+  const list = sortRows(searchRows(rows ?? [], search, ["name"]), sortKey as any, sortDir);
+
+  return (
+    <div>
+      <FilterBar search={search} onSearch={setSearch} />
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <SortableTh label="Feature" colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label="Pass %" colKey="percent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label="Passed" colKey="passed" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh label="Ready" colKey="ready" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            </tr>
+          </thead>
+          <tbody>
+            {list.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-8 text-center text-muted-foreground">No features</td>
+              </tr>
+            )}
+            {list.map((k: any) => (
+              <tr key={k.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                <td className="px-3 py-2">{k.name}</td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-16 rounded-full bg-muted">
+                      <div className="h-1.5 rounded-full bg-primary" style={{ width: `${k.percent}%` }} />
+                    </div>
+                    <span className="tabular-nums text-xs">{k.percent}%</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2 tabular-nums text-muted-foreground">{k.passed}/{k.total}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      k.ready ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
+                    }`}
+                  >
+                    {k.ready ? "Ready" : "Below"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
