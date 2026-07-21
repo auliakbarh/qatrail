@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { LOGIN, HEALTH } from "../graphql";
 import { useAuth } from "../store/auth";
+import { PasswordInput } from "../components/PasswordInput";
 
 interface Form {
   email: string;
@@ -57,10 +58,8 @@ export default function Login() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t("login.password")}</label>
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="current-password"
-              className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="••••••••"
               {...register("password", { required: true })}
             />

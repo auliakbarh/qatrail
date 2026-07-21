@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@apollo/client";
 import { RESET_PASSWORD } from "../graphql/admin";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
+import { PasswordInput } from "../components/PasswordInput";
 
 export default function ResetPassword() {
   const { token } = useParams();
@@ -33,13 +34,7 @@ export default function ResetPassword() {
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">New password</label>
-            <input
-              type="password"
-              required
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <PasswordInput required value={pw} onChange={(e) => setPw(e.target.value)} />
             {pw && unmet.length > 0 && <p className="text-xs text-destructive">Missing: {unmet.join(", ")}</p>}
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}

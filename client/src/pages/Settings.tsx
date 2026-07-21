@@ -11,6 +11,7 @@ import { cn } from "../lib/utils";
 import { inputCls, Field } from "../components/Form";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
+import { PasswordInput } from "../components/PasswordInput";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
 const ROLES = ["QA", "ENGINEER", "ADMIN", "SUPER_ADMIN"];
@@ -82,10 +83,10 @@ function ChangePasswordCard() {
     <Card title="Change password">
       <form onSubmit={submit} className="max-w-sm space-y-4">
         <Field label="Current password">
-          <input type="password" className={inputCls} value={cur} onChange={(e) => setCur(e.target.value)} />
+          <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} />
         </Field>
         <Field label="New password">
-          <input type="password" className={inputCls} value={next} onChange={(e) => setNext(e.target.value)} />
+          <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} />
           {next && unmet.length > 0 && (
             <p className="text-xs text-destructive">Missing: {unmet.join(", ")}</p>
           )}
