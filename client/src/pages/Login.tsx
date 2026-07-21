@@ -75,11 +75,7 @@ export default function Login() {
           <button
             type="button"
             disabled={!ssoEnabled}
-            onClick={() =>
-              setError(
-                "Microsoft sign-in is prepared but not yet configured (MSAL + Entra pending).",
-              )
-            }
+            onClick={() => setError(t("login.ssoNotReady"))}
             className="flex w-full items-center justify-center gap-2 rounded border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-60 disabled:hover:bg-transparent"
           >
             {t("login.microsoft")}

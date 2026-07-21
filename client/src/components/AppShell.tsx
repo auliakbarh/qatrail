@@ -48,9 +48,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
           {[
             { to: "/", label: t("nav.dashboard"), Icon: LayoutDashboard, end: true, tree: true },
-            { to: "/issues", label: "All issues", Icon: ListChecks, end: true, tree: false },
+            { to: "/issues", label: t("nav.allIssues"), Icon: ListChecks, end: true, tree: false },
             ...(user?.role === "ENGINEER"
-              ? [{ to: "/assigned", label: "Assigned to me", Icon: Inbox, end: true, tree: false }]
+              ? [{ to: "/assigned", label: t("nav.assigned"), Icon: Inbox, end: true, tree: false }]
               : []),
             { to: "/analytics", label: t("nav.analytics"), Icon: BarChart3, end: false, tree: false },
             { to: "/settings", label: t("nav.settings"), Icon: Settings, end: false, tree: false },
