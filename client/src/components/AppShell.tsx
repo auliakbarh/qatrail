@@ -75,11 +75,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="flex items-center gap-2 border-t border-border p-2">
-          <span
-            className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center rounded bg-muted text-[10px] font-semibold"
-            title={user?.role}
-          >
-            {roleShort}
+          <span className="group relative shrink-0">
+            <span className="flex h-7 w-7 cursor-default items-center justify-center rounded bg-muted text-[10px] font-semibold">
+              {roleShort}
+            </span>
+            <span className="pointer-events-none absolute bottom-full left-0 z-50 mb-1 hidden whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-[10px] font-medium text-foreground shadow-md group-hover:block">
+              {user?.role}
+            </span>
           </span>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-xs font-semibold">{user?.name}</div>
