@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: qar_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: qar
+      POSTGRES_PASSWORD: qar_password
+      POSTGRES_DB: qa_reporting
+    ports:
+      - "5434:5432"
+    volumes:
+      - qar_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qar -d qa_reporting"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  qar_pgdata:

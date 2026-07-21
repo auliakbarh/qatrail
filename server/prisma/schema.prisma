@@ -1,0 +1,341 @@
+// QA Reporting — Prisma schema. See docs/DATABASE.md for rationale.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  QA
+  ENGINEER
+}
+
+enum AuthProvider {
+  PASSWORD
+  SSO
+  BOTH
+}
+
+enum FindingType {
+  DEFECT
+  BUG
+}
+
+enum Platform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum Environment {
+  STAGING
+  PRODUCTION
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum WorkStatus {
+  OPEN
+  IN_PROGRESS
+  NEED_REVIEW
+  IN_REVIEW
+  CLOSED
+  REOPENED
+  HOLD
+}
+
+enum ReviewState {
+  PENDING
+  ACCEPTED
+  NEED_CLARIFY
+  REJECTED
+}
+
+enum TestResult {
+  PASS
+  FAIL
+}
+
+enum AttachKind {
+  IMAGE
+  VIDEO
+  MARKDOWN
+  JSON
+  DOC
+  XLS
+  CSV
+  PDF
+  OTHER
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  email              String       @unique
+  name               String
+  role               Role
+  passwordHash       String?
+  authProvider       AuthProvider @default(PASSWORD)
+  mustChangePassword Boolean      @default(true)
+  active             Boolean      @default(true)
+  sessionId          String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  projects       Project[]       @relation("projectOwner")
+  testCases      TestCase[]      @relation("testCaseAuthor")
+  recordTests    RecordTest[]    @relation("testExecutor")
+  reportedIssues Issue[]         @relation("reporter")
+  assignedIssues Issue[]         @relation("assignee")
+  postmortems    Postmortem[]    @relation("postmortemAuthor")
+  statusEvents   StatusEvent[]
+  notifications  Notification[]
+  passwordResets PasswordReset[]
+}
+
+model Project {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  squad          String?
+  minPassPercent Int      @default(0)
+  createdById    String
+  createdBy      User     @relation("projectOwner", fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  features Feature[]
+
+  @@index([name])
+}
+
+model Feature {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  minPassPercent Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  testCases TestCase[]
+
+  @@index([projectId])
+}
+
+model TestCase {
+  id           String   @id @default(cuid())
+  featureId    String
+  feature      Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  precondition String?
+  note         String?
+  createdById  String
+  createdBy    User     @relation("testCaseAuthor", fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  steps       TestCaseStep[]
+  attachments TestCaseAttachment[]
+  records     RecordTest[]
+  issues      Issue[]
+
+  @@index([featureId])
+}
+
+model TestCaseStep {
+  id             String   @id @default(cuid())
+  testCaseId     String
+  testCase       TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  order          Int
+  step           String
+  expectedResult String?
+
+  @@index([testCaseId])
+}
+
+model TestCaseAttachment {
+  id         String     @id @default(cuid())
+  testCaseId String
+  testCase   TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  order      Int
+  url        String
+  kind       AttachKind
+  label      String?
+
+  @@index([testCaseId])
+}
+
+model RecordTest {
+  id           String     @id @default(cuid())
+  testCaseId   String
+  testCase     TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  executedById String
+  executedBy   User       @relation("testExecutor", fields: [executedById], references: [id])
+  executedAt   DateTime
+  note         String?
+  result       TestResult
+  createdAt    DateTime   @default(now())
+
+  attachments RecordTestAttachment[]
+  issue       Issue?
+
+  @@index([testCaseId])
+  @@index([result])
+}
+
+model RecordTestAttachment {
+  id           String     @id @default(cuid())
+  recordTestId String
+  recordTest   RecordTest @relation(fields: [recordTestId], references: [id], onDelete: Cascade)
+  url          String
+  kind         AttachKind
+  label        String?
+
+  @@index([recordTestId])
+}
+
+model Issue {
+  id             String      @id @default(cuid())
+  testCaseId     String
+  testCase       TestCase    @relation(fields: [testCaseId], references: [id])
+  recordTestId   String?     @unique
+  recordTest     RecordTest? @relation(fields: [recordTestId], references: [id])
+
+  type           FindingType
+  title          String
+  description    String
+  environment    Environment
+  platform       Platform
+  appVersion     String?
+  backendVersion String?
+  testAccount    String
+  testPassword   String?
+  testedAt       DateTime
+  preconditions  String?
+  steps          String
+  actualResult   String
+  expectedResult String
+  priority       Priority
+  note           String?
+
+  status   WorkStatus  @default(OPEN)
+  review   ReviewState @default(PENDING)
+  archived Boolean     @default(false)
+
+  reporterId String
+  reporter   User   @relation("reporter", fields: [reporterId], references: [id])
+  assigneeId String
+  assignee   User   @relation("assignee", fields: [assigneeId], references: [id])
+
+  recreatedFromId String?
+
+  jiraKey       String?
+  jiraCommentId String?
+
+  respondedAt DateTime?
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  attachments IssueAttachment[]
+  history     StatusEvent[]
+  postmortem  Postmortem?
+
+  @@index([testCaseId])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([reporterId])
+  @@index([archived])
+}
+
+model IssueAttachment {
+  id      String     @id @default(cuid())
+  issueId String
+  issue   Issue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  order   Int
+  url     String
+  kind    AttachKind
+  label   String?
+
+  @@index([issueId])
+}
+
+model Postmortem {
+  id           String   @id @default(cuid())
+  issueId      String   @unique
+  issue        Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  rootCause    String
+  resolution   String
+  impact       String?
+  prevention   String?
+  resolvedById String
+  resolvedBy   User     @relation("postmortemAuthor", fields: [resolvedById], references: [id])
+  resolvedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model StatusEvent {
+  id      String   @id @default(cuid())
+  issueId String
+  issue   Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  kind    String
+  fromVal String?
+  toVal   String?
+  byId    String
+  by      User     @relation(fields: [byId], references: [id])
+  note    String?
+  at      DateTime @default(now())
+
+  @@index([issueId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  message   String
+  issueId   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Setting {
+  id                 String   @id @default("singleton")
+  maintenanceMode    Boolean  @default(false)
+  maintenanceMessage String?
+  discordWebhookUrl  String?
+  discordEnabled     Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
+
+model SlaTarget {
+  priority    Priority @id
+  respondMins Int?
+  resolveMins Int
+  updatedAt   DateTime @updatedAt
+}
