@@ -105,10 +105,10 @@ export default function Analytics() {
                 No data yet
               </div>
             ) : (
-            <div className="flex h-40 items-end gap-3">
+            <div className="flex h-40 items-stretch gap-3">
               {a.createdVsResolved.map((p: any) => (
-                <div key={p.period} className="group relative flex flex-1 flex-col items-center justify-end gap-1">
-                  <div className="flex h-full w-full items-end justify-center gap-1">
+                <div key={p.period} className="group relative flex h-full flex-1 flex-col items-center justify-end gap-1">
+                  <div className="flex w-full flex-1 items-end justify-center gap-1">
                     <div
                       className="w-3 rounded-t bg-primary"
                       style={{ height: `${Math.max(p.created ? 2 : 0, (p.created / maxCvR) * 100)}%` }}
