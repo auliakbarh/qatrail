@@ -254,6 +254,8 @@ model Issue {
   respondedAt DateTime?
   resolvedAt  DateTime?
   closedAt    DateTime?
+  slaRespondNotifiedAt DateTime?
+  slaResolveNotifiedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
