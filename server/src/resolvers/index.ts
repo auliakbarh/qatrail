@@ -40,6 +40,7 @@ export const resolvers = {
   TestCase: testCaseResolvers.TestCase,
   RecordTest: recordResolvers.RecordTest,
   Issue: issueResolvers.Issue,
+  IssueComment: issueResolvers.IssueComment,
   StatusEvent: workflowResolvers.StatusEvent,
   Postmortem: workflowResolvers.Postmortem,
   Notification: notificationResolvers.Notification,

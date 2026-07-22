@@ -92,6 +92,17 @@ export const DELETE_ISSUE = gql`
   mutation DeleteIssue($id: ID!) { deleteIssue(id: $id) }
 `;
 
+export const ISSUE_COMMENTS = gql`
+  query IssueComments($issueId: ID!) {
+    issueComments(issueId: $issueId) { id body createdAt by { id name } }
+  }
+`;
+export const ADD_ISSUE_COMMENT = gql`
+  mutation AddIssueComment($issueId: ID!, $body: String!) {
+    addIssueComment(issueId: $issueId, body: $body) { id }
+  }
+`;
+
 export const BULK_ARCHIVE = gql`mutation($ids:[ID!]!,$archived:Boolean!){ bulkArchiveIssues(ids:$ids,archived:$archived) }`;
 export const BULK_ASSIGN = gql`mutation($ids:[ID!]!,$assigneeId:ID!){ bulkAssignIssues(ids:$ids,assigneeId:$assigneeId) }`;
 export const BULK_DELETE = gql`mutation($ids:[ID!]!){ bulkDeleteIssues(ids:$ids) }`;

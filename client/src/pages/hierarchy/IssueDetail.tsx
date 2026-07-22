@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Archive, ArchiveRestore, Copy } from "lucide-react";
-import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA } from "../../graphql/issue";
+import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA, ISSUE_COMMENTS, ADD_ISSUE_COMMENT } from "../../graphql/issue";
 import { HEALTH } from "../../graphql";
 import {
   ISSUE_ACCEPT,
@@ -254,6 +254,9 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
         </div>
       </div>
 
+      {/* Comments */}
+      <CommentsCard issueId={id} />
+
       {/* Timeline */}
       <div className="rounded border border-border">
         <div className="border-b border-border px-5 py-4">
@@ -353,5 +356,52 @@ function ActBtn({ children, onClick, primary, destructive, allowed = true }: { c
     <button onClick={onClick} className={cn("h-8 rounded px-3 text-xs font-medium transition-colors", cls, !allowed && "opacity-40")}>
       {children}
     </button>
+  );
+}
+
+function CommentsCard({ issueId }: { issueId: string }) {
+  const { t } = useTranslation();
+  const { data, refetch } = useQuery(ISSUE_COMMENTS, { variables: { issueId }, fetchPolicy: "cache-and-network" });
+  const [add, { loading }] = useMutation(ADD_ISSUE_COMMENT);
+  const [body, setBody] = useState("");
+  const comments = data?.issueComments ?? [];
+  const fmtc = (iso: string) => new Date(iso).toLocaleString();
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!body.trim()) return;
+    const ok = await withToast(add({ variables: { issueId, body } }), t("cmt.send"), t("c.somethingWrong"));
+    if (ok) { setBody(""); await refetch(); }
+  };
+
+  return (
+    <div className="rounded border border-border">
+      <div className="border-b border-border px-5 py-4">
+        <h3 className="text-sm font-semibold">{t("cmt.title")} ({comments.length})</h3>
+      </div>
+      <div className="space-y-3 px-5 py-4">
+        {comments.length === 0 && <p className="text-xs text-muted-foreground">{t("cmt.empty")}</p>}
+        {comments.map((c: any) => (
+          <div key={c.id} className="text-sm">
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{c.by.name}</span> · {fmtc(c.createdAt)}
+            </div>
+            <div className="whitespace-pre-wrap">{c.body}</div>
+          </div>
+        ))}
+        <form onSubmit={submit} className="space-y-2 pt-1">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={2}
+            placeholder={t("cmt.placeholder")}
+            className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button type="submit" disabled={loading || !body.trim()} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            {loading ? t("c.saving") : t("cmt.send")}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

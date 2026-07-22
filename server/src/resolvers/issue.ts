@@ -81,6 +81,10 @@ export const issueResolvers = {
       requireAuth(ctx);
       return ctx.prisma.issue.findUnique({ where: { id: args.id } });
     },
+    async issueComments(_: unknown, args: { issueId: string }, ctx: Context) {
+      requireAuth(ctx);
+      return ctx.prisma.issueComment.findMany({ where: { issueId: args.issueId }, orderBy: { createdAt: "asc" } });
+    },
     async assignedToMe(_: unknown, __: unknown, ctx: Context) {
       const userId = requireAuth(ctx);
       return ctx.prisma.issue.findMany({
@@ -211,6 +215,19 @@ export const issueResolvers = {
       return r.count;
     },
 
+    async addIssueComment(_: unknown, args: { issueId: string; body: string }, ctx: Context) {
+      const userId = requireAuth(ctx);
+      const body = args.body.trim();
+      if (!body) throw new Error("Comment cannot be empty");
+      const issue = await ctx.prisma.issue.findUnique({ where: { id: args.issueId } });
+      if (!issue) throw new Error("Issue not found");
+      const comment = await ctx.prisma.issueComment.create({ data: { issueId: args.issueId, byId: userId, body } });
+      // Notify the other party (reporter ↔ assignee).
+      const other = userId === issue.reporterId ? issue.assigneeId : issue.reporterId;
+      if (other && other !== userId) await notify(other, "COMMENT", `New comment on: ${issue.title}`, issue.id);
+      return comment;
+    },
+
     // Post (or re-post/edit) a formatted comment on a JIRA ticket, containing
     // the issue deep-link + all fields. Idempotent via stored jiraCommentId.
     async postIssueToJira(_: unknown, args: { id: string; jiraKey: string }, ctx: Context) {
@@ -298,5 +315,9 @@ export const issueResolvers = {
         return null;
       }
     },
+  },
+  IssueComment: {
+    createdAt: (c: any) => c.createdAt.toISOString(),
+    by: (c: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: c.byId } }),
   },
 };

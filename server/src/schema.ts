@@ -112,6 +112,13 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
   }
 
+  type IssueComment {
+    id: ID!
+    body: String!
+    by: User!
+    createdAt: String!
+  }
+
   type StatusEvent {
     id: ID!
     kind: String!
@@ -327,6 +334,7 @@ export const typeDefs = /* GraphQL */ `
     issues(testCaseId: ID, archived: Boolean): [Issue!]!
     issue(id: ID!): Issue
     assignedToMe: [Issue!]!
+    issueComments(issueId: ID!): [IssueComment!]!
 
     notifications: [Notification!]!
     unreadCount: Int!
@@ -388,6 +396,8 @@ export const typeDefs = /* GraphQL */ `
     bulkArchiveIssues(ids: [ID!]!, archived: Boolean!): Int!
     bulkAssignIssues(ids: [ID!]!, assigneeId: ID!): Int!
     bulkDeleteIssues(ids: [ID!]!): Int!
+
+    addIssueComment(issueId: ID!, body: String!): IssueComment!
 
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Boolean!

@@ -99,6 +99,7 @@ model User {
   statusEvents   StatusEvent[]
   notifications  Notification[]
   passwordResets PasswordReset[]
+  issueComments  IssueComment[]
 }
 
 model Project {
@@ -259,6 +260,7 @@ model Issue {
   attachments IssueAttachment[]
   history     StatusEvent[]
   postmortem  Postmortem?
+  comments    IssueComment[]
 
   @@index([testCaseId])
   @@index([status])
@@ -275,6 +277,18 @@ model IssueAttachment {
   url     String
   kind    AttachKind
   label   String?
+
+  @@index([issueId])
+}
+
+model IssueComment {
+  id        String   @id @default(cuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  byId      String
+  by        User     @relation(fields: [byId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
 
   @@index([issueId])
 }
