@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Archive, ArchiveRestore, Copy } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, Copy, Printer } from "lucide-react";
 import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA, ISSUE_COMMENTS, ADD_ISSUE_COMMENT } from "../../graphql/issue";
 import { HEALTH } from "../../graphql";
 import {
@@ -18,6 +18,7 @@ import {
 import { useNav } from "../../store/nav";
 import { useAuth } from "../../store/auth";
 import { cn, fmtDateTime as fmt } from "../../lib/utils";
+import { printIssueReport } from "../../lib/printReport";
 import { TextPromptModal } from "../../components/TextPromptModal";
 import { withToast, useToast, copyWithToast } from "../../store/toast";
 import { AttachmentList } from "../../components/AttachmentList";
@@ -184,8 +185,14 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {/* Postmortem */}
       {i.postmortem && (
         <div className="rounded border border-border">
-          <div className="border-b border-border px-5 py-4">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-sm font-semibold">{t("pm.title")}</h3>
+            <button
+              onClick={() => printIssueReport(i)}
+              className="flex h-7 items-center gap-1.5 rounded border border-border px-2.5 text-xs hover:bg-muted"
+            >
+              <Printer className="h-3.5 w-3.5" /> {t("pm.print")}
+            </button>
           </div>
           <div className="space-y-3 px-5 py-4 text-sm">
             <Block label={t("pm.rootCause")} text={i.postmortem.rootCause} />
