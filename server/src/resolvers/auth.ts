@@ -40,14 +40,14 @@ export const authResolvers = {
   Mutation: {
     async login(_: unknown, args: { email: string; password: string }, ctx: Context) {
       const email = args.email.trim().toLowerCase();
-      assertNotLocked(email);
+      await assertNotLocked(email);
       const user = await ctx.prisma.user.findUnique({ where: { email } });
       const ok = user?.passwordHash ? await verifyPassword(args.password, user.passwordHash) : false;
       if (!user || !user.active || !ok) {
-        recordFailure(email);
+        await recordFailure(email);
         throw new Error("Invalid email or password");
       }
-      recordSuccess(email);
+      await recordSuccess(email);
       // Rotate session id — invalidates tokens from other devices.
       const sid = crypto.randomUUID();
       await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });
@@ -88,7 +88,7 @@ export const authResolvers = {
 
     async forgotPassword(_: unknown, args: { email: string }, ctx: Context) {
       const email = args.email.trim().toLowerCase();
-      assertWithinRate(`forgot:${email}`, 3, 15 * 60_000); // 3 per 15 min
+      await assertWithinRate(`forgot:${email}`, 3, 15 * 60_000); // 3 per 15 min
       const user = await ctx.prisma.user.findUnique({ where: { email } });
       // Always return true — don't leak whether the email exists.
       if (user && user.active) {
