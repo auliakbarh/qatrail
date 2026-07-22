@@ -83,3 +83,6 @@ export const MOVE_TEST_CASE = gql`
     moveTestCase(id: $id, featureId: $featureId) { id featureId }
   }
 `;
+export const CLONE_PROJECT = gql`mutation CloneProject($id: ID!, $name: String){ cloneProject(id:$id,name:$name){ id } }`;
+export const CLONE_FEATURE = gql`mutation CloneFeature($id: ID!, $targetProjectId: ID!, $name: String){ cloneFeature(id:$id,targetProjectId:$targetProjectId,name:$name){ id } }`;
+export const CLONE_TEST_CASE = gql`mutation CloneTestCase($id: ID!, $targetFeatureId: ID!, $name: String){ cloneTestCase(id:$id,targetFeatureId:$targetFeatureId,name:$name){ id } }`;

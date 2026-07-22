@@ -4,6 +4,16 @@ import { initReactI18next } from "react-i18next";
 // Full UI dictionary (en / id). Keys grouped by area with flat dotted names.
 const en = {
   app: "QATrail",
+  "clone.featureTitle": "Clone feature",
+  "clone.testCaseTitle": "Clone test case",
+  "clone.featureHelp": "Copy this feature and its test cases (steps + attachments) into a project. Records and issues are not copied.",
+  "clone.testCaseHelp": "Copy this test case (steps + attachments) into a feature. Records and issues are not copied.",
+  "clone.newName": "New name",
+  "clone.namePlaceholder": "leave blank for \"… (copy)\"",
+  "clone.action": "Clone",
+  "clone.done": "Cloned",
+  "clone.fail": "Couldn't clone",
+
   "health.title": "System health",
   "health.refresh": "Refresh",
   "health.up": "All systems operational",
@@ -576,6 +586,16 @@ Hold / Resume ............. pause & resume IN_PROGRESS`,
 
 const id: typeof en = {
   app: "QATrail",
+  "clone.featureTitle": "Klon fitur",
+  "clone.testCaseTitle": "Klon test case",
+  "clone.featureHelp": "Salin fitur ini beserta test case-nya (langkah + lampiran) ke sebuah proyek. Rekaman dan isu tidak disalin.",
+  "clone.testCaseHelp": "Salin test case ini (langkah + lampiran) ke sebuah fitur. Rekaman dan isu tidak disalin.",
+  "clone.newName": "Nama baru",
+  "clone.namePlaceholder": "kosongkan untuk \"… (copy)\"",
+  "clone.action": "Klon",
+  "clone.done": "Terklon",
+  "clone.fail": "Gagal mengklon",
+
   "health.title": "Kesehatan sistem",
   "health.refresh": "Muat ulang",
   "health.up": "Semua sistem normal",

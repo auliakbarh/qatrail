@@ -1,6 +1,7 @@
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { projectCoverage } from "../coverage.js";
+import { cloneProjectDeep } from "../clone.js";
 
 interface ProjectInput {
   name: string;
@@ -53,6 +54,10 @@ export const projectResolvers = {
       await requireQA(ctx);
       await ctx.prisma.project.delete({ where: { id: args.id } });
       return true;
+    },
+    async cloneProject(_: unknown, args: { id: string; name?: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      return cloneProjectDeep(args.id, user.id, args.name?.trim() || undefined);
     },
   },
   Project: {

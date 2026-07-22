@@ -1,6 +1,7 @@
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { featureCoverage } from "../coverage.js";
+import { cloneFeatureInto } from "../clone.js";
 
 interface FeatureInput {
   name: string;
@@ -53,6 +54,10 @@ export const featureResolvers = {
       await requireQA(ctx);
       await ctx.prisma.feature.delete({ where: { id: args.id } });
       return true;
+    },
+    async cloneFeature(_: unknown, args: { id: string; targetProjectId: string; name?: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      return cloneFeatureInto(args.id, args.targetProjectId, user.id, args.name?.trim() || undefined);
     },
   },
   Feature: {

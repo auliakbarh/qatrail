@@ -1,5 +1,6 @@
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
+import { cloneTestCaseInto } from "../clone.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -87,6 +88,12 @@ export const testCaseResolvers = {
       const target = await ctx.prisma.feature.findUnique({ where: { id: args.featureId } });
       if (!target) throw new Error("Target feature not found");
       return ctx.prisma.testCase.update({ where: { id: args.id }, data: { featureId: args.featureId } });
+    },
+    async cloneTestCase(_: unknown, args: { id: string; targetFeatureId: string; name?: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const target = await ctx.prisma.feature.findUnique({ where: { id: args.targetFeatureId } });
+      if (!target) throw new Error("Target feature not found");
+      return cloneTestCaseInto(args.id, args.targetFeatureId, user.id, args.name?.trim() || undefined);
     },
   },
   TestCase: {

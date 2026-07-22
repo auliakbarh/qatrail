@@ -350,15 +350,18 @@ export const typeDefs = /* GraphQL */ `
     createProject(input: ProjectInput!): Project!
     updateProject(id: ID!, input: ProjectInput!): Project!
     deleteProject(id: ID!): Boolean!
+    cloneProject(id: ID!, name: String): Project!
 
     createFeature(projectId: ID!, input: FeatureInput!): Feature!
     updateFeature(id: ID!, input: FeatureInput!): Feature!
     deleteFeature(id: ID!): Boolean!
+    cloneFeature(id: ID!, targetProjectId: ID!, name: String): Feature!
 
     createTestCase(featureId: ID!, input: TestCaseInput!): TestCase!
     updateTestCase(id: ID!, input: TestCaseInput!): TestCase!
     deleteTestCase(id: ID!): Boolean!
     moveTestCase(id: ID!, featureId: ID!): TestCase!
+    cloneTestCase(id: ID!, targetFeatureId: ID!, name: String): TestCase!
 
     createRecordTest(testCaseId: ID!, input: RecordTestInput!): RecordTest!
     deleteRecordTest(id: ID!): Boolean!

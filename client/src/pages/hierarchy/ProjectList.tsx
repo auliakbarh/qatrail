@@ -1,8 +1,8 @@
 import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
-import { PROJECTS, DELETE_PROJECT } from "../../graphql/hierarchy";
+import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { PROJECTS, DELETE_PROJECT, CLONE_PROJECT } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
@@ -22,6 +22,7 @@ export function ProjectList() {
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(PROJECTS, { fetchPolicy: "cache-and-network" });
   const [deleteProject] = useMutation(DELETE_PROJECT, { refetchQueries: [PROJECTS] });
+  const [cloneProject] = useMutation(CLONE_PROJECT, { refetchQueries: [PROJECTS] });
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -126,6 +127,13 @@ export function ProjectList() {
                       <div className="flex justify-end gap-1">
                         <IconBtn title={t("c.open")} onClick={() => selectProject(p.id)}>
                           <FolderOpen className="h-3.5 w-3.5" />
+                        </IconBtn>
+                        <IconBtn
+                          title={t("clone.action")}
+                          allowed={manage}
+                          onClick={() => withToast(cloneProject({ variables: { id: p.id } }), t("clone.done"), t("clone.fail"))}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
                         </IconBtn>
                         <IconBtn
                           title={t("c.edit")}
