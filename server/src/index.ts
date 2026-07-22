@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
@@ -33,6 +34,15 @@ if (env.isProd && env.corsOrigins.length === 0) {
 }
 
 const app = express();
+// Security headers. CSP is disabled here (the API returns JSON, not HTML — the
+// CSP belongs on the client host / nginx). CORP set cross-origin so the separate
+// client origin can read responses. HSTS/noSniff/frameguard/etc. stay on.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 const httpServer = createServer(app);
 
