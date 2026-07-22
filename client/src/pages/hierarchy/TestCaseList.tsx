@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2 } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, ArrowRightLeft } from "lucide-react";
 import { TEST_CASES, DELETE_TEST_CASE } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
@@ -111,6 +111,13 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                     <div className="flex justify-end gap-1">
                       <IconBtn title={t("c.open")} onClick={() => selectTestCase(tc.id)}>
                         <FolderOpen className="h-3.5 w-3.5" />
+                      </IconBtn>
+                      <IconBtn
+                        title={t("move.title")}
+                        allowed={manage}
+                        onClick={() => openPanel({ kind: "movetc", mode: "create", id: tc.id })}
+                      >
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
                       </IconBtn>
                       <IconBtn
                         title={t("c.edit")}

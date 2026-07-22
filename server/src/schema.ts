@@ -345,6 +345,7 @@ export const typeDefs = /* GraphQL */ `
     createTestCase(featureId: ID!, input: TestCaseInput!): TestCase!
     updateTestCase(id: ID!, input: TestCaseInput!): TestCase!
     deleteTestCase(id: ID!): Boolean!
+    moveTestCase(id: ID!, featureId: ID!): TestCase!
 
     createRecordTest(testCaseId: ID!, input: RecordTestInput!): RecordTest!
     deleteRecordTest(id: ID!): Boolean!

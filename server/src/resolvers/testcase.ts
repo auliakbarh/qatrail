@@ -80,6 +80,14 @@ export const testCaseResolvers = {
       await ctx.prisma.testCase.delete({ where: { id: args.id } });
       return true;
     },
+    // Move a test case to another feature (may be in a different project).
+    // Records + issues follow via their testCaseId FK; coverage recomputes.
+    async moveTestCase(_: unknown, args: { id: string; featureId: string }, ctx: Context) {
+      await requireQA(ctx);
+      const target = await ctx.prisma.feature.findUnique({ where: { id: args.featureId } });
+      if (!target) throw new Error("Target feature not found");
+      return ctx.prisma.testCase.update({ where: { id: args.id }, data: { featureId: args.featureId } });
+    },
   },
   TestCase: {
     key: (t: any) => `TC-${t.number}`,

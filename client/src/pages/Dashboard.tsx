@@ -15,6 +15,7 @@ import { RecordForm } from "./forms/RecordForm";
 import { IssueForm } from "./forms/IssueForm";
 import { PostmortemForm } from "./forms/PostmortemForm";
 import { AttachmentPanel } from "./forms/AttachmentPanel";
+import { MoveTestCaseForm } from "./forms/MoveTestCaseForm";
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -105,6 +106,9 @@ export default function Dashboard() {
         <PostmortemForm issueId={panel.id} testCaseId={testCaseId} />
       )}
       {panel?.kind === "attachment" && <AttachmentPanel panel={panel} />}
+      {panel?.kind === "movetc" && panel.id && featureId && (
+        <MoveTestCaseForm testCaseId={panel.id} sourceFeatureId={featureId} />
+      )}
     </div>
   );
 }

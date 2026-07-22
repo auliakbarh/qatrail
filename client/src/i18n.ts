@@ -4,6 +4,14 @@ import { initReactI18next } from "react-i18next";
 // Full UI dictionary (en / id). Keys grouped by area with flat dotted names.
 const en = {
   app: "QA Reporting",
+  "move.title": "Move test case",
+  "move.help": "Move this test case to another feature — optionally in a different project. Its records and issues move with it.",
+  "move.selectProject": "Select project…",
+  "move.selectFeature": "Select feature…",
+  "move.action": "Move",
+  "move.done": "Test case moved",
+  "move.fail": "Couldn't move test case",
+
   // common
   "c.save": "Save",
   "c.cancel": "Cancel",
@@ -544,6 +552,14 @@ Hold / Resume ............. pause & resume IN_PROGRESS`,
 
 const id: typeof en = {
   app: "QA Reporting",
+  "move.title": "Pindahkan test case",
+  "move.help": "Pindahkan test case ini ke fitur lain — boleh beda proyek. Record dan isu ikut berpindah.",
+  "move.selectProject": "Pilih proyek…",
+  "move.selectFeature": "Pilih fitur…",
+  "move.action": "Pindahkan",
+  "move.done": "Test case dipindahkan",
+  "move.fail": "Gagal memindahkan test case",
+
   "c.save": "Simpan",
   "c.cancel": "Batal",
   "c.saving": "Menyimpan…",

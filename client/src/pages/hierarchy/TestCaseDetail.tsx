@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, ArrowRightLeft } from "lucide-react";
 import { TEST_CASE } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
 import { useNav } from "../../store/nav";
@@ -48,15 +48,26 @@ export function TestCaseDetail({ id }: { id: string }) {
             <span className="font-mono text-xs text-muted-foreground">{tc.key}</span>
             <h2 className="text-sm font-semibold">{tc.name}</h2>
           </div>
-          <button
-            onClick={manage ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
-            className={cn(
-              "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
-              !manage && "opacity-40",
-            )}
-          >
-            <Pencil className="h-3.5 w-3.5" /> {t("c.edit")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={manage ? () => openPanel({ kind: "movetc", mode: "create", id: tc.id }) : () => denied()}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+                !manage && "opacity-40",
+              )}
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5" /> {t("move.action")}
+            </button>
+            <button
+              onClick={manage ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+                !manage && "opacity-40",
+              )}
+            >
+              <Pencil className="h-3.5 w-3.5" /> {t("c.edit")}
+            </button>
+          </div>
         </div>
         <div className="space-y-3 px-5 py-4 text-sm">
           {tc.description && <p className="text-muted-foreground">{tc.description}</p>}

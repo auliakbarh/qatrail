@@ -78,3 +78,8 @@ export const UPDATE_TEST_CASE = gql`
 export const DELETE_TEST_CASE = gql`
   mutation DeleteTestCase($id: ID!) { deleteTestCase(id: $id) }
 `;
+export const MOVE_TEST_CASE = gql`
+  mutation MoveTestCase($id: ID!, $featureId: ID!) {
+    moveTestCase(id: $id, featureId: $featureId) { id featureId }
+  }
+`;
