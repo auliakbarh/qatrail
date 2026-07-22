@@ -43,5 +43,11 @@ export const UPDATE_SLA_TARGET = gql`
   }
 `;
 
+export const AUDIT_LOGS = gql`
+  query AuditLogs($limit: Int) {
+    auditLogs(limit: $limit) { id action entityId label actor at }
+  }
+`;
+
 export const FORGOT_PASSWORD = gql`mutation($email: String!){ forgotPassword(email:$email) }`;
 export const RESET_PASSWORD = gql`mutation($token: String!, $newPassword: String!){ resetPassword(token:$token,newPassword:$newPassword) }`;

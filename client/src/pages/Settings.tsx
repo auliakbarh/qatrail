@@ -5,10 +5,10 @@ import { Plus, Trash2, KeyRound } from "lucide-react";
 import { CHANGE_PASSWORD } from "../graphql";
 import {
   USERS, CREATE_USER, UPDATE_USER, DELETE_USER, RESET_USER_PASSWORD,
-  SETTING, UPDATE_SETTING, TEST_DISCORD, SLA_TARGETS, UPDATE_SLA_TARGET,
+  SETTING, UPDATE_SETTING, TEST_DISCORD, SLA_TARGETS, UPDATE_SLA_TARGET, AUDIT_LOGS,
 } from "../graphql/admin";
 import { useAuth } from "../store/auth";
-import { cn } from "../lib/utils";
+import { cn, fmtDateTime } from "../lib/utils";
 import { inputCls, Field } from "../components/Form";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
@@ -22,7 +22,7 @@ export default function Settings() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
-  const tabs = ["password", ...(isAdmin ? ["users", "maintenance", "sla", "discord"] : [])];
+  const tabs = ["password", ...(isAdmin ? ["users", "maintenance", "sla", "discord", "audit"] : [])];
   const [tab, setTab] = useState("password");
   const tabLabels: Record<string, string> = {
     password: t("set.tabPassword"),
@@ -30,6 +30,7 @@ export default function Settings() {
     maintenance: t("set.tabMaintenance"),
     sla: t("set.tabSla"),
     discord: t("set.tabDiscord"),
+    audit: t("set.tabAudit"),
   };
 
   return (
@@ -53,6 +54,7 @@ export default function Settings() {
       {tab === "maintenance" && isAdmin && <SettingCard kind="maintenance" />}
       {tab === "discord" && isAdmin && <SettingCard kind="discord" />}
       {tab === "sla" && isAdmin && <SlaCard />}
+      {tab === "audit" && isAdmin && <AuditCard />}
     </div>
   );
 }
@@ -365,6 +367,41 @@ function SlaCard() {
                     {t("c.save")}
                   </button>
                 </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function AuditCard() {
+  const { t } = useTranslation();
+  const { data } = useQuery(AUDIT_LOGS, { variables: { limit: 200 }, fetchPolicy: "cache-and-network" });
+  const rows = data?.auditLogs ?? [];
+  return (
+    <Card title={t("set.tabAudit")}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.when")}</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.actor")}</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.action")}</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.target")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("audit.empty")}</td></tr>
+            )}
+            {rows.map((r: any) => (
+              <tr key={r.id} className="border-b border-border/50 last:border-0">
+                <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground whitespace-nowrap">{fmtDateTime(r.at)}</td>
+                <td className="px-3 py-2 text-xs">{r.actor ?? "—"}</td>
+                <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{r.label ?? r.entityId ?? "—"}</td>
               </tr>
             ))}
           </tbody>

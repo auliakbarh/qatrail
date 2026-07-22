@@ -346,6 +346,16 @@ export const typeDefs = /* GraphQL */ `
     users: [User!]!
     setting: Setting!
     slaTargets: [SlaTargetType!]!
+    auditLogs(limit: Int): [AuditLog!]!
+  }
+
+  type AuditLog {
+    id: ID!
+    action: String!
+    entityId: String
+    label: String
+    actor: String
+    at: String!
   }
 
   type Mutation {

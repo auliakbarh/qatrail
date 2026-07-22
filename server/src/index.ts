@@ -116,6 +116,18 @@ const server = new ApolloServer({
                 if (vars.jiraKey) extra.push({ name: "jiraKey", value: String(vars.jiraKey) });
                 if (typeof vars.archived === "boolean") extra.push({ name: "archived", value: String(vars.archived) });
                 void notifyDiscord(field, actor, { name, note, url, extra });
+                // Persist the same event to the audit trail (fire-and-forget).
+                void prisma.auditLog
+                  .create({
+                    data: {
+                      action: field,
+                      entityId: data[field]?.id ?? vars.id ?? null,
+                      label: name,
+                      actor,
+                      actorId: rc.contextValue?.userId ?? null,
+                    },
+                  })
+                  .catch(() => {});
               }
             } catch {
               /* never break the response */

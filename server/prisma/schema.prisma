@@ -362,3 +362,18 @@ model SlaTarget {
   resolveMins Int
   updatedAt   DateTime @updatedAt
 }
+
+// Cross-cutting audit trail for project-domain mutations (who did what, when).
+// Written centrally from the Apollo plugin, not per-resolver.
+model AuditLog {
+  id       String   @id @default(cuid())
+  action   String // the GraphQL mutation field name, e.g. createProject
+  entityId String? // affected row id when known
+  label    String? // human label (project/feature/testcase name or issue title)
+  actor    String? // actor display name
+  actorId  String?
+  at       DateTime @default(now())
+
+  @@index([at])
+  @@index([actorId])
+}

@@ -37,6 +37,14 @@ export const adminResolvers = {
       await requireAdmin(ctx);
       return ctx.prisma.slaTarget.findMany();
     },
+    async auditLogs(_: unknown, { limit }: { limit?: number }, ctx: Context) {
+      await requireAdmin(ctx);
+      const rows = await ctx.prisma.auditLog.findMany({
+        orderBy: { at: "desc" },
+        take: Math.min(limit ?? 100, 500),
+      });
+      return rows.map((r) => ({ ...r, at: r.at.toISOString() }));
+    },
   },
   Mutation: {
     async createUser(_: unknown, args: { input: UserInput }, ctx: Context) {
