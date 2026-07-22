@@ -19,6 +19,7 @@ const SECTION_IDS = [
   "settings",
   "account",
   "glossary",
+  "roadmap",
   "faq",
 ];
 
@@ -182,6 +183,18 @@ export default function Help() {
                 return [t(`help.gl.${n}.term`), t(`help.gl.${n}.def`)] as [string, string];
               })}
             />
+          </Doc>
+
+          <Doc id="roadmap" title={t("help.sec.roadmap")}>
+            <P>{t("help.roadmap.p1")}</P>
+            <Table
+              head={[t("help.roadmap.head.item"), t("help.roadmap.head.status"), t("help.roadmap.head.why")]}
+              rows={Array.from({ length: 8 }, (_, k) => {
+                const n = k + 1;
+                return [t(`help.roadmap.${n}.item`), t(`help.roadmap.${n}.status`), t(`help.roadmap.${n}.why`)];
+              })}
+            />
+            <Callout>{t("help.roadmap.note")}</Callout>
           </Doc>
 
           <Doc id="faq" title={t("help.sec.faq")}>
