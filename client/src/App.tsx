@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useApolloClient, useQuery } from "@apollo/client";
 import { useAuth } from "./store/auth";
@@ -6,20 +6,24 @@ import { ME, HEALTH } from "./graphql";
 import { TOKEN_KEY } from "./config";
 import { AppShell } from "./components/AppShell";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import IssuePage from "./pages/IssuePage";
-import AllIssues from "./pages/AllIssues";
-import AssignedToMe from "./pages/AssignedToMe";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import Help from "./pages/Help";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import Maintenance from "./pages/Maintenance";
-import HealthPage from "./pages/HealthPage";
-import NotFound from "./pages/NotFound";
 import { Toaster } from "./components/Toaster";
+
+// Route-split: each of these becomes its own chunk, loaded on first visit.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const IssuePage = lazy(() => import("./pages/IssuePage"));
+const AllIssues = lazy(() => import("./pages/AllIssues"));
+const AssignedToMe = lazy(() => import("./pages/AssignedToMe"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Help = lazy(() => import("./pages/Help"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const HealthPage = lazy(() => import("./pages/HealthPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const Loading = <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
 
 function ProtectedLayout() {
   const { user, ready } = useAuth();
@@ -61,6 +65,7 @@ export default function App() {
   return (
     <>
       <Toaster />
+      <Suspense fallback={Loading}>
       <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/health" element={<HealthPage />} />
@@ -77,6 +82,7 @@ export default function App() {
       </Route>
       <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </>
   );
 }
