@@ -4,8 +4,6 @@ import { prisma } from "./db.js";
 // has no open issue (any issue not CLOSED and not archived). An unresolved issue
 // keeps the case from counting as passed even if the latest run was green.
 // pass% = passed test cases / total test cases (0 when there are none).
-// ponytail: recomputed per query with a small N+1; add caching only if the
-// dashboard gets slow on large projects.
 
 export interface Coverage {
   total: number;
@@ -17,41 +15,67 @@ function pct(passed: number, total: number): number {
   return total === 0 ? 0 : Math.round((passed / total) * 100);
 }
 
-// Coverage for a set of test case ids.
+// Coverage for a set of test case ids — two batched queries regardless of N:
+//   1. all records for these test cases, newest first → latest result per case;
+//   2. grouped count of open issues per case.
 async function coverageForTestCases(testCaseIds: string[]): Promise<Coverage> {
   const total = testCaseIds.length;
   if (total === 0) return { total: 0, passed: 0, percent: 0 };
+
+  const records = await prisma.recordTest.findMany({
+    where: { testCaseId: { in: testCaseIds } },
+    orderBy: { executedAt: "desc" },
+    select: { testCaseId: true, result: true },
+  });
+  const latest = new Map<string, string>();
+  for (const r of records) if (!latest.has(r.testCaseId)) latest.set(r.testCaseId, r.result);
+
+  const openGroups = await prisma.issue.groupBy({
+    by: ["testCaseId"],
+    where: { testCaseId: { in: testCaseIds }, archived: false, status: { not: "CLOSED" } },
+    _count: { _all: true },
+  });
+  const hasOpenIssue = new Set(openGroups.map((g) => g.testCaseId));
+
   let passed = 0;
   for (const id of testCaseIds) {
-    const latest = await prisma.recordTest.findFirst({
-      where: { testCaseId: id },
-      orderBy: { executedAt: "desc" },
-      select: { result: true },
-    });
-    if (latest?.result !== "PASS") continue;
-    // Any unresolved (not CLOSED, not archived) issue blocks the pass.
-    const openIssues = await prisma.issue.count({
-      where: { testCaseId: id, archived: false, status: { not: "CLOSED" } },
-    });
-    if (openIssues === 0) passed += 1;
+    if (latest.get(id) === "PASS" && !hasOpenIssue.has(id)) passed += 1;
   }
   return { total, passed, percent: pct(passed, total) };
 }
 
+// Short TTL cache. featureCoverage/projectCoverage are each called twice per
+// entity per request (coverage + ready field resolvers) and once per list row;
+// caching by scope dedupes those. Stale by at most CACHE_MS — the client already
+// refetches (cache-and-network), so this is safe.
+const CACHE_MS = 10_000;
+const cache = new Map<string, { at: number; val: Coverage }>();
+async function cached(key: string, fn: () => Promise<Coverage>): Promise<Coverage> {
+  const now = Date.now();
+  const hit = cache.get(key);
+  if (hit && now - hit.at < CACHE_MS) return hit.val;
+  const val = await fn();
+  cache.set(key, { at: now, val });
+  return val;
+}
+
 export async function featureCoverage(featureId: string): Promise<Coverage> {
-  const tcs = await prisma.testCase.findMany({ where: { featureId }, select: { id: true } });
-  return coverageForTestCases(tcs.map((t) => t.id));
+  return cached(`f:${featureId}`, async () => {
+    const tcs = await prisma.testCase.findMany({ where: { featureId }, select: { id: true } });
+    return coverageForTestCases(tcs.map((t) => t.id));
+  });
 }
 
 export async function projectCoverage(projectId: string): Promise<Coverage> {
-  const tcs = await prisma.testCase.findMany({
-    where: { feature: { projectId } },
-    select: { id: true },
+  return cached(`p:${projectId}`, async () => {
+    const tcs = await prisma.testCase.findMany({ where: { feature: { projectId } }, select: { id: true } });
+    return coverageForTestCases(tcs.map((t) => t.id));
   });
-  return coverageForTestCases(tcs.map((t) => t.id));
 }
 
 export async function allCoverage(): Promise<Coverage> {
-  const tcs = await prisma.testCase.findMany({ select: { id: true } });
-  return coverageForTestCases(tcs.map((t) => t.id));
+  return cached("all", async () => {
+    const tcs = await prisma.testCase.findMany({ select: { id: true } });
+    return coverageForTestCases(tcs.map((t) => t.id));
+  });
 }
