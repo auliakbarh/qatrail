@@ -14,6 +14,12 @@ function monthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+// TTL cache: analytics scans all in-scope issues + coverage on every load. Cache
+// the computed result per (scope, range) for a short window. Staleness ≤ TTL is
+// fine — the client also refetches (cache-and-network).
+const CACHE_MS = 30_000;
+const cache = new Map<string, { at: number; val: any }>();
+
 export const analyticsResolvers = {
   Query: {
     async analytics(
@@ -22,6 +28,9 @@ export const analyticsResolvers = {
       ctx: Context,
     ) {
       requireAuth(ctx);
+      const cacheKey = JSON.stringify([args.projectId ?? "", args.featureId ?? "", args.from ?? "", args.to ?? ""]);
+      const hit = cache.get(cacheKey);
+      if (hit && Date.now() - hit.at < CACHE_MS) return hit.val;
       const where = issueWhere(args.projectId, args.featureId);
       const issues = await ctx.prisma.issue.findMany({
         where,
@@ -132,7 +141,7 @@ export const analyticsResolvers = {
         }),
       );
 
-      return {
+      const result = {
         totalFindings: total,
         totalDefects,
         totalBugs,
@@ -145,6 +154,8 @@ export const analyticsResolvers = {
         createdVsResolved,
         keyCoverage,
       };
+      cache.set(cacheKey, { at: Date.now(), val: result });
+      return result;
     },
   },
 };
