@@ -19,7 +19,7 @@ Stack: Apollo GraphQL · Prisma · PostgreSQL · React + Vite · Zustand · Tail
 
 ## Docs
 
-`docs/` — [PLAN](docs/PLAN.md) · [DATABASE](docs/DATABASE.md) · [CHECKLIST](docs/CHECKLIST.md) · [DEPLOY (PM2)](docs/DEPLOY.md) · [UI mockup](docs/mockup.html). In-app **Help** page has a glossary + Defect vs Bug.
+`docs/` — [PLAN](docs/PLAN.md) · [DATABASE](docs/DATABASE.md) · [CHECKLIST](docs/CHECKLIST.md) · [DEPLOY (PM2)](docs/DEPLOY.md) · [IMPROVEMENTS](docs/IMPROVEMENTS.md) · [UI mockup](docs/mockup.html). In-app **Help** page has a glossary + Defect vs Bug.
 
 ## Quick start
 
