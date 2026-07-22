@@ -99,7 +99,7 @@ export const ISSUE_COMMENTS = gql`
 `;
 export const ADD_ISSUE_COMMENT = gql`
   mutation AddIssueComment($issueId: ID!, $body: String!) {
-    addIssueComment(issueId: $issueId, body: $body) { id }
+    addIssueComment(issueId: $issueId, body: $body) { id body createdAt by { id name } }
   }
 `;
 

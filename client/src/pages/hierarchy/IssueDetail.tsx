@@ -361,7 +361,8 @@ function ActBtn({ children, onClick, primary, destructive, allowed = true }: { c
 
 function CommentsCard({ issueId }: { issueId: string }) {
   const { t } = useTranslation();
-  const { data, refetch } = useQuery(ISSUE_COMMENTS, { variables: { issueId }, fetchPolicy: "cache-and-network" });
+  const { user } = useAuth();
+  const { data } = useQuery(ISSUE_COMMENTS, { variables: { issueId }, fetchPolicy: "cache-and-network" });
   const [add, { loading }] = useMutation(ADD_ISSUE_COMMENT);
   const [body, setBody] = useState("");
   const comments = data?.issueComments ?? [];
@@ -369,9 +370,36 @@ function CommentsCard({ issueId }: { issueId: string }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!body.trim()) return;
-    const ok = await withToast(add({ variables: { issueId, body } }), t("cmt.send"), t("c.somethingWrong"));
-    if (ok) { setBody(""); await refetch(); }
+    const text = body.trim();
+    if (!text) return;
+    setBody("");
+    await withToast(
+      add({
+        variables: { issueId, body: text },
+        // Optimistic: show the comment instantly, then reconcile.
+        optimisticResponse: {
+          addIssueComment: {
+            __typename: "IssueComment",
+            id: `temp-${Math.random()}`,
+            body: text,
+            createdAt: new Date().toISOString(),
+            by: { __typename: "User", id: user?.id ?? "me", name: user?.name ?? "…" },
+          },
+        },
+        update: (cache, { data: res }) => {
+          const created = res?.addIssueComment;
+          if (!created) return;
+          const prev: any = cache.readQuery({ query: ISSUE_COMMENTS, variables: { issueId } });
+          cache.writeQuery({
+            query: ISSUE_COMMENTS,
+            variables: { issueId },
+            data: { issueComments: [...(prev?.issueComments ?? []), created] },
+          });
+        },
+      }),
+      t("cmt.send"),
+      t("c.somethingWrong"),
+    );
   };
 
   return (
