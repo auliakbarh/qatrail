@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment" | "movetc" | "clonefeature" | "clonetc";
+export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment" | "movetc" | "movefeature" | "clonefeature" | "clonetc";
 export interface PanelState {
   kind: PanelKind;
   mode: "create" | "edit";

@@ -59,6 +59,13 @@ export const featureResolvers = {
       const user = await requireQA(ctx);
       return cloneFeatureInto(args.id, args.targetProjectId, user.id, args.name?.trim() || undefined);
     },
+    // Move a feature (with its test cases) to another project.
+    async moveFeature(_: unknown, args: { id: string; projectId: string }, ctx: Context) {
+      await requireQA(ctx);
+      const target = await ctx.prisma.project.findUnique({ where: { id: args.projectId } });
+      if (!target) throw new Error("Target project not found");
+      return ctx.prisma.feature.update({ where: { id: args.id }, data: { projectId: args.projectId } });
+    },
   },
   Feature: {
     key: (f: any) => `FEAT-${f.number}`,

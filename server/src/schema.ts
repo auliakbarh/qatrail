@@ -356,6 +356,7 @@ export const typeDefs = /* GraphQL */ `
     updateFeature(id: ID!, input: FeatureInput!): Feature!
     deleteFeature(id: ID!): Boolean!
     cloneFeature(id: ID!, targetProjectId: ID!, name: String): Feature!
+    moveFeature(id: ID!, projectId: ID!): Feature!
 
     createTestCase(featureId: ID!, input: TestCaseInput!): TestCase!
     updateTestCase(id: ID!, input: TestCaseInput!): TestCase!

@@ -16,6 +16,7 @@ import { IssueForm } from "./forms/IssueForm";
 import { PostmortemForm } from "./forms/PostmortemForm";
 import { AttachmentPanel } from "./forms/AttachmentPanel";
 import { MoveTestCaseForm } from "./forms/MoveTestCaseForm";
+import { MoveFeatureForm } from "./forms/MoveFeatureForm";
 import { CloneFeatureForm } from "./forms/CloneFeatureForm";
 import { CloneTestCaseForm } from "./forms/CloneTestCaseForm";
 
@@ -110,6 +111,9 @@ export default function Dashboard() {
       {panel?.kind === "attachment" && <AttachmentPanel panel={panel} />}
       {panel?.kind === "movetc" && panel.id && featureId && (
         <MoveTestCaseForm testCaseId={panel.id} sourceFeatureId={featureId} />
+      )}
+      {panel?.kind === "movefeature" && panel.id && projectId && (
+        <MoveFeatureForm featureId={panel.id} sourceProjectId={projectId} />
       )}
       {panel?.kind === "clonefeature" && panel.id && projectId && (
         <CloneFeatureForm featureId={panel.id} sourceProjectId={projectId} />

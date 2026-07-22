@@ -34,6 +34,8 @@ const en = {
   "health.disabled": "Disabled",
 
   "move.title": "Move test case",
+  "move.featureTitle": "Move feature",
+  "move.featureHelp": "Move this feature and its test cases to another project.",
   "move.help": "Move this test case to another feature — optionally in a different project. Its records and issues move with it.",
   "move.selectProject": "Select project…",
   "move.selectFeature": "Select feature…",
@@ -616,6 +618,8 @@ const id: typeof en = {
   "health.disabled": "Nonaktif",
 
   "move.title": "Pindahkan test case",
+  "move.featureTitle": "Pindahkan fitur",
+  "move.featureHelp": "Pindahkan fitur ini beserta test case-nya ke proyek lain.",
   "move.help": "Pindahkan test case ini ke fitur lain — boleh beda proyek. Record dan isu ikut berpindah.",
   "move.selectProject": "Pilih proyek…",
   "move.selectFeature": "Pilih fitur…",
