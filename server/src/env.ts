@@ -28,6 +28,10 @@ const isProdEnv = (process.env.NODE_ENV ?? "development") === "production";
 if (isProdEnv && (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEV_JWT_SECRET)) {
   throw new Error("JWT_SECRET must be set to a non-default value in production.");
 }
+// In prod the at-rest encryption key must be its own value, not the JWT-secret fallback.
+if (isProdEnv && (!process.env.SECRET_ENC_KEY || process.env.SECRET_ENC_KEY === process.env.JWT_SECRET)) {
+  throw new Error("SECRET_ENC_KEY must be set to a distinct value (not JWT_SECRET) in production.");
+}
 
 export const env = {
   databaseUrl: required("DATABASE_URL"),
