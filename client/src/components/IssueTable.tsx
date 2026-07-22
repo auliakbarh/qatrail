@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@apollo/client";
+import { useQuery, useApolloClient } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { SortableTh, nextSort } from "./SortableTh";
 import { ISSUES_PAGED } from "../graphql/issue";
+import { downloadCsv } from "../lib/csv";
 import { cn } from "../lib/utils";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
@@ -52,6 +53,7 @@ function Filter({ label, value, onChange, options }: { label: string; value: str
 export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const apollo = useApolloClient();
   const showPeople = scope === "all";
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -83,6 +85,25 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   });
 
   const onSort = (k: string) => { const n = nextSort({ key: sortKey, dir: sortDir }, k); setSortKey(n.key); setSortDir(n.dir); };
+
+  // Export all rows matching the current filters (not just the page).
+  const exportCsv = async () => {
+    const res = await apollo.query({
+      query: ISSUES_PAGED,
+      variables: {
+        scope,
+        filter: { search: search || null, status: fStatus || null, priority: fPriority || null, type: fType || null },
+        sort: sortKey, dir: sortDir, page: 1, pageSize: 5000,
+      },
+      fetchPolicy: "network-only",
+    });
+    const items = res.data?.issuesPaged?.items ?? [];
+    downloadCsv(
+      `issues-${scope}.csv`,
+      ["ID", "Title", "Type", "Priority", "Status", "SLA", "Environment", "Platform", "Assignee", "Reporter", "Created"],
+      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.slaStatus, i.environment, i.platform, i.assignee?.name, i.reporter?.name, new Date(i.createdAt).toISOString()]),
+    );
+  };
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -98,7 +119,12 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         <Filter label={t("c.status")} value={fStatus} onChange={setFStatus} options={STATUSES} />
         <Filter label={t("c.priority")} value={fPriority} onChange={setFPriority} options={PRIORITIES} />
         <Filter label={t("c.type")} value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
-        <span className="ml-auto text-xs text-muted-foreground">{t("issue.count", { n: total })}</span>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{t("issue.count", { n: total })}</span>
+          <button onClick={exportCsv} className="flex h-8 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
+            <Download className="h-3.5 w-3.5" /> {t("export.csv")}
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
