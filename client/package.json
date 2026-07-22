@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "author": "Aulia Akbar Harahap",
+  "createdAt": "2026-07",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
