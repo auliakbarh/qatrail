@@ -173,6 +173,17 @@ export const typeDefs = /* GraphQL */ `
     discordWebhookUrl: String
   }
 
+  input IssueFilter {
+    search: String
+    status: WorkStatus
+    priority: Priority
+    type: FindingType
+  }
+  type IssuePage {
+    items: [Issue!]!
+    total: Int!
+  }
+
   type StatusCount { status: String!, count: Int! }
   type SlaBreakdown { met: Int!, atRisk: Int!, breached: Int! }
   type MonthPoint { period: String!, created: Int!, resolved: Int! }
@@ -319,6 +330,8 @@ export const typeDefs = /* GraphQL */ `
 
     notifications: [Notification!]!
     unreadCount: Int!
+
+    issuesPaged(scope: String, filter: IssueFilter, sort: String, dir: String, page: Int, pageSize: Int): IssuePage!
 
     analytics(projectId: ID, featureId: ID, from: String, to: String): Analytics!
 

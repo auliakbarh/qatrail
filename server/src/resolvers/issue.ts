@@ -88,6 +88,50 @@ export const issueResolvers = {
         orderBy: { createdAt: "desc" },
       });
     },
+
+    // Server-side paginated + filtered + sorted issue list.
+    async issuesPaged(
+      _: unknown,
+      args: {
+        scope?: string;
+        filter?: { search?: string; status?: string; priority?: string; type?: string };
+        sort?: string;
+        dir?: string;
+        page?: number;
+        pageSize?: number;
+      },
+      ctx: Context,
+    ) {
+      const userId = requireAuth(ctx);
+      const f = args.filter ?? {};
+      const where: any = {};
+      if (args.scope === "assigned") {
+        where.assigneeId = userId;
+        where.archived = false;
+      }
+      if (f.status) where.status = f.status;
+      if (f.priority) where.priority = f.priority;
+      if (f.type) where.type = f.type;
+      if (f.search?.trim()) where.title = { contains: f.search.trim(), mode: "insensitive" };
+
+      const SORTABLE = new Set(["createdAt", "priority", "status", "title", "type"]);
+      const sortKey = SORTABLE.has(args.sort ?? "") ? (args.sort as string) : "createdAt";
+      const dir = args.dir === "asc" ? "asc" : "desc";
+
+      const page = Math.max(1, args.page ?? 1);
+      const pageSize = Math.min(100, Math.max(1, args.pageSize ?? 25));
+
+      const [items, total] = await ctx.prisma.$transaction([
+        ctx.prisma.issue.findMany({
+          where,
+          orderBy: { [sortKey]: dir },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        ctx.prisma.issue.count({ where }),
+      ]);
+      return { items, total };
+    },
   },
   Mutation: {
     async createIssue(_: unknown, args: { input: IssueInput }, ctx: Context) {

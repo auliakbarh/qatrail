@@ -56,6 +56,18 @@ export const ISSUE = gql`
   }
 `;
 
+export const ISSUES_PAGED = gql`
+  query IssuesPaged($scope: String, $filter: IssueFilter, $sort: String, $dir: String, $page: Int, $pageSize: Int) {
+    issuesPaged(scope: $scope, filter: $filter, sort: $sort, dir: $dir, page: $page, pageSize: $pageSize) {
+      items {
+        id key title type priority status review environment platform slaStatus createdAt
+        assignee { id name } reporter { id name }
+      }
+      total
+    }
+  }
+`;
+
 export const ASSIGNED_TO_ME = gql`
   query AssignedToMe {
     assignedToMe {

@@ -151,6 +151,7 @@ const en = {
   "issue.all": "All issues",
   "issue.assigned": "Assigned to me",
   "issue.count": "{{n}} issue(s)",
+  "page.of": "{{total}} items · page {{page}} of {{totalPages}}",
   "issue.none": "No issues",
   "issue.colIssue": "Issue",
   // issue table group labels + sla labels
@@ -715,6 +716,7 @@ const id: typeof en = {
   "issue.all": "Semua isu",
   "issue.assigned": "Ditugaskan ke saya",
   "issue.count": "{{n}} isu",
+  "page.of": "{{total}} item · halaman {{page}} dari {{totalPages}}",
   "issue.none": "Tidak ada isu",
   "issue.colIssue": "Isu",
   "it.grpStatus": "STATUS",

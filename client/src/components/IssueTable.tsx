@@ -1,9 +1,10 @@
-import { useState, Fragment } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { SortableTh, nextSort } from "./SortableTh";
-import { searchRows, sortRows, groupRows } from "../lib/list";
+import { ISSUES_PAGED } from "../graphql/issue";
 import { cn } from "../lib/utils";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
@@ -25,11 +26,13 @@ function SlaBadge({ s }: { s: string }) {
     BREACHED: "bg-destructive text-white",
   };
   const labels: Record<string, string> = { MET: t("sla.met"), AT_RISK: t("sla.atRisk"), BREACHED: t("sla.breached") };
-  const label = labels[s] ?? s.charAt(0) + s.slice(1).toLowerCase();
-  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", map[s] ?? "bg-muted")}>{label}</span>;
+  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", map[s] ?? "bg-muted")}>{labels[s] ?? s}</span>;
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "IN_REVIEW", "CLOSED", "REOPENED", "HOLD"];
+const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
+const PAGE_SIZE = 25;
 
 function Filter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
   const { t } = useTranslation();
@@ -38,66 +41,64 @@ function Filter({ label, value, onChange, options }: { label: string; value: str
       <span className="text-xs text-muted-foreground">{label}:</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={small}>
         <option value="">{t("c.all")}</option>
-        {options.map((o) => (
-          <option key={o} value={o}>{o}</option>
-        ))}
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
   );
 }
-const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "IN_REVIEW", "CLOSED", "REOPENED", "HOLD"];
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 
-export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loading: boolean; showPeople?: boolean }) {
+// Server-driven issue table: search + status/priority/type filters + header sort +
+// pagination all run in the API (scales to large datasets).
+export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const showPeople = scope === "all";
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fPriority, setFPriority] = useState("");
-  const [fSla, setFSla] = useState("");
   const [fType, setFType] = useState("");
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [groupKey, setGroupKey] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const toggle = (l: string) => setCollapsed((p) => { const n = new Set(p); n.has(l) ? n.delete(l) : n.add(l); return n; });
-  const onSort = (k: string) => { const n = nextSort({ key: sortKey, dir: sortDir }, k); setSortKey(n.key); setSortDir(n.dir); };
+  const [page, setPage] = useState(1);
 
-  let rows = searchRows(issues ?? [], search, ["title", "status", "priority"]);
-  if (fStatus) rows = rows.filter((r: any) => r.status === fStatus);
-  if (fPriority) rows = rows.filter((r: any) => r.priority === fPriority);
-  if (fSla) rows = rows.filter((r: any) => r.slaStatus === fSla);
-  if (fType) rows = rows.filter((r: any) => r.type === fType);
-  rows = sortRows(rows, sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  // Debounce the search box.
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+  // Any filter/sort change resets to page 1.
+  useEffect(() => setPage(1), [search, fStatus, fPriority, fType, sortKey, sortDir]);
+
+  const { data, loading } = useQuery(ISSUES_PAGED, {
+    variables: {
+      scope,
+      filter: { search: search || null, status: fStatus || null, priority: fPriority || null, type: fType || null },
+      sort: sortKey,
+      dir: sortDir,
+      page,
+      pageSize: PAGE_SIZE,
+    },
+    fetchPolicy: "cache-and-network",
+  });
+
+  const onSort = (k: string) => { const n = nextSort({ key: sortKey, dir: sortDir }, k); setSortKey(n.key); setSortDir(n.dir); };
+  const rows = data?.issuesPaged?.items ?? [];
+  const total = data?.issuesPaged?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const colCount = showPeople ? 10 : 8;
-  const fmtDate = (iso: string) => new Date(iso).toLocaleString();
 
   return (
     <div>
-      {/* Row 1: search ↔ group-by */}
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("c.search")} className={`${small} w-56 pl-7`} />
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder={t("c.search")} className={`${small} w-56 pl-7`} />
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">{t("c.groupBy")}</span>
-          <select value={groupKey} onChange={(e) => setGroupKey(e.target.value)} className={small}>
-            <option value="">{t("c.none")}</option>
-            <option value="status">{t("it.grpStatus")}</option>
-            <option value="priority">{t("it.grpPriority")}</option>
-            <option value="type">{t("it.grpType")}</option>
-          </select>
-        </div>
-      </div>
-      {/* Row 2: filters */}
-      <div className="mb-3 flex flex-wrap items-center gap-3">
         <Filter label={t("c.status")} value={fStatus} onChange={setFStatus} options={STATUSES} />
         <Filter label={t("c.priority")} value={fPriority} onChange={setFPriority} options={PRIORITIES} />
         <Filter label={t("c.type")} value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
-        <Filter label={t("c.sla")} value={fSla} onChange={setFSla} options={["MET", "AT_RISK", "BREACHED", "NA"]} />
-        <span className="ml-auto text-xs text-muted-foreground">{t("issue.count", { n: rows.length })}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{t("issue.count", { n: total })}</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -109,45 +110,44 @@ export function IssueTable({ issues, loading, showPeople }: { issues: any[]; loa
               <SortableTh label={t("c.type")} colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("c.priority")} colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label={t("c.sla")} colKey="slaStatus" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.sla")}</th>
               <SortableTh label={t("c.created")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>}
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.reporter")}</th>}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+            {loading && !data && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
             {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("issue.none")}</td></tr>}
-            {groups.map(([label, gr]) => (
-              <Fragment key={label || "all"}>
-                {groupKey && (
-                  <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggle(label)}>
-                    <td colSpan={colCount} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        {label} · {gr.length}
-                      </span>
-                    </td>
-                  </tr>
-                )}
-                {!collapsed.has(label) && gr.map((i: any, idx: number) => (
-                  <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}`)}>
-                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
-                    <td className="px-3 py-2 font-medium">{i.title}</td>
-                    <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
-                    <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
-                    <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
-                    <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDate(i.createdAt)}</td>
-                    {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.assignee?.name ?? "—"}</td>}
-                    {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.reporter?.name ?? "—"}</td>}
-                  </tr>
-                ))}
-              </Fragment>
+            {rows.map((i: any, idx: number) => (
+              <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}`)}>
+                <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
+                <td className="px-3 py-2 font-medium">{i.title}</td>
+                <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
+                <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
+                <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
+                <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(i.createdAt).toLocaleString()}</td>
+                {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.assignee?.name ?? "—"}</td>}
+                {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.reporter?.name ?? "—"}</td>}
+              </tr>
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{t("page.of", { total, page, totalPages })}</span>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+            className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+            className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
