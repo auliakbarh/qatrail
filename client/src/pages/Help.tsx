@@ -96,12 +96,14 @@ export default function Help() {
             <P><Trans i18nKey="help.structure.p2" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.structure.p3" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.structure.p4" components={{ b: <B />, code: <Code /> }} /></P>
+            <P><Trans i18nKey="help.structure.p5" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="records" title={t("help.sec.records")}>
             <P><Trans i18nKey="help.records.p1" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.records.p2" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.records.callout" components={{ b: <B /> }} /></Callout>
+            <P><Trans i18nKey="help.attachments" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="issues" title={t("help.sec.issues")}>

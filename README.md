@@ -11,6 +11,8 @@ Stack: Apollo GraphQL · Prisma · PostgreSQL · React + Vite · Zustand · Tail
 - Issues: Defect/Bug, full workflow (accept/reject/need-clarify/solve+postmortem/review), retest-to-close, SLA per priority (production), notifications (live)
 - Human keys: `ISSUE-/REC-/FEAT-/TC-<n>`; deep links `/issues/:id`
 - Views: All issues & Assigned-to-me with search, status/priority/type/SLA filters, group-by (collapsible), sort, row numbers
+- Test cases movable across features/projects; attachment previews (image, playable video + download, markdown/json/csv formatted in the right panel)
+- Full English/Indonesian i18n (language toggle in the sidebar)
 - Analytics: totals, resolution rate, avg resolve, SLA compliance, created-vs-resolved (date range), status donut, key coverage
 - Admin: users, maintenance, SLA config, Discord webhook; forgot/reset password
 - Prepared seams: Microsoft SSO, SharePoint attachments, JIRA comment post
