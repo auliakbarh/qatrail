@@ -19,6 +19,7 @@
     "db:down": "docker compose down",
     "db:push": "npm -w server run db:push",
     "db:seed": "npm -w server run seed",
+    "db:seed:content": "npm -w server run seed:content",
     "setup": "npm install && npm run db:up && npm run db:push && npm run db:seed"
   },
   "devDependencies": {
