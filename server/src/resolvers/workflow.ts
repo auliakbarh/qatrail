@@ -53,12 +53,14 @@ export const workflowResolvers = {
       if (issue.status !== "OPEN" && issue.status !== "REOPENED") {
         throw new Error(`Cannot accept from status ${issue.status}`);
       }
-      return transition(
+      const updated = await transition(
         ctx,
         issue,
         { status: "IN_PROGRESS", review: "ACCEPTED", respondedAt: issue.respondedAt ?? new Date() },
         { kind: "status", fromVal: issue.status, toVal: "IN_PROGRESS", byId: user.id },
       );
+      await notify(issue.reporterId, "STATUS_CHANGED", `Issue accepted: ${issue.title}`, issue.id);
+      return updated;
     },
 
     async issueReject(_: unknown, args: { id: string; reason: string }, ctx: Context) {
@@ -127,12 +129,14 @@ export const workflowResolvers = {
           resolvedById: user.id,
         },
       });
-      return transition(
+      const updated = await transition(
         ctx,
         issue,
         { status: "NEED_REVIEW", resolvedAt: new Date() },
         { kind: "status", fromVal: issue.status, toVal: "NEED_REVIEW", byId: user.id },
       );
+      await notify(issue.reporterId, "STATUS_CHANGED", `Issue solved — awaiting your review: ${issue.title}`, issue.id);
+      return updated;
     },
 
     async issueHold(_: unknown, args: { id: string }, ctx: Context) {
@@ -140,12 +144,14 @@ export const workflowResolvers = {
       const issue = await getIssue(ctx, args.id);
       assertAssignee(user, issue);
       if (issue.status !== "IN_PROGRESS") throw new Error(`Can only hold from IN_PROGRESS`);
-      return transition(
+      const updated = await transition(
         ctx,
         issue,
         { status: "HOLD" },
         { kind: "status", fromVal: issue.status, toVal: "HOLD", byId: user.id },
       );
+      await notify(issue.reporterId, "STATUS_CHANGED", `Issue put on hold: ${issue.title}`, issue.id);
+      return updated;
     },
 
     async issueResume(_: unknown, args: { id: string }, ctx: Context) {
@@ -153,12 +159,30 @@ export const workflowResolvers = {
       const issue = await getIssue(ctx, args.id);
       assertAssignee(user, issue);
       if (issue.status !== "HOLD") throw new Error(`Can only resume from HOLD`);
-      return transition(
+      const updated = await transition(
         ctx,
         issue,
         { status: "IN_PROGRESS" },
         { kind: "status", fromVal: issue.status, toVal: "IN_PROGRESS", byId: user.id },
       );
+      await notify(issue.reporterId, "STATUS_CHANGED", `Issue resumed: ${issue.title}`, issue.id);
+      return updated;
+    },
+
+    // QA reopens an already CLOSED issue.
+    async issueReopen(_: unknown, args: { id: string; note?: string }, ctx: Context) {
+      const user = await actor(ctx);
+      const issue = await getIssue(ctx, args.id);
+      assertReporterOrQA(user, issue);
+      if (issue.status !== "CLOSED") throw new Error("Only a closed issue can be reopened");
+      const updated = await transition(
+        ctx,
+        issue,
+        { status: "REOPENED", closedAt: null },
+        { kind: "status", fromVal: "CLOSED", toVal: "REOPENED", byId: user.id, note: args.note ?? undefined },
+      );
+      await notify(issue.assigneeId, "STATUS_CHANGED", `Issue reopened: ${issue.title}`, issue.id);
+      return updated;
     },
 
     async issueClarifyRespond(_: unknown, args: { id: string; note?: string }, ctx: Context) {

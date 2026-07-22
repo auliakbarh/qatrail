@@ -12,6 +12,7 @@ import {
   ISSUE_RESUME,
   ISSUE_CLARIFY_RESPOND,
   ISSUE_REVIEW,
+  ISSUE_REOPEN,
   SET_ISSUE_ARCHIVED,
 } from "../../graphql/workflow";
 import { useNav } from "../../store/nav";
@@ -39,7 +40,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const { user } = useAuth();
   const { data, loading } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
-  const [modal, setModal] = useState<null | "reject" | "clarify" | "clarifyRespond" | "reopen">(null);
+  const [modal, setModal] = useState<null | "reject" | "clarify" | "clarifyRespond" | "reopen" | "reopenClosed">(null);
   const [jiraKey, setJiraKey] = useState("");
   const [postToJira, { loading: posting }] = useMutation(POST_ISSUE_TO_JIRA, {
     refetchQueries: [{ query: ISSUE, variables: { id } }],
@@ -58,6 +59,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const [resume] = useMutation(ISSUE_RESUME, refetch);
   const [clarifyRespond] = useMutation(ISSUE_CLARIFY_RESPOND, refetch);
   const [review] = useMutation(ISSUE_REVIEW, refetch);
+  const [reopen] = useMutation(ISSUE_REOPEN, refetch);
   const [setArchived] = useMutation(SET_ISSUE_ARCHIVED, refetch);
 
   if (loading && !data) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
@@ -234,6 +236,9 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
               <ActBtn allowed={canQA} destructive onClick={guard(canQA, () => setModal("reopen"))}>{t("act.reopen")}</ActBtn>
             </>
           )}
+          {i.status === "CLOSED" && (
+            <ActBtn allowed={canQA} onClick={guard(canQA, () => setModal("reopenClosed"))}>{t("act.reopen")}</ActBtn>
+          )}
           {i.review === "REJECTED" && !i.archived && (
             <ActBtn allowed={canQA} onClick={guard(canQA, () => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } }))}>
               {t("act.recreate")}
@@ -309,6 +314,14 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
         confirmLabel={t("act.reopen")}
         onClose={() => setModal(null)}
         onSubmit={(note) => withToast(review({ variables: { id, pass: false, note: note || null } }), t("t.issueReopened"), t("t.issueReopenFail"))}
+      />
+      <TextPromptModal
+        open={modal === "reopenClosed"}
+        title={t("mod.reopenTitle")}
+        label={t("mod.reopenLabel")}
+        confirmLabel={t("act.reopen")}
+        onClose={() => setModal(null)}
+        onSubmit={(note) => withToast(reopen({ variables: { id, note: note || null } }), t("t.issueReopened"), t("t.issueReopenFail"))}
       />
     </div>
   );

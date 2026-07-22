@@ -24,7 +24,9 @@ export function NotificationBell() {
   // Live updates: refetch on each pushed notification.
   useSubscription(NOTIFICATION_ADDED, { onData: () => void refetch() });
 
-  const items = data?.notifications ?? [];
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const all = data?.notifications ?? [];
+  const items = unreadOnly ? all.filter((n: any) => !n.read) : all;
   const unread = data?.unreadCount ?? 0;
 
   return (
@@ -47,14 +49,22 @@ export function NotificationBell() {
           <div className="fixed left-2 top-12 z-50 max-h-[80vh] w-80 max-w-[calc(100vw-1rem)] overflow-y-auto rounded border border-border bg-background shadow-md">
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
               <span className="text-xs font-semibold">{t("c.notifications")}</span>
-              {unread > 0 && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => markAll().then(() => refetch())}
+                  onClick={() => setUnreadOnly((v) => !v)}
                   className="text-xs text-primary underline underline-offset-2"
                 >
-                  {t("notif.markAll")}
+                  {unreadOnly ? t("notif.showAll") : t("notif.showUnread")}
                 </button>
-              )}
+                {unread > 0 && (
+                  <button
+                    onClick={() => markAll().then(() => refetch())}
+                    className="text-xs text-primary underline underline-offset-2"
+                  >
+                    {t("notif.markAll")}
+                  </button>
+                )}
+              </div>
             </div>
             {items.length === 0 && (
               <div className="px-3 py-8 text-center text-xs text-muted-foreground">{t("notif.empty")}</div>

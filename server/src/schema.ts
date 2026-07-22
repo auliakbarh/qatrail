@@ -364,6 +364,7 @@ export const typeDefs = /* GraphQL */ `
     # QA actions
     issueClarifyRespond(id: ID!, note: String): Issue!
     issueReview(id: ID!, pass: Boolean!, note: String): Issue!
+    issueReopen(id: ID!, note: String): Issue!
     setIssueArchived(id: ID!, archived: Boolean!): Issue!
     postIssueToJira(id: ID!, jiraKey: String!): Issue!
 

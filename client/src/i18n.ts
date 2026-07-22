@@ -143,6 +143,8 @@ const en = {
   "sla.breached": "Breached",
   // notifications
   "notif.markAll": "Mark all read",
+  "notif.showAll": "Show all",
+  "notif.showUnread": "Unread only",
   "notif.empty": "No notifications",
   // delete confirm
   "del.confirm": "Confirm delete",
@@ -684,6 +686,8 @@ const id: typeof en = {
   "sla.atRisk": "Berisiko",
   "sla.breached": "Terlampaui",
   "notif.markAll": "Tandai semua dibaca",
+  "notif.showAll": "Tampilkan semua",
+  "notif.showUnread": "Belum dibaca",
   "notif.empty": "Tidak ada notifikasi",
   "del.confirm": "Konfirmasi hapus",
   "del.cannotUndo": "Tindakan ini tidak bisa dibatalkan.",

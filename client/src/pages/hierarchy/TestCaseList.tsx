@@ -98,7 +98,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => selectTestCase(tc.id)} className="font-medium hover:underline">
+                    <button onClick={() => selectTestCase(tc.id)} className="text-left font-medium hover:underline">
                       {tc.name}
                     </button>
                   </td>

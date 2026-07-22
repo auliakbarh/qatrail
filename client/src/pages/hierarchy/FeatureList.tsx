@@ -82,7 +82,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.key}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => selectFeature(f.id)} className="font-medium hover:underline">
+                    <button onClick={() => selectFeature(f.id)} className="text-left font-medium hover:underline">
                       {f.name}
                     </button>
                     {f.description && <div className="text-xs text-muted-foreground">{f.description}</div>}

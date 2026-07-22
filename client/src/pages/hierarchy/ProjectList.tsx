@@ -110,7 +110,7 @@ export function ProjectList() {
                   <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                     <td className="px-3 py-2">
-                      <button onClick={() => selectProject(p.id)} className="font-medium hover:underline">
+                      <button onClick={() => selectProject(p.id)} className="text-left font-medium hover:underline">
                         {p.name}
                       </button>
                       {p.description && (

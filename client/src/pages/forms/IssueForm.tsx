@@ -132,7 +132,8 @@ export function IssueForm({
   const onSubmit = async (v: Form) => {
     const input: any = {
       testCaseId,
-      recordTestId: init.recordTestId ?? null,
+      // On recreate, never reuse the source's recordTestId (it's unique per issue).
+      recordTestId: init.recreatedFromId ? null : (init.recordTestId ?? null),
       recreatedFromId: init.recreatedFromId ?? null,
       type: v.type,
       title: v.title,
