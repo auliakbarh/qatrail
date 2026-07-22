@@ -5,7 +5,7 @@ import { Pencil, Plus, Trash2, ArrowRightLeft } from "lucide-react";
 import { TEST_CASE } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
 import { useNav } from "../../store/nav";
-import { cn } from "../../lib/utils";
+import { cn, fmtDateTime as fmt } from "../../lib/utils";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
@@ -22,10 +22,6 @@ function Badge({ children, variant = "muted" }: { children: any; variant?: "mute
     outline: "border border-border text-muted-foreground",
   }[variant];
   return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", cls)}>{children}</span>;
-}
-
-function fmt(iso: string) {
-  return new Date(iso).toLocaleString();
 }
 
 export function TestCaseDetail({ id }: { id: string }) {

@@ -17,7 +17,7 @@ import {
 } from "../../graphql/workflow";
 import { useNav } from "../../store/nav";
 import { useAuth } from "../../store/auth";
-import { cn } from "../../lib/utils";
+import { cn, fmtDateTime as fmt } from "../../lib/utils";
 import { TextPromptModal } from "../../components/TextPromptModal";
 import { withToast, useToast, copyWithToast } from "../../store/toast";
 import { AttachmentList } from "../../components/AttachmentList";
@@ -31,8 +31,6 @@ function Badge({ children, variant = "muted" }: { children: any; variant?: "mute
   }[variant];
   return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", cls)}>{children}</span>;
 }
-
-const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : "—");
 
 export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string }) {
   const { t } = useTranslation();
@@ -366,7 +364,7 @@ function CommentsCard({ issueId }: { issueId: string }) {
   const [add, { loading }] = useMutation(ADD_ISSUE_COMMENT);
   const [body, setBody] = useState("");
   const comments = data?.issueComments ?? [];
-  const fmtc = (iso: string) => new Date(iso).toLocaleString();
+  const fmtc = fmt;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

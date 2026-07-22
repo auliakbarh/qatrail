@@ -9,9 +9,7 @@ import {
   MARK_ALL_READ,
   NOTIFICATION_ADDED,
 } from "../graphql/workflow";
-import { cn } from "../lib/utils";
-
-const fmt = (iso: string) => new Date(iso).toLocaleString();
+import { cn, fmtDateTime as fmt } from "../lib/utils";
 
 export function NotificationBell() {
   const { t } = useTranslation();

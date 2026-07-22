@@ -8,7 +8,7 @@ import { ISSUES_PAGED, BULK_ARCHIVE, BULK_ASSIGN, BULK_DELETE, ENGINEERS } from 
 import { downloadCsv } from "../lib/csv";
 import { withToast } from "../store/toast";
 import { DeleteConfirm } from "./DeleteConfirm";
-import { cn } from "../lib/utils";
+import { cn, fmtDateTime } from "../lib/utils";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const c = {
@@ -193,7 +193,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
                 <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
                 <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
                 <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(i.createdAt).toLocaleString()}</td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDateTime(i.createdAt)}</td>
                 {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.assignee?.name ?? "—"}</td>}
                 {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.reporter?.name ?? "—"}</td>}
               </tr>
