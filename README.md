@@ -3,7 +3,26 @@
 App/Project → Feature → Test Case → Record → Issue tracker with an engineer review
 workflow, SLA tracking, analytics, and role-based access.
 
-Stack: Apollo GraphQL · Prisma · PostgreSQL · React + Vite · Zustand · Tailwind v4 · JWT · i18n.
+## Tech stack
+
+| Layer | Tech |
+|---|---|
+| API | Node.js + TypeScript, Apollo Server (GraphQL) over Express, `graphql-ws` subscriptions |
+| ORM / DB | Prisma · PostgreSQL |
+| Auth | JWT (single active session), bcrypt, AES-256-GCM for secrets at rest |
+| Frontend | React 18 + Vite + TypeScript, React Router, Apollo Client |
+| State / forms | Zustand · React Hook Form |
+| UI | Tailwind CSS v4 · lucide-react icons |
+| i18n | i18next / react-i18next (en/id) |
+| Logging | pino |
+| Tooling | npm workspaces, Docker Compose (Postgres), PM2 (deploy) |
+
+## Requirements
+
+- **Node.js** ≥ 20 and **npm** ≥ 10
+- **PostgreSQL** ≥ 14 (local via Docker, or a managed instance)
+- **Docker** + Docker Compose (for the local Postgres in `docker-compose.yml`)
+- For deployment: **PM2** (`npm i -g pm2`), optionally **nginx** (reverse proxy + TLS) and **serve** (`npm i -g serve`) if serving the client via PM2
 
 ## Features
 
@@ -16,10 +35,6 @@ Stack: Apollo GraphQL · Prisma · PostgreSQL · React + Vite · Zustand · Tail
 - Analytics: totals, resolution rate, avg resolve, SLA compliance, created-vs-resolved (date range), status donut, key coverage
 - Admin: users, maintenance, SLA config, Discord webhook; forgot/reset password
 - Prepared seams: Microsoft SSO, SharePoint attachments, JIRA comment post
-
-## Docs
-
-`docs/` — [PLAN](docs/PLAN.md) · [DATABASE](docs/DATABASE.md) · [CHECKLIST](docs/CHECKLIST.md) · [DEPLOY (PM2)](docs/DEPLOY.md) · [IMPROVEMENTS](docs/IMPROVEMENTS.md) · [UI mockup](docs/mockup.html). In-app **Help** page has a glossary + Defect vs Bug.
 
 ## Quick start
 
@@ -42,3 +57,36 @@ npm run dev                          # server :4000/graphql + client :5173
 | `npm run build` | Build server + client |
 
 DB: Postgres on `localhost:5434` (see `docker-compose.yml`). API: `http://localhost:4000/graphql`. Web: `http://localhost:5173`.
+
+## Deploy (PM2)
+
+On the server (Node ≥20, Postgres reachable, `npm i -g pm2`):
+
+```bash
+git clone <repo-url> qatrail && cd qatrail
+npm install
+
+# 1. Server env
+cp server/.env.example server/.env
+#   set at least: DATABASE_URL, JWT_SECRET (non-default), NODE_ENV=production,
+#   CORS_ORIGINS + FRONTEND_BASE_URL (your domain), SUPER_ADMIN_* , SECRET_ENC_KEY
+
+# 2. Client build-time API URL
+echo 'VITE_API_URL="https://qatrail.example.com/graphql"' > client/.env.production
+
+# 3. Database + build
+npm run db:push        # or: npm -w server run db:migrate:deploy
+npm run db:seed        # first deploy only (seeds super admin + SLA + settings)
+npm run build          # server (dist) + client (client/dist)
+
+# 4. Run with PM2 (ecosystem.config.cjs = API + optional static client)
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup   # survive reboots
+```
+
+Ops: `pm2 status` · `pm2 logs qar-server` · `pm2 reload ecosystem.config.cjs` (after `git pull && npm install && npm run build`).
+
+**Recommended:** put nginx in front — serve `client/dist` statically and proxy `/graphql` (HTTP + WebSocket) to `127.0.0.1:4000`; then set `VITE_API_URL` and `CORS_ORIGINS` to your HTTPS domain. Environment-variable reference lives in `server/.env.example`.
+
+Health check after deploy: open `/health` in the browser, or
+`curl -s -X POST https://qatrail.example.com/graphql -H 'content-type: application/json' -d '{"query":"{health{status apiVersion}}"}'`.
