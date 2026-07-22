@@ -22,10 +22,11 @@ export function RightPanel({ title, dirty, onClose, children }: RightPanelProps)
   };
 
   return (
-    <aside className="flex w-1/3 min-w-[320px] shrink-0 flex-col border-l border-border">
+    <aside role="region" aria-label={title} className="flex w-1/3 min-w-[320px] shrink-0 flex-col border-l border-border">
       <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
         <h3 className="text-sm font-semibold">{title}</h3>
         <button
+          aria-label={t("c.close")}
           onClick={requestClose}
           className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
         >
