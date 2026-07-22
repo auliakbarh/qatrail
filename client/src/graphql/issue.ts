@@ -92,6 +92,10 @@ export const DELETE_ISSUE = gql`
   mutation DeleteIssue($id: ID!) { deleteIssue(id: $id) }
 `;
 
+export const BULK_ARCHIVE = gql`mutation($ids:[ID!]!,$archived:Boolean!){ bulkArchiveIssues(ids:$ids,archived:$archived) }`;
+export const BULK_ASSIGN = gql`mutation($ids:[ID!]!,$assigneeId:ID!){ bulkAssignIssues(ids:$ids,assigneeId:$assigneeId) }`;
+export const BULK_DELETE = gql`mutation($ids:[ID!]!){ bulkDeleteIssues(ids:$ids) }`;
+
 export const POST_ISSUE_TO_JIRA = gql`
   mutation PostIssueToJira($id: ID!, $jiraKey: String!) {
     postIssueToJira(id: $id, jiraKey: $jiraKey) { id jiraKey jiraCommentId }

@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { useQuery, useApolloClient } from "@apollo/client";
+import { useQuery, useApolloClient, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { SortableTh, nextSort } from "./SortableTh";
-import { ISSUES_PAGED } from "../graphql/issue";
+import { ISSUES_PAGED, BULK_ARCHIVE, BULK_ASSIGN, BULK_DELETE, ENGINEERS } from "../graphql/issue";
 import { downloadCsv } from "../lib/csv";
+import { withToast } from "../store/toast";
+import { DeleteConfirm } from "./DeleteConfirm";
 import { cn } from "../lib/utils";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
@@ -69,10 +71,10 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     const id = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(id);
   }, [searchInput]);
-  // Any filter/sort change resets to page 1.
-  useEffect(() => setPage(1), [search, fStatus, fPriority, fType, sortKey, sortDir]);
+  // Any filter/sort change resets to page 1 + clears selection.
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, sortKey, sortDir]);
 
-  const { data, loading } = useQuery(ISSUES_PAGED, {
+  const { data, loading, refetch } = useQuery(ISSUES_PAGED, {
     variables: {
       scope,
       filter: { search: search || null, status: fStatus || null, priority: fPriority || null, type: fType || null },
@@ -83,6 +85,19 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     },
     fetchPolicy: "cache-and-network",
   });
+
+  // Bulk selection (scoped to the current page).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [assignId, setAssignId] = useState("");
+  const [confirmDel, setConfirmDel] = useState(false);
+  const { data: engData } = useQuery(ENGINEERS);
+  const [bulkArchive] = useMutation(BULK_ARCHIVE);
+  const [bulkAssign] = useMutation(BULK_ASSIGN);
+  const [bulkDelete] = useMutation(BULK_DELETE);
+  const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
+  const afterBulk = async () => { clearSel(); await refetch(); };
+  const ids = [...selected];
 
   const onSort = (k: string) => { const n = nextSort({ key: sortKey, dir: sortDir }, k); setSortKey(n.key); setSortDir(n.dir); };
 
@@ -107,7 +122,9 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const colCount = showPeople ? 10 : 8;
+  const colCount = (showPeople ? 10 : 8) + 1; // + checkbox column
+  const allOnPage = rows.length > 0 && rows.every((r: any) => selected.has(r.id));
+  const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rows.map((r: any) => r.id)));
 
   return (
     <div>
@@ -126,10 +143,29 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </button>
         </div>
       </div>
+      {selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-border bg-muted/40 px-3 py-2 text-xs">
+          <span className="font-medium">{t("bulk.selected", { n: selected.size })}</span>
+          <button onClick={() => withToast(bulkArchive({ variables: { ids, archived: true } }).then(afterBulk), t("bulk.archived"), t("c.somethingWrong"))} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("act.archive")}</button>
+          <button onClick={() => withToast(bulkArchive({ variables: { ids, archived: false } }).then(afterBulk), t("bulk.unarchived"), t("c.somethingWrong"))} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("act.unarchive")}</button>
+          <span className="flex items-center gap-1">
+            <select value={assignId} onChange={(e) => setAssignId(e.target.value)} className={small}>
+              <option value="">{t("bulk.assignTo")}</option>
+              {(engData?.engineers ?? []).map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            <button disabled={!assignId} onClick={() => withToast(bulkAssign({ variables: { ids, assigneeId: assignId } }).then(afterBulk), t("bulk.assigned"), t("c.somethingWrong"))} className="rounded border border-border px-2 py-1 hover:bg-muted disabled:opacity-40">{t("bulk.assign")}</button>
+          </span>
+          <button onClick={() => setConfirmDel(true)} className="rounded bg-destructive px-2 py-1 font-medium text-white hover:bg-destructive/90">{t("c.delete")}</button>
+          <button onClick={clearSel} className="ml-auto underline">{t("bulk.clear")}</button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
+              <th className="w-8 px-3 py-2 text-left">
+                <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="cursor-pointer" />
+              </th>
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
               <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("issue.colIssue")} colKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -147,6 +183,9 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
             {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("issue.none")}</td></tr>}
             {rows.map((i: any, idx: number) => (
               <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}`)}>
+                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleSel(i.id)} className="cursor-pointer" />
+                </td>
                 <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
                 <td className="px-3 py-2 font-medium">{i.title}</td>
@@ -175,6 +214,12 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </button>
         </div>
       </div>
+      <DeleteConfirm
+        open={confirmDel}
+        onClose={() => setConfirmDel(false)}
+        onConfirm={() => withToast(bulkDelete({ variables: { ids } }).then(afterBulk), t("bulk.deleted"), t("c.somethingWrong"))}
+        label={t("bulk.nIssues", { n: selected.size })}
+      />
     </div>
   );
 }

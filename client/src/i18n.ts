@@ -4,6 +4,16 @@ import { initReactI18next } from "react-i18next";
 // Full UI dictionary (en / id). Keys grouped by area with flat dotted names.
 const en = {
   app: "QATrail",
+  "bulk.selected": "{{n}} selected",
+  "bulk.assignTo": "Assign to…",
+  "bulk.assign": "Assign",
+  "bulk.assigned": "Issues reassigned",
+  "bulk.archived": "Issues archived",
+  "bulk.unarchived": "Issues unarchived",
+  "bulk.deleted": "Issues deleted",
+  "bulk.clear": "Clear",
+  "bulk.nIssues": "{{n}} issue(s)",
+
   "clone.featureTitle": "Clone feature",
   "clone.testCaseTitle": "Clone test case",
   "clone.featureHelp": "Copy this feature and its test cases (steps + attachments) into a project. Records and issues are not copied.",
@@ -589,6 +599,16 @@ Hold / Resume ............. pause & resume IN_PROGRESS`,
 
 const id: typeof en = {
   app: "QATrail",
+  "bulk.selected": "{{n}} dipilih",
+  "bulk.assignTo": "Tugaskan ke…",
+  "bulk.assign": "Tugaskan",
+  "bulk.assigned": "Isu ditugaskan ulang",
+  "bulk.archived": "Isu diarsipkan",
+  "bulk.unarchived": "Isu batal arsip",
+  "bulk.deleted": "Isu dihapus",
+  "bulk.clear": "Bersihkan",
+  "bulk.nIssues": "{{n}} isu",
+
   "clone.featureTitle": "Klon fitur",
   "clone.testCaseTitle": "Klon test case",
   "clone.featureHelp": "Salin fitur ini beserta test case-nya (langkah + lampiran) ke sebuah proyek. Rekaman dan isu tidak disalin.",

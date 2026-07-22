@@ -385,6 +385,10 @@ export const typeDefs = /* GraphQL */ `
     setIssueArchived(id: ID!, archived: Boolean!): Issue!
     postIssueToJira(id: ID!, jiraKey: String!): Issue!
 
+    bulkArchiveIssues(ids: [ID!]!, archived: Boolean!): Int!
+    bulkAssignIssues(ids: [ID!]!, assigneeId: ID!): Int!
+    bulkDeleteIssues(ids: [ID!]!): Int!
+
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Boolean!
 

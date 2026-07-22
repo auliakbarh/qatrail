@@ -193,6 +193,24 @@ export const issueResolvers = {
       return true;
     },
 
+    async bulkArchiveIssues(_: unknown, args: { ids: string[]; archived: boolean }, ctx: Context) {
+      await requireQA(ctx);
+      const r = await ctx.prisma.issue.updateMany({ where: { id: { in: args.ids } }, data: { archived: args.archived } });
+      return r.count;
+    },
+    async bulkAssignIssues(_: unknown, args: { ids: string[]; assigneeId: string }, ctx: Context) {
+      await requireQA(ctx);
+      const eng = await ctx.prisma.user.findUnique({ where: { id: args.assigneeId } });
+      if (!eng) throw new Error("Assignee not found");
+      const r = await ctx.prisma.issue.updateMany({ where: { id: { in: args.ids } }, data: { assigneeId: args.assigneeId } });
+      return r.count;
+    },
+    async bulkDeleteIssues(_: unknown, args: { ids: string[] }, ctx: Context) {
+      await requireQA(ctx);
+      const r = await ctx.prisma.issue.deleteMany({ where: { id: { in: args.ids } } });
+      return r.count;
+    },
+
     // Post (or re-post/edit) a formatted comment on a JIRA ticket, containing
     // the issue deep-link + all fields. Idempotent via stored jiraCommentId.
     async postIssueToJira(_: unknown, args: { id: string; jiraKey: string }, ctx: Context) {
