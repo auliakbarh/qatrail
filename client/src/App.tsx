@@ -17,6 +17,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import Maintenance from "./pages/Maintenance";
+import HealthPage from "./pages/HealthPage";
 import NotFound from "./pages/NotFound";
 import { Toaster } from "./components/Toaster";
 
@@ -62,6 +63,7 @@ export default function App() {
       <Toaster />
       <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/health" element={<HealthPage />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route element={<ProtectedLayout />}>
