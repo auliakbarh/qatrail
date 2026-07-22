@@ -3,7 +3,7 @@ import { initReactI18next } from "react-i18next";
 
 // Full UI dictionary (en / id). Keys grouped by area with flat dotted names.
 const en = {
-  app: "QA Reporting",
+  app: "QATrail",
   "move.title": "Move test case",
   "move.help": "Move this test case to another feature — optionally in a different project. Its records and issues move with it.",
   "move.selectProject": "Select project…",
@@ -390,7 +390,7 @@ const en = {
   "t.copyManual": "{{label}}: {{text}} (copy manually)",
   // help page
   "help.doc": "Documentation",
-  "help.title": "QA Reporting — User Guide",
+  "help.title": "QATrail — User Guide",
   "help.subtitle": "How the app is organized and how to run the QA workflow end to end. UI v{{v}}.",
   "help.sec.overview": "Overview",
   "help.sec.roles": "Roles & access",
@@ -555,7 +555,7 @@ Hold / Resume ............. pause & resume IN_PROGRESS`,
 };
 
 const id: typeof en = {
-  app: "QA Reporting",
+  app: "QATrail",
   "move.title": "Pindahkan test case",
   "move.help": "Pindahkan test case ini ke fitur lain — boleh beda proyek. Record dan isu ikut berpindah.",
   "move.selectProject": "Pilih proyek…",
@@ -920,7 +920,7 @@ const id: typeof en = {
   "t.copyManual": "{{label}}: {{text}} (salin manual)",
   // help page
   "help.doc": "Dokumentasi",
-  "help.title": "QA Reporting — Panduan Pengguna",
+  "help.title": "QATrail — Panduan Pengguna",
   "help.subtitle": "Bagaimana aplikasi ini disusun dan cara menjalankan alur kerja QA dari awal hingga akhir. UI v{{v}}.",
   "help.sec.overview": "Ikhtisar",
   "help.sec.roles": "Peran & akses",

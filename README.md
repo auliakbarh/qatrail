@@ -1,4 +1,4 @@
-# QA Reporting
+# QATrail
 
 App/Project → Feature → Test Case → Record → Issue tracker with an engineer review
 workflow, SLA tracking, analytics, and role-based access.
