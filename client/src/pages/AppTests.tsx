@@ -1,8 +1,8 @@
-import { useState, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
 import { APP_TESTS, DELETE_APP_TEST } from "../graphql/apptest";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
@@ -18,6 +18,7 @@ import { fmtDateTime as fmt } from "../lib/utils";
 import { AppTestForm } from "./forms/AppTestForm";
 
 const canCreate = (r?: string) => r === "ENGINEER" || r === "ADMIN" || r === "SUPER_ADMIN";
+const PAGE_SIZE = 25;
 
 // Flatten an app test into a row with sortable/searchable scalar fields.
 function toRow(a: any) {
@@ -49,6 +50,7 @@ export default function AppTests() {
   const [fStatus, setFStatus] = useState("");
   const [del, setDel] = useState<{ id: string; key: string } | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [page, setPage] = useState(1);
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -74,7 +76,12 @@ export default function AppTests() {
       (!fStatus || r.status === fStatus),
   );
   const rows = sortRows(searchRows(filtered, search, ["key", "creatorName", "jira", "appVersion", "backendVersion"]), sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
+  // Reset to page 1 whenever the result set changes.
+  useEffect(() => { setPage(1); }, [search, fEnv, fPlat, fAppVer, fBeVer, fStatus, groupKey, sortKey, sortDir]);
 
   const canEditRow = (a: any) => a.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const askDelete = (a: any) => {
@@ -209,6 +216,19 @@ export default function AppTests() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{t("page.of", { total, page, totalPages })}</span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
