@@ -30,6 +30,23 @@ export async function notify(
   });
 }
 
+// Fan a notification out to everyone watching a target (issue/app test).
+export async function notifyWatchers(
+  target: "ISSUE" | "APP_TEST",
+  targetId: string,
+  kind: string,
+  message: string,
+  refs: { issueId?: string | null; appTestId?: string | null },
+  exceptUserId?: string,
+): Promise<void> {
+  const ws = await prisma.watch.findMany({ where: { target, targetId }, select: { userId: true } });
+  await Promise.all(
+    ws
+      .filter((w) => w.userId !== exceptUserId)
+      .map((w) => notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null)),
+  );
+}
+
 // Fan a notification out to every active QA + admin (app-test lifecycle events),
 // optionally excluding one user (usually the actor).
 export async function notifyQaAdmins(

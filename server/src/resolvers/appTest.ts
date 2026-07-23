@@ -3,7 +3,7 @@ import type { Context } from "../context.js";
 import { requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
-import { notifyQaAdmins } from "../notify.js";
+import { notifyQaAdmins, notifyWatchers } from "../notify.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -141,6 +141,7 @@ export const appTestResolvers = {
       const at = await getOwned(ctx, args.id, user);
       const updated = await ctx.prisma.appTest.update({ where: { id: at.id }, data: scalarData(args.input) });
       await notifyQaAdmins("APP_TEST_UPDATED", `App test updated: APP-${at.number}`, at.id, user.id);
+      await notifyWatchers("APP_TEST", at.id, "WATCH", `App test updated: APP-${at.number}`, { appTestId: at.id }, user.id);
       return updated;
     },
     async deleteAppTest(_: unknown, args: { id: string }, ctx: Context) {

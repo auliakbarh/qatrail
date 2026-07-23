@@ -25,6 +25,9 @@ async function recipients(ctx: Context, target: Target, targetId: string, author
     const at = await ctx.prisma.appTest.findUnique({ where: { id: targetId }, select: { createdById: true } });
     if (at) set.add(at.createdById);
   }
+  // Watchers of this target also hear about new comments.
+  const watchers = await ctx.prisma.watch.findMany({ where: { target, targetId }, select: { userId: true } });
+  for (const w of watchers) set.add(w.userId);
   set.delete(authorId);
   return [...set];
 }

@@ -402,6 +402,9 @@ export const typeDefs = /* GraphQL */ `
     assignedTestCases(appTestId: ID!): [AssignedTestCase!]!
     assignableTestCases(appTestId: ID!): [TestCase!]!
 
+    isWatching(target: CommentTarget!, targetId: ID!): Boolean!
+    suggestions(field: String!): [String!]!
+
     notifications: [Notification!]!
     unreadCount: Int!
 
@@ -484,6 +487,8 @@ export const typeDefs = /* GraphQL */ `
     assignFeatureTestCases(appTestId: ID!, featureId: ID!): AppTest!
     unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
     closeAppTestTesting(appTestId: ID!): AppTest!
+
+    setWatch(target: CommentTarget!, targetId: ID!, watching: Boolean!): Boolean!
 
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Boolean!

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
+import { SuggestDatalist } from "../../components/SuggestDatalist";
 import { PROJECTS } from "../../graphql/hierarchy";
 import { APP_TESTS, APP_TEST, CREATE_APP_TEST, UPDATE_APP_TEST } from "../../graphql/apptest";
 import { useNav, type PanelState } from "../../store/nav";
@@ -112,10 +113,12 @@ export function AppTestForm({ panel }: { panel: PanelState }) {
         </div>
         <div className="flex gap-2">
           <Field label={t("form.appVersion")} optional>
-            <input className={inputCls} {...register("appVersion")} />
+            <input className={inputCls} list="sug-at-appVersion" {...register("appVersion")} />
+            <SuggestDatalist id="sug-at-appVersion" field="appVersion" />
           </Field>
           <Field label={t("form.backendVersion")} optional>
-            <input className={inputCls} {...register("backendVersion")} />
+            <input className={inputCls} list="sug-at-backendVersion" {...register("backendVersion")} />
+            <SuggestDatalist id="sug-at-backendVersion" field="backendVersion" />
           </Field>
         </div>
         <Field label={t("at.downloadLink")} error={formState.errors.downloadLink && t("c.required")}>

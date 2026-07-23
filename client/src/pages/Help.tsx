@@ -10,6 +10,7 @@ const SECTION_IDS = [
   "structure",
   "records",
   "issues",
+  "app-tests",
   "defect-bug",
   "workflow",
   "sla",
@@ -110,6 +111,14 @@ export default function Help() {
           <Doc id="issues" title={t("help.sec.issues")}>
             <P><Trans i18nKey="help.issues.p1" components={{ b: <B /> }} /></P>
             <P>{t("help.issues.p2")}</P>
+          </Doc>
+
+          <Doc id="app-tests" title={t("help.sec.app-tests")}>
+            <P><Trans i18nKey="help.apptest.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.apptest.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.apptest.p3" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.apptest.p4" components={{ b: <B /> }} /></P>
+            <Callout><Trans i18nKey="help.apptest.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
           <Doc id="defect-bug" title={t("help.sec.defect-bug")}>

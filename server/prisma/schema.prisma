@@ -121,6 +121,7 @@ model User {
 
   appTests              AppTest[]     @relation("appTestCreator")
   appTestCasesAssigned  AppTestCase[] @relation("appTestCaseAssigner")
+  watches               Watch[]
 }
 
 model Project {
@@ -318,6 +319,19 @@ model IssueAttachment {
 // Generic comment on any commentable entity (issue or app test). targetId is a
 // plain ref (no FK) so one model serves both; rows are cleaned by the resolver
 // when a target is deleted.
+// A user watching an issue or app test to receive activity notifications.
+model Watch {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target    CommentTarget
+  targetId  String
+  createdAt DateTime      @default(now())
+
+  @@unique([userId, target, targetId])
+  @@index([target, targetId])
+}
+
 model Comment {
   id        String        @id @default(cuid())
   target    CommentTarget

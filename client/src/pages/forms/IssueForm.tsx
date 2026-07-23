@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
+import { SuggestDatalist } from "../../components/SuggestDatalist";
 import {
   CREATE_ISSUE,
   UPDATE_ISSUE,
@@ -223,16 +224,20 @@ export function IssueForm({
             <input
               className={inputCls}
               disabled={lockFields}
+              list="sug-appVersion"
               {...register("appVersion", { validate: (v) => lockFields || !mobileVersionRequired || !!v.trim() })}
             />
+            <SuggestDatalist id="sug-appVersion" field="appVersion" />
           </Field>
           <Field label={t("form.backendVersion")} optional>
-            <input className={inputCls} disabled={lockFields} {...register("backendVersion")} />
+            <input className={inputCls} disabled={lockFields} list="sug-backendVersion" {...register("backendVersion")} />
+            <SuggestDatalist id="sug-backendVersion" field="backendVersion" />
           </Field>
         </div>
         <div className="flex gap-2">
           <Field label={t("iss.testAccount")} error={formState.errors.testAccount && t("c.required")}>
-            <input className={inputCls} {...register("testAccount", { required: true })} />
+            <input className={inputCls} list="sug-testAccount" {...register("testAccount", { required: true })} />
+            <SuggestDatalist id="sug-testAccount" field="testAccount" />
           </Field>
           <Field label={t("form.testPassword")} optional>
             <input className={inputCls} {...register("testPassword")} />

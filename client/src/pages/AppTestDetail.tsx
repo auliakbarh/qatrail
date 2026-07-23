@@ -15,6 +15,7 @@ import { Modal } from "../components/Modal";
 import { CoverageBar } from "../components/CoverageBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { CommentsCard } from "../components/CommentsCard";
+import { WatchButton } from "../components/WatchButton";
 import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
@@ -125,6 +126,7 @@ export default function AppTestDetail() {
               <span className="inline-flex rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">{a.status}</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <WatchButton target="APP_TEST" targetId={id} />
               {a.status !== "CLOSED" && (
                 <IconBtn title={t("at.closeTesting")} allowed={manage} onClick={() => setCloseConfirm(true)}><XCircle className="h-3.5 w-3.5" /></IconBtn>
               )}

@@ -10,6 +10,8 @@ import { analyticsResolvers } from "./analytics.js";
 import { adminResolvers } from "./admin.js";
 import { commentResolvers } from "./comment.js";
 import { appTestResolvers } from "./appTest.js";
+import { watchResolvers } from "./watch.js";
+import { suggestionsResolvers } from "./suggestions.js";
 
 export const resolvers = {
   Query: {
@@ -24,6 +26,8 @@ export const resolvers = {
     ...adminResolvers.Query,
     ...commentResolvers.Query,
     ...appTestResolvers.Query,
+    ...watchResolvers.Query,
+    ...suggestionsResolvers.Query,
   },
   Mutation: {
     ...authResolvers.Mutation,
@@ -37,6 +41,7 @@ export const resolvers = {
     ...adminResolvers.Mutation,
     ...commentResolvers.Mutation,
     ...appTestResolvers.Mutation,
+    ...watchResolvers.Mutation,
   },
   Subscription: {
     ...notificationResolvers.Subscription,

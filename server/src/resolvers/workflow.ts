@@ -1,6 +1,6 @@
 import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
-import { notify } from "../notify.js";
+import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 
 // Load the issue or throw. Small helper to keep mutations terse.
@@ -39,10 +39,14 @@ async function transition(
   data: Record<string, any>,
   ev: { kind: string; fromVal?: string; toVal?: string; byId: string; note?: string },
 ) {
-  return ctx.prisma.issue.update({
+  const updated = await ctx.prisma.issue.update({
     where: { id: issue.id },
     data: { ...data, history: { create: ev } },
   });
+  // Notify watchers of the issue on any transition (author excluded).
+  const label = ev.toVal ? `${issue.title} → ${ev.toVal}` : issue.title;
+  await notifyWatchers("ISSUE", issue.id, "WATCH", `Issue updated: ${label}`, { issueId: issue.id }, ev.byId);
+  return updated;
 }
 
 export const workflowResolvers = {

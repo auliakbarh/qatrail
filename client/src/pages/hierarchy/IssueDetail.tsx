@@ -23,6 +23,7 @@ import { TextPromptModal } from "../../components/TextPromptModal";
 import { withToast, useToast, copyWithToast } from "../../store/toast";
 import { AttachmentList } from "../../components/AttachmentList";
 import { CommentsCard } from "../../components/CommentsCard";
+import { WatchButton } from "../../components/WatchButton";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -95,6 +96,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
             <h2 className="text-sm font-semibold">{i.title}</h2>
           </div>
           <div className="flex items-center gap-1.5">
+            <WatchButton target="ISSUE" targetId={id} />
             <button onClick={copyLink} title={t("iss.copyLinkTitle")} className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
               <Copy className="h-3 w-3" /> {t("iss.link")}
             </button>

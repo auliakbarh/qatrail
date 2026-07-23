@@ -2,7 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
-import { notify } from "../notify.js";
+import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
 import { cachedSlaTargets, classifyResolve } from "../sla.js";
@@ -172,6 +172,7 @@ export const issueResolvers = {
         if (at && at.createdById !== user.id) {
           await notify(at.createdById, "APP_TEST_ISSUE", `New issue on your app test: ${issue.title}`, issue.id, issue.appTestId);
         }
+        await notifyWatchers("APP_TEST", issue.appTestId, "APP_TEST_ISSUE", `New issue on app test: ${issue.title}`, { issueId: issue.id, appTestId: issue.appTestId }, user.id);
         await recomputeAppTest(issue.appTestId);
       }
       return issue;
