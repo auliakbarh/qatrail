@@ -3,6 +3,7 @@ import { requireAuth, requireQA } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify } from "../notify.js";
+import { recomputeAppTest } from "../appTestStatus.js";
 import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
 import { cachedSlaTargets, classifyResolve } from "../sla.js";
 
@@ -29,6 +30,7 @@ interface IssueInput {
   priority: "LOW" | "MEDIUM" | "HIGH";
   note?: string | null;
   assigneeId: string;
+  appTestId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
 }
 
@@ -80,10 +82,6 @@ export const issueResolvers = {
     async issue(_: unknown, args: { id: string }, ctx: Context) {
       requireAuth(ctx);
       return ctx.prisma.issue.findUnique({ where: { id: args.id } });
-    },
-    async issueComments(_: unknown, args: { issueId: string }, ctx: Context) {
-      requireAuth(ctx);
-      return ctx.prisma.issueComment.findMany({ where: { issueId: args.issueId }, orderBy: { createdAt: "asc" } });
     },
     async assignedToMe(_: unknown, __: unknown, ctx: Context) {
       const userId = requireAuth(ctx);
@@ -148,6 +146,7 @@ export const issueResolvers = {
           testCaseId: input.testCaseId,
           recordTestId: input.recordTestId ?? null,
           recreatedFromId: input.recreatedFromId ?? null,
+          appTestId: input.appTestId ?? null,
           testPassword: encPw(input.testPassword),
           reporterId: user.id,
           attachments: {
@@ -165,6 +164,14 @@ export const issueResolvers = {
       });
       // Notify the assigned engineer.
       await notify(input.assigneeId, "ASSIGNED", `Issue assigned to you: ${issue.title}`, issue.id);
+      // App-test-scoped issue: notify the app test's creator + refresh its status.
+      if (issue.appTestId) {
+        const at = await ctx.prisma.appTest.findUnique({ where: { id: issue.appTestId }, select: { createdById: true } });
+        if (at && at.createdById !== user.id) {
+          await notify(at.createdById, "APP_TEST_ISSUE", `New issue on your app test: ${issue.title}`, issue.id, issue.appTestId);
+        }
+        await recomputeAppTest(issue.appTestId);
+      }
       return issue;
     },
     async updateIssue(_: unknown, args: { id: string; input: IssueInput }, ctx: Context) {
@@ -193,7 +200,8 @@ export const issueResolvers = {
     },
     async deleteIssue(_: unknown, args: { id: string }, ctx: Context) {
       await requireQA(ctx);
-      await ctx.prisma.issue.delete({ where: { id: args.id } });
+      const issue = await ctx.prisma.issue.delete({ where: { id: args.id } });
+      if (issue.appTestId) await recomputeAppTest(issue.appTestId);
       return true;
     },
 
@@ -213,19 +221,6 @@ export const issueResolvers = {
       await requireQA(ctx);
       const r = await ctx.prisma.issue.deleteMany({ where: { id: { in: args.ids } } });
       return r.count;
-    },
-
-    async addIssueComment(_: unknown, args: { issueId: string; body: string }, ctx: Context) {
-      const userId = requireAuth(ctx);
-      const body = args.body.trim();
-      if (!body) throw new Error("Comment cannot be empty");
-      const issue = await ctx.prisma.issue.findUnique({ where: { id: args.issueId } });
-      if (!issue) throw new Error("Issue not found");
-      const comment = await ctx.prisma.issueComment.create({ data: { issueId: args.issueId, byId: userId, body } });
-      // Notify the other party (reporter ↔ assignee).
-      const other = userId === issue.reporterId ? issue.assigneeId : issue.reporterId;
-      if (other && other !== userId) await notify(other, "COMMENT", `New comment on: ${issue.title}`, issue.id);
-      return comment;
     },
 
     // Post (or re-post/edit) a formatted comment on a JIRA ticket, containing
@@ -272,6 +267,11 @@ export const issueResolvers = {
   },
   Issue: {
     key: (i: any) => `ISSUE-${i.number}`,
+    async appTestKey(i: any, _: unknown, ctx: Context) {
+      if (!i.appTestId) return null;
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: i.appTestId }, select: { number: true } });
+      return at ? `APP-${at.number}` : null;
+    },
     async featureId(i: any, _: unknown, ctx: Context) {
       const tc = await ctx.prisma.testCase.findUnique({ where: { id: i.testCaseId }, select: { featureId: true } });
       return tc?.featureId ?? null;
@@ -315,9 +315,5 @@ export const issueResolvers = {
         return null;
       }
     },
-  },
-  IssueComment: {
-    createdAt: (c: any) => c.createdAt.toISOString(),
-    by: (c: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: c.byId } }),
   },
 };

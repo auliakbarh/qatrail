@@ -12,6 +12,8 @@ import { Toaster } from "./components/Toaster";
 
 // Route-split: each of these becomes its own chunk, loaded on first visit.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AppTests = lazy(() => import("./pages/AppTests"));
+const AppTestDetail = lazy(() => import("./pages/AppTestDetail"));
 const IssuePage = lazy(() => import("./pages/IssuePage"));
 const AllIssues = lazy(() => import("./pages/AllIssues"));
 const AssignedToMe = lazy(() => import("./pages/AssignedToMe"));
@@ -73,6 +75,8 @@ export default function App() {
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/app-tests" element={<AppTests />} />
+        <Route path="/app-tests/:id" element={<AppTestDetail />} />
         <Route path="/issues" element={<AllIssues />} />
         <Route path="/assigned" element={<AssignedToMe />} />
         <Route path="/issues/:id" element={<IssuePage />} />

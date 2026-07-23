@@ -18,12 +18,15 @@ function pct(passed: number, total: number): number {
 // Coverage for a set of test case ids — two batched queries regardless of N:
 //   1. all records for these test cases, newest first → latest result per case;
 //   2. grouped count of open issues per case.
-async function coverageForTestCases(testCaseIds: string[]): Promise<Coverage> {
+// When appTestId is given, only records/issues scoped to that app test count —
+// this yields per-app-test coverage over its assigned cases.
+async function coverageForTestCases(testCaseIds: string[], appTestId?: string): Promise<Coverage> {
   const total = testCaseIds.length;
   if (total === 0) return { total: 0, passed: 0, percent: 0 };
 
+  const scope = appTestId ? { appTestId } : {};
   const records = await prisma.recordTest.findMany({
-    where: { testCaseId: { in: testCaseIds } },
+    where: { testCaseId: { in: testCaseIds }, ...scope },
     orderBy: { executedAt: "desc" },
     select: { testCaseId: true, result: true },
   });
@@ -32,7 +35,7 @@ async function coverageForTestCases(testCaseIds: string[]): Promise<Coverage> {
 
   const openGroups = await prisma.issue.groupBy({
     by: ["testCaseId"],
-    where: { testCaseId: { in: testCaseIds }, archived: false, status: { not: "CLOSED" } },
+    where: { testCaseId: { in: testCaseIds }, archived: false, status: { not: "CLOSED" }, ...scope },
     _count: { _all: true },
   });
   const hasOpenIssue = new Set(openGroups.map((g) => g.testCaseId));
@@ -78,4 +81,11 @@ export async function allCoverage(): Promise<Coverage> {
     const tcs = await prisma.testCase.findMany({ select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
+}
+
+// Coverage over the cases assigned to an app test, scoped to that app test's
+// own records/issues. Not cached — recomputed on demand (also drives status).
+export async function appTestCoverage(appTestId: string): Promise<Coverage> {
+  const rows = await prisma.appTestCase.findMany({ where: { appTestId }, select: { testCaseId: true } });
+  return coverageForTestCases(rows.map((r) => r.testCaseId), appTestId);
 }

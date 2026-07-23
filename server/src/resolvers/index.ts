@@ -8,6 +8,8 @@ import { workflowResolvers } from "./workflow.js";
 import { notificationResolvers } from "./notification.js";
 import { analyticsResolvers } from "./analytics.js";
 import { adminResolvers } from "./admin.js";
+import { commentResolvers } from "./comment.js";
+import { appTestResolvers } from "./appTest.js";
 
 export const resolvers = {
   Query: {
@@ -20,6 +22,8 @@ export const resolvers = {
     ...notificationResolvers.Query,
     ...analyticsResolvers.Query,
     ...adminResolvers.Query,
+    ...commentResolvers.Query,
+    ...appTestResolvers.Query,
   },
   Mutation: {
     ...authResolvers.Mutation,
@@ -31,6 +35,8 @@ export const resolvers = {
     ...workflowResolvers.Mutation,
     ...notificationResolvers.Mutation,
     ...adminResolvers.Mutation,
+    ...commentResolvers.Mutation,
+    ...appTestResolvers.Mutation,
   },
   Subscription: {
     ...notificationResolvers.Subscription,
@@ -40,7 +46,9 @@ export const resolvers = {
   TestCase: testCaseResolvers.TestCase,
   RecordTest: recordResolvers.RecordTest,
   Issue: issueResolvers.Issue,
-  IssueComment: issueResolvers.IssueComment,
+  Comment: commentResolvers.Comment,
+  AppTest: appTestResolvers.AppTest,
+  AssignedTestCase: appTestResolvers.AssignedTestCase,
   StatusEvent: workflowResolvers.StatusEvent,
   Postmortem: workflowResolvers.Postmortem,
   Notification: notificationResolvers.Notification,

@@ -350,7 +350,9 @@ const FEATURES: Feat[] = [
 async function wipeContent() {
   await prisma.notification.deleteMany();
   await prisma.statusEvent.deleteMany();
-  await prisma.issueComment.deleteMany();
+  await prisma.comment.deleteMany();
+  await prisma.appTestCase.deleteMany();
+  await prisma.appTest.deleteMany();
   await prisma.postmortem.deleteMany();
   await prisma.issueAttachment.deleteMany();
   await prisma.issue.deleteMany();

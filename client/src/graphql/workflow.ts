@@ -13,7 +13,7 @@ export const SET_ISSUE_ARCHIVED = gql`mutation($id: ID!,$archived:Boolean!){ set
 
 export const NOTIFICATIONS = gql`
   query Notifications {
-    notifications { id kind message issueId read createdAt }
+    notifications { id kind message issueId appTestId read createdAt }
     unreadCount
   }
 `;
@@ -21,6 +21,6 @@ export const MARK_NOTIFICATION_READ = gql`mutation($id: ID!){ markNotificationRe
 export const MARK_ALL_READ = gql`mutation{ markAllNotificationsRead }`;
 export const NOTIFICATION_ADDED = gql`
   subscription {
-    notificationAdded { id kind message issueId read createdAt }
+    notificationAdded { id kind message issueId appTestId read createdAt }
   }
 `;

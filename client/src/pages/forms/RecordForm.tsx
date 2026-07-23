@@ -7,6 +7,7 @@ import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_RECORD_TEST, RECORD_TESTS, ISSUE, ISSUES } from "../../graphql/issue";
 import { ISSUE_REVIEW } from "../../graphql/workflow";
 import { TEST_CASES } from "../../graphql/hierarchy";
+import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
@@ -31,10 +32,12 @@ export function RecordForm({
   testCaseId,
   featureId,
   retestIssueId,
+  appTestId,
 }: {
   testCaseId: string;
   featureId: string;
   retestIssueId?: string;
+  appTestId?: string;
 }) {
   const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
@@ -44,10 +47,14 @@ export function RecordForm({
   });
   const atts = useFieldArray({ control, name: "attachments" });
 
+  const appTestRefetch = appTestId
+    ? [{ query: ASSIGNED_TEST_CASES, variables: { appTestId } }, { query: APP_TEST, variables: { id: appTestId } }]
+    : [];
   const [createRecordTest] = useMutation(CREATE_RECORD_TEST, {
     refetchQueries: [
       { query: RECORD_TESTS, variables: { testCaseId } },
       { query: TEST_CASES, variables: { featureId } },
+      ...appTestRefetch,
     ],
   });
   const [reviewIssue] = useMutation(ISSUE_REVIEW, {
@@ -68,6 +75,7 @@ export function RecordForm({
             result: v.result,
             note: v.note || null,
             retestIssueId: retestIssueId ?? null,
+            appTestId: appTestId ?? null,
             attachments: v.attachments
               .filter((a) => a.url.trim())
               .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
@@ -97,7 +105,8 @@ export function RecordForm({
       openPanel({
         kind: "issue",
         mode: "create",
-        initial: { recordTestId: rec.id, testedAt: rec.executedAt },
+        // Carry app-test context so the issue links to the same app test.
+        initial: { recordTestId: rec.id, testedAt: rec.executedAt, appTestId, testCaseId, featureId },
       });
     } else {
       closePanel();

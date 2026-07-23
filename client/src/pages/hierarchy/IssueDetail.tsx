@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Archive, ArchiveRestore, Copy, Printer } from "lucide-react";
-import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA, ISSUE_COMMENTS, ADD_ISSUE_COMMENT } from "../../graphql/issue";
+import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA } from "../../graphql/issue";
 import { HEALTH } from "../../graphql";
 import {
   ISSUE_ACCEPT,
@@ -22,6 +22,7 @@ import { printIssueReport } from "../../lib/printReport";
 import { TextPromptModal } from "../../components/TextPromptModal";
 import { withToast, useToast, copyWithToast } from "../../store/toast";
 import { AttachmentList } from "../../components/AttachmentList";
+import { CommentsCard } from "../../components/CommentsCard";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -260,7 +261,15 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       </div>
 
       {/* Comments */}
-      <CommentsCard issueId={id} />
+      <CommentsCard target="ISSUE" targetId={id} />
+
+      {/* App test link */}
+      {i.appTestId && (
+        <div className="rounded border border-border px-5 py-3 text-xs">
+          <span className="text-muted-foreground">{t("at.relatedAppTest")}: </span>
+          <a href={`/app-tests/${i.appTestId}`} className="text-primary hover:underline">{i.appTestKey}</a>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="rounded border border-border">
@@ -364,77 +373,3 @@ function ActBtn({ children, onClick, primary, destructive, allowed = true }: { c
   );
 }
 
-function CommentsCard({ issueId }: { issueId: string }) {
-  const { t } = useTranslation();
-  const { user } = useAuth();
-  const { data } = useQuery(ISSUE_COMMENTS, { variables: { issueId }, fetchPolicy: "cache-and-network" });
-  const [add, { loading }] = useMutation(ADD_ISSUE_COMMENT);
-  const [body, setBody] = useState("");
-  const comments = data?.issueComments ?? [];
-  const fmtc = fmt;
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = body.trim();
-    if (!text) return;
-    setBody("");
-    await withToast(
-      add({
-        variables: { issueId, body: text },
-        // Optimistic: show the comment instantly, then reconcile.
-        optimisticResponse: {
-          addIssueComment: {
-            __typename: "IssueComment",
-            id: `temp-${Math.random()}`,
-            body: text,
-            createdAt: new Date().toISOString(),
-            by: { __typename: "User", id: user?.id ?? "me", name: user?.name ?? "…" },
-          },
-        },
-        update: (cache, { data: res }) => {
-          const created = res?.addIssueComment;
-          if (!created) return;
-          const prev: any = cache.readQuery({ query: ISSUE_COMMENTS, variables: { issueId } });
-          cache.writeQuery({
-            query: ISSUE_COMMENTS,
-            variables: { issueId },
-            data: { issueComments: [...(prev?.issueComments ?? []), created] },
-          });
-        },
-      }),
-      t("cmt.send"),
-      t("c.somethingWrong"),
-    );
-  };
-
-  return (
-    <div className="rounded border border-border">
-      <div className="border-b border-border px-5 py-4">
-        <h3 className="text-sm font-semibold">{t("cmt.title")} ({comments.length})</h3>
-      </div>
-      <div className="space-y-3 px-5 py-4">
-        {comments.length === 0 && <p className="text-xs text-muted-foreground">{t("cmt.empty")}</p>}
-        {comments.map((c: any) => (
-          <div key={c.id} className="text-sm">
-            <div className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{c.by.name}</span> · {fmtc(c.createdAt)}
-            </div>
-            <div className="whitespace-pre-wrap">{c.body}</div>
-          </div>
-        ))}
-        <form onSubmit={submit} className="space-y-2 pt-1">
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={2}
-            placeholder={t("cmt.placeholder")}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <button type="submit" disabled={loading || !body.trim()} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-            {loading ? t("c.saving") : t("cmt.send")}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}

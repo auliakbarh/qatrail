@@ -1,5 +1,6 @@
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
+import { recomputeAppTest } from "../appTestStatus.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -8,6 +9,7 @@ interface RecordTestInput {
   note?: string | null;
   result: "PASS" | "FAIL";
   retestIssueId?: string | null;
+  appTestId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
 }
 
@@ -25,7 +27,7 @@ export const recordResolvers = {
     async createRecordTest(_: unknown, args: { testCaseId: string; input: RecordTestInput }, ctx: Context) {
       const user = await requireQA(ctx);
       const { input } = args;
-      return ctx.prisma.recordTest.create({
+      const rec = await ctx.prisma.recordTest.create({
         data: {
           testCaseId: args.testCaseId,
           executedById: user.id,
@@ -33,6 +35,7 @@ export const recordResolvers = {
           note: input.note ?? null,
           result: input.result,
           retestIssueId: input.retestIssueId ?? null,
+          appTestId: input.appTestId ?? null,
           attachments: {
             create: input.attachments.map((a) => ({
               url: a.url,
@@ -42,10 +45,13 @@ export const recordResolvers = {
           },
         },
       });
+      if (rec.appTestId) await recomputeAppTest(rec.appTestId);
+      return rec;
     },
     async deleteRecordTest(_: unknown, args: { id: string }, ctx: Context) {
       await requireQA(ctx);
-      await ctx.prisma.recordTest.delete({ where: { id: args.id } });
+      const rec = await ctx.prisma.recordTest.delete({ where: { id: args.id } });
+      if (rec.appTestId) await recomputeAppTest(rec.appTestId);
       return true;
     },
   },

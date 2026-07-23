@@ -13,6 +13,7 @@ import {
   ENGINEERS,
 } from "../../graphql/issue";
 import { TEST_CASES } from "../../graphql/hierarchy";
+import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -49,10 +50,12 @@ export function IssueForm({
   panel,
   testCaseId,
   featureId,
+  appTestId,
 }: {
   panel: PanelState;
   testCaseId: string;
   featureId: string;
+  appTestId?: string;
 }) {
   const { t } = useTranslation();
   const { closePanel } = useNav();
@@ -124,6 +127,9 @@ export function IssueForm({
     refetchQueries: [
       { query: ISSUES, variables: { testCaseId } },
       { query: TEST_CASES, variables: { featureId } },
+      ...(appTestId
+        ? [{ query: ASSIGNED_TEST_CASES, variables: { appTestId } }, { query: APP_TEST, variables: { id: appTestId } }]
+        : []),
     ],
   };
   const [createIssue] = useMutation(CREATE_ISSUE, refetch);
@@ -152,6 +158,7 @@ export function IssueForm({
       priority: v.priority,
       note: v.note || null,
       assigneeId: v.assigneeId,
+      appTestId: appTestId ?? null,
       attachments: v.attachments
         .filter((a) => a.url.trim())
         .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),

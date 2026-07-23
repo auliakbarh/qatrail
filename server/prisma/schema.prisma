@@ -60,6 +60,19 @@ enum ReviewState {
   REJECTED
 }
 
+enum AppTestStatus {
+  OPEN
+  ASSIGNED
+  IN_TESTING
+  PASSED
+  CLOSED
+}
+
+enum CommentTarget {
+  ISSUE
+  APP_TEST
+}
+
 enum TestResult {
   PASS
   FAIL
@@ -99,7 +112,10 @@ model User {
   statusEvents   StatusEvent[]
   notifications  Notification[]
   passwordResets PasswordReset[]
-  issueComments  IssueComment[]
+  comments       Comment[]
+
+  appTests              AppTest[]     @relation("appTestCreator")
+  appTestCasesAssigned  AppTestCase[] @relation("appTestCaseAssigner")
 }
 
 model Project {
@@ -114,6 +130,7 @@ model Project {
   updatedAt      DateTime @updatedAt
 
   features Feature[]
+  appTests AppTest[]
 
   @@index([name])
 }
@@ -148,10 +165,11 @@ model TestCase {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  steps       TestCaseStep[]
-  attachments TestCaseAttachment[]
-  records     RecordTest[]
-  issues      Issue[]
+  steps        TestCaseStep[]
+  attachments  TestCaseAttachment[]
+  records      RecordTest[]
+  issues       Issue[]
+  appTestCases AppTestCase[]
 
   @@index([featureId])
 }
@@ -192,6 +210,9 @@ model RecordTest {
   // Set when this record is a retest of a previously-failed issue (plain ref,
   // no FK) — marks it as verification of that issue's fix.
   retestIssueId String?
+  // Set when this run was executed as part of an app test.
+  appTestId    String?
+  appTest      AppTest?   @relation(fields: [appTestId], references: [id], onDelete: SetNull)
   createdAt    DateTime   @default(now())
 
   attachments RecordTestAttachment[]
@@ -199,6 +220,7 @@ model RecordTest {
 
   @@index([testCaseId])
   @@index([result])
+  @@index([appTestId])
 }
 
 model RecordTestAttachment {
@@ -246,6 +268,10 @@ model Issue {
   assigneeId String
   assignee   User   @relation("assignee", fields: [assigneeId], references: [id])
 
+  // Set when this issue was found while testing an app test.
+  appTestId String?
+  appTest   AppTest? @relation(fields: [appTestId], references: [id], onDelete: SetNull)
+
   recreatedFromId String?
 
   jiraKey       String?
@@ -262,13 +288,13 @@ model Issue {
   attachments IssueAttachment[]
   history     StatusEvent[]
   postmortem  Postmortem?
-  comments    IssueComment[]
 
   @@index([testCaseId])
   @@index([status])
   @@index([assigneeId])
   @@index([reporterId])
   @@index([archived])
+  @@index([appTestId])
 }
 
 model IssueAttachment {
@@ -283,16 +309,65 @@ model IssueAttachment {
   @@index([issueId])
 }
 
-model IssueComment {
-  id        String   @id @default(cuid())
-  issueId   String
-  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+// Generic comment on any commentable entity (issue or app test). targetId is a
+// plain ref (no FK) so one model serves both; rows are cleaned by the resolver
+// when a target is deleted.
+model Comment {
+  id        String        @id @default(cuid())
+  target    CommentTarget
+  targetId  String
   byId      String
-  by        User     @relation(fields: [byId], references: [id])
+  by        User          @relation(fields: [byId], references: [id])
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
-  @@index([issueId])
+  @@index([target, targetId])
+}
+
+// An app build an engineer submits for QA to test. Lives under a Project.
+model AppTest {
+  id             String        @id @default(cuid())
+  number         Int           @unique @default(autoincrement()) // human key: APP-<number>
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User          @relation("appTestCreator", fields: [createdById], references: [id])
+  environment    Environment
+  platform       Platform
+  appVersion     String?
+  backendVersion String?
+  downloadLink   String
+  note           String?
+  jiraTickets    String[]
+  status         AppTestStatus @default(OPEN)
+  passedAt       DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  assigned AppTestCase[]
+  records  RecordTest[]
+  issues   Issue[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+// Assignment of an existing test case to an app test (QA-driven).
+model AppTestCase {
+  id           String   @id @default(cuid())
+  appTestId    String
+  appTest      AppTest  @relation(fields: [appTestId], references: [id], onDelete: Cascade)
+  testCaseId   String
+  testCase     TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation("appTestCaseAssigner", fields: [assignedById], references: [id])
+  assignedAt   DateTime @default(now())
+
+  @@unique([appTestId, testCaseId])
+  @@index([appTestId])
+  @@index([testCaseId])
 }
 
 model Postmortem {
@@ -331,6 +406,7 @@ model Notification {
   kind      String
   message   String
   issueId   String?
+  appTestId String?
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 

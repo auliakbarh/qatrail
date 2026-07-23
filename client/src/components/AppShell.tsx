@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client";
-import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox } from "lucide-react";
+import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox, Smartphone } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { SidebarTree } from "./SidebarTree";
 import { useAuth } from "../store/auth";
@@ -48,6 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
           {[
             { to: "/", label: t("nav.dashboard"), Icon: LayoutDashboard, end: true, tree: true },
+            { to: "/app-tests", label: t("nav.appTests"), Icon: Smartphone, end: false, tree: false },
             { to: "/issues", label: t("nav.allIssues"), Icon: ListChecks, end: true, tree: false },
             ...(user?.role === "ENGINEER"
               ? [{ to: "/assigned", label: t("nav.assigned"), Icon: Inbox, end: true, tree: false }]

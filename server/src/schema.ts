@@ -9,6 +9,8 @@ export const typeDefs = /* GraphQL */ `
   enum WorkStatus { OPEN IN_PROGRESS NEED_REVIEW IN_REVIEW CLOSED REOPENED HOLD }
   enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
   enum TestResult { PASS FAIL }
+  enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
+  enum CommentTarget { ISSUE APP_TEST }
 
   type User {
     id: ID!
@@ -107,16 +109,18 @@ export const typeDefs = /* GraphQL */ `
     note: String
     result: TestResult!
     retestIssueId: ID
+    appTestId: ID
     attachments: [Attachment!]!
     issueId: ID
     createdAt: String!
   }
 
-  type IssueComment {
+  type Comment {
     id: ID!
     body: String!
     by: User!
     createdAt: String!
+    updatedAt: String!
   }
 
   type StatusEvent {
@@ -144,6 +148,7 @@ export const typeDefs = /* GraphQL */ `
     kind: String!
     message: String!
     issueId: ID
+    appTestId: ID
     read: Boolean!
     createdAt: String!
   }
@@ -218,6 +223,8 @@ export const typeDefs = /* GraphQL */ `
     projectId: ID!
     recordTestId: ID
     recreatedFromId: ID
+    appTestId: ID
+    appTestKey: String
     jiraKey: String
     jiraCommentId: String
     type: FindingType!
@@ -285,6 +292,7 @@ export const typeDefs = /* GraphQL */ `
     note: String
     result: TestResult!
     retestIssueId: ID
+    appTestId: ID
     attachments: [AttachmentInput!]!
   }
   input PostmortemInput {
@@ -315,7 +323,55 @@ export const typeDefs = /* GraphQL */ `
     priority: Priority!
     note: String
     assigneeId: ID!
+    appTestId: ID
     attachments: [AttachmentInput!]!
+  }
+
+  type AppTest {
+    id: ID!
+    key: String!
+    projectId: ID!
+    projectName: String!
+    createdBy: User!
+    environment: Environment!
+    platform: Platform!
+    appVersion: String
+    backendVersion: String
+    downloadLink: String!
+    note: String
+    jiraTickets: [String!]!
+    status: AppTestStatus!
+    coverage: Coverage!
+    passPercent: Int!
+    issueCount: Int!
+    assignedCount: Int!
+    doneTestAt: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  # A test case as assigned to an app test, with per-app-test progress.
+  type AssignedTestCase {
+    id: ID!            # AppTestCase row id
+    testCase: TestCase!
+    featureId: ID!
+    featureName: String!
+    status: String!    # PASSED | FAILED | IN_TESTING | NOT_STARTED
+    issueCount: Int!
+    assignedBy: User!
+    assignedAt: String!
+    doneTestAt: String
+  }
+
+  input AppTestInput {
+    projectId: ID!
+    environment: Environment!
+    platform: Platform!
+    appVersion: String
+    backendVersion: String
+    downloadLink: String!
+    note: String
+    jiraTickets: [String!]!
   }
 
   type Query {
@@ -334,7 +390,12 @@ export const typeDefs = /* GraphQL */ `
     issues(testCaseId: ID, archived: Boolean): [Issue!]!
     issue(id: ID!): Issue
     assignedToMe: [Issue!]!
-    issueComments(issueId: ID!): [IssueComment!]!
+    comments(target: CommentTarget!, targetId: ID!): [Comment!]!
+
+    appTests(projectId: ID): [AppTest!]!
+    appTest(id: ID!): AppTest
+    assignedTestCases(appTestId: ID!): [AssignedTestCase!]!
+    assignableTestCases(appTestId: ID!): [TestCase!]!
 
     notifications: [Notification!]!
     unreadCount: Int!
@@ -407,7 +468,17 @@ export const typeDefs = /* GraphQL */ `
     bulkAssignIssues(ids: [ID!]!, assigneeId: ID!): Int!
     bulkDeleteIssues(ids: [ID!]!): Int!
 
-    addIssueComment(issueId: ID!, body: String!): IssueComment!
+    addComment(target: CommentTarget!, targetId: ID!, body: String!): Comment!
+    updateComment(id: ID!, body: String!): Comment!
+    deleteComment(id: ID!): Boolean!
+
+    createAppTest(input: AppTestInput!): AppTest!
+    updateAppTest(id: ID!, input: AppTestInput!): AppTest!
+    deleteAppTest(id: ID!): Boolean!
+    assignTestCases(appTestId: ID!, testCaseIds: [ID!]!): AppTest!
+    assignFeatureTestCases(appTestId: ID!, featureId: ID!): AppTest!
+    unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
+    closeAppTestTesting(appTestId: ID!): AppTest!
 
     markNotificationRead(id: ID!): Boolean!
     markAllNotificationsRead: Boolean!

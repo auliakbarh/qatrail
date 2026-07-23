@@ -30,7 +30,7 @@ export const DELETE_RECORD_TEST = gql`
 `;
 
 const ISSUE_FIELDS = `
-  id key testCaseId featureId projectId recordTestId recreatedFromId jiraKey jiraCommentId
+  id key testCaseId featureId projectId recordTestId recreatedFromId appTestId appTestKey jiraKey jiraCommentId
   type title description environment platform
   appVersion backendVersion testAccount testPassword testedAt preconditions
   steps actualResult expectedResult priority note status review archived
@@ -90,17 +90,6 @@ export const UPDATE_ISSUE = gql`
 
 export const DELETE_ISSUE = gql`
   mutation DeleteIssue($id: ID!) { deleteIssue(id: $id) }
-`;
-
-export const ISSUE_COMMENTS = gql`
-  query IssueComments($issueId: ID!) {
-    issueComments(issueId: $issueId) { id body createdAt by { id name } }
-  }
-`;
-export const ADD_ISSUE_COMMENT = gql`
-  mutation AddIssueComment($issueId: ID!, $body: String!) {
-    addIssueComment(issueId: $issueId, body: $body) { id body createdAt by { id name } }
-  }
 `;
 
 export const BULK_ARCHIVE = gql`mutation($ids:[ID!]!,$archived:Boolean!){ bulkArchiveIssues(ids:$ids,archived:$archived) }`;

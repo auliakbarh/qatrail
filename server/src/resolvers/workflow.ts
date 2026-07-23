@@ -1,6 +1,7 @@
 import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { notify } from "../notify.js";
+import { recomputeAppTest } from "../appTestStatus.js";
 
 // Load the issue or throw. Small helper to keep mutations terse.
 async function getIssue(ctx: Context, id: string) {
@@ -182,6 +183,7 @@ export const workflowResolvers = {
         { kind: "status", fromVal: "CLOSED", toVal: "REOPENED", byId: user.id, note: args.note ?? undefined },
       );
       await notify(issue.assigneeId, "STATUS_CHANGED", `Issue reopened: ${issue.title}`, issue.id);
+      if (issue.appTestId) await recomputeAppTest(issue.appTestId);
       return updated;
     },
 
@@ -206,12 +208,14 @@ export const workflowResolvers = {
       assertReporterOrQA(user, issue);
       if (issue.status !== "NEED_REVIEW") throw new Error(`Can only review from NEED_REVIEW`);
       if (args.pass) {
-        return transition(
+        const closed = await transition(
           ctx,
           issue,
           { status: "CLOSED", closedAt: new Date() },
           { kind: "status", fromVal: "NEED_REVIEW", toVal: "CLOSED", byId: user.id, note: args.note ?? undefined },
         );
+        if (issue.appTestId) await recomputeAppTest(issue.appTestId);
+        return closed;
       }
       const updated = await transition(
         ctx,
@@ -220,6 +224,7 @@ export const workflowResolvers = {
         { kind: "status", fromVal: "NEED_REVIEW", toVal: "REOPENED", byId: user.id, note: args.note ?? undefined },
       );
       await notify(issue.assigneeId, "ASSIGNED", `Issue reopened: ${issue.title}`, issue.id);
+      if (issue.appTestId) await recomputeAppTest(issue.appTestId);
       return updated;
     },
 
@@ -227,12 +232,14 @@ export const workflowResolvers = {
       const user = await actor(ctx);
       const issue = await getIssue(ctx, args.id);
       assertReporterOrQA(user, issue);
-      return transition(
+      const updated = await transition(
         ctx,
         issue,
         { archived: args.archived },
         { kind: "archive", toVal: String(args.archived), byId: user.id },
       );
+      if (issue.appTestId) await recomputeAppTest(issue.appTestId);
+      return updated;
     },
   },
 

@@ -74,7 +74,8 @@ export function NotificationBell() {
                   await markRead({ variables: { id: n.id } });
                   await refetch();
                   setOpen(false);
-                  if (n.issueId) navigate(`/issues/${n.issueId}`);
+                  if (n.appTestId) navigate(`/app-tests/${n.appTestId}`);
+                  else if (n.issueId) navigate(`/issues/${n.issueId}`);
                 }}
                 className={cn(
                   "block w-full border-b border-border/50 px-3 py-2 text-left last:border-0 hover:bg-muted/40",

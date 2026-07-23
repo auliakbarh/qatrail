@@ -67,3 +67,13 @@ export async function requireQA(ctx: Context) {
   }
   return user!;
 }
+
+// Engineers (and admins) submit/manage app tests.
+export async function requireEngineerOrAdmin(ctx: Context) {
+  const userId = requireAuth(ctx);
+  const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
+  if (user?.role !== "ENGINEER" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN") {
+    throw new Error("Forbidden: engineer only");
+  }
+  return user!;
+}
