@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { Pencil, Plus, Trash2, ArrowRightLeft } from "lucide-react";
@@ -208,6 +209,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
 
 function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { openPanel, selectIssue } = useNav();
   const { data, loading } = useQuery(ISSUES, { variables: { testCaseId } });
   const [del, setDel] = useState<{ id: string; title: string } | null>(null);
@@ -227,16 +229,17 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.type")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.priority")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.status")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
+            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("tc.noIssuesYet")}</td></tr>
+            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("tc.noIssuesYet")}</td></tr>
           )}
           {rows.map((i: any, idx: number) => (
             <tr key={i.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
@@ -250,6 +253,11 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
               <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
               <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
               <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
+              <td className="px-3 py-2 text-xs">
+                {i.appTestId
+                  ? <button onClick={() => navigate(`/app-tests/${i.appTestId}`)} className="font-mono text-primary hover:underline">{i.appTestKey}</button>
+                  : <span className="text-muted-foreground">—</span>}
+              </td>
               <td className="px-3 py-2 text-muted-foreground">{i.assignee.name}</td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-1">

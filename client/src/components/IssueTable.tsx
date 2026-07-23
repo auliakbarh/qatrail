@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useApolloClient, useMutation } from "@apollo/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { SortableTh, nextSort } from "./SortableTh";
@@ -56,6 +56,10 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const apollo = useApolloClient();
+  const [params, setParams] = useSearchParams();
+  // Optional deep-link scoping (e.g. from an app test's assigned test case row).
+  const fAppTest = params.get("appTest") || "";
+  const fTestCase = params.get("testCase") || "";
   const showPeople = scope === "all";
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -72,17 +76,18 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     return () => clearTimeout(id);
   }, [searchInput]);
   // Any filter/sort change resets to page 1 + clears selection.
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, sortKey, sortDir]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, sortKey, sortDir, fAppTest, fTestCase]);
 
+  const filterVars = {
+    search: search || null,
+    status: fStatus || null,
+    priority: fPriority || null,
+    type: fType || null,
+    appTestId: fAppTest || null,
+    testCaseId: fTestCase || null,
+  };
   const { data, loading, refetch } = useQuery(ISSUES_PAGED, {
-    variables: {
-      scope,
-      filter: { search: search || null, status: fStatus || null, priority: fPriority || null, type: fType || null },
-      sort: sortKey,
-      dir: sortDir,
-      page,
-      pageSize: PAGE_SIZE,
-    },
+    variables: { scope, filter: filterVars, sort: sortKey, dir: sortDir, page, pageSize: PAGE_SIZE },
     fetchPolicy: "cache-and-network",
   });
 
@@ -105,24 +110,20 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const exportCsv = async () => {
     const res = await apollo.query({
       query: ISSUES_PAGED,
-      variables: {
-        scope,
-        filter: { search: search || null, status: fStatus || null, priority: fPriority || null, type: fType || null },
-        sort: sortKey, dir: sortDir, page: 1, pageSize: 5000,
-      },
+      variables: { scope, filter: filterVars, sort: sortKey, dir: sortDir, page: 1, pageSize: 5000 },
       fetchPolicy: "network-only",
     });
     const items = res.data?.issuesPaged?.items ?? [];
     downloadCsv(
       `issues-${scope}.csv`,
-      ["ID", "Title", "Type", "Priority", "Status", "SLA", "Environment", "Platform", "Assignee", "Reporter", "Created"],
-      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.slaStatus, i.environment, i.platform, i.assignee?.name, i.reporter?.name, new Date(i.createdAt).toISOString()]),
+      ["ID", "Title", "Type", "Priority", "Status", "SLA", "Environment", "Platform", "App test", "Assignee", "Reporter", "Created"],
+      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.slaStatus, i.environment, i.platform, i.appTestKey ?? "", i.assignee?.name, i.reporter?.name, new Date(i.createdAt).toISOString()]),
     );
   };
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const colCount = (showPeople ? 10 : 8) + 1; // + checkbox column
+  const colCount = (showPeople ? 10 : 8) + 2; // + checkbox + app-test columns
   const allOnPage = rows.length > 0 && rows.every((r: any) => selected.has(r.id));
   const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rows.map((r: any) => r.id)));
 
@@ -143,6 +144,12 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </button>
         </div>
       </div>
+      {(fAppTest || fTestCase) && (
+        <div className="mb-3 flex items-center gap-2 rounded border border-border bg-muted/40 px-3 py-2 text-xs">
+          <span className="font-medium">{t("issue.scopedFilter")}</span>
+          <button onClick={() => setParams({})} className="ml-auto underline">{t("issue.clearFilter")}</button>
+        </div>
+      )}
       {selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-border bg-muted/40 px-3 py-2 text-xs">
           <span className="font-medium">{t("bulk.selected", { n: selected.size })}</span>
@@ -174,6 +181,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
               <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.sla")}</th>
               <SortableTh label={t("c.created")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>}
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.reporter")}</th>}
             </tr>
@@ -194,6 +202,11 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
                 <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
                 <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDateTime(i.createdAt)}</td>
+                <td className="px-3 py-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                  {i.appTestId
+                    ? <button onClick={() => navigate(`/app-tests/${i.appTestId}`)} className="font-mono text-primary hover:underline">{i.appTestKey}</button>
+                    : <span className="text-muted-foreground">—</span>}
+                </td>
                 {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.assignee?.name ?? "—"}</td>}
                 {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.reporter?.name ?? "—"}</td>}
               </tr>

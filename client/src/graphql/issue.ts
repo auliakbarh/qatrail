@@ -45,6 +45,7 @@ export const ISSUES = gql`
   query Issues($testCaseId: ID, $archived: Boolean) {
     issues(testCaseId: $testCaseId, archived: $archived) {
       id key title type priority status review environment platform archived slaStatus
+      appTestId appTestKey
       assignee { id name } reporter { id name } createdAt
     }
   }
@@ -61,6 +62,7 @@ export const ISSUES_PAGED = gql`
     issuesPaged(scope: $scope, filter: $filter, sort: $sort, dir: $dir, page: $page, pageSize: $pageSize) {
       items {
         id key title type priority status review environment platform slaStatus createdAt
+        appTestId appTestKey
         assignee { id name } reporter { id name }
       }
       total

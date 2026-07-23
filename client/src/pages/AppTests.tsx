@@ -11,7 +11,6 @@ import { HeaderButton } from "../components/HeaderButton";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { Modal } from "../components/Modal";
-import { CoverageBar } from "../components/CoverageBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
@@ -140,7 +139,8 @@ export default function AppTests() {
                     <SortableTh label={t("form.appVersion")} colKey="appVersion" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("form.backendVersion")} colKey="backendVersion" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.progress")}</th>
+                    <SortableTh label={t("at.progress")} colKey="passPercent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.progressStatus")}</th>
                     <SortableTh label={t("at.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateCreated")} colKey="dateCreated" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateDone")} colKey="doneTestAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -150,13 +150,13 @@ export default function AppTests() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && <tr><td colSpan={13} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
-                  {!loading && rows.length === 0 && <tr><td colSpan={13} className="py-8 text-center text-muted-foreground">{t("at.empty")}</td></tr>}
+                  {loading && <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+                  {!loading && rows.length === 0 && <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">{t("at.empty")}</td></tr>}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>
                       {groupKey && (
                         <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                          <td colSpan={13} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                          <td colSpan={14} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                             <span className="inline-flex items-center gap-1">
                               {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                               {label || "—"} · {gr.length}
@@ -176,7 +176,14 @@ export default function AppTests() {
                             <td className="px-3 py-2 text-muted-foreground">{a.appVersion ?? "—"}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.backendVersion ?? "—"}</td>
                             <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{a.status}</span></td>
-                            <td className="px-3 py-2"><CoverageBar percent={a.passPercent} min={100} ready={a.status === "PASSED"} /></td>
+                            <td className="px-3 py-2 tabular-nums">{a.passPercent}%</td>
+                            <td className="px-3 py-2">
+                              <span className={a.passPercent === 100
+                                ? "inline-flex rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground"
+                                : "inline-flex rounded border border-border px-1.5 py-0.5 text-xs font-medium text-muted-foreground"}>
+                                {a.passPercent === 100 ? t("dash.ready") : t("dash.below")}
+                              </span>
+                            </td>
                             <td className="px-3 py-2 tabular-nums">{a.issueCount}</td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(a.dateCreated)}</td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">{a.doneTestAt ? fmt(a.doneTestAt) : "—"}</td>

@@ -5,6 +5,7 @@ import { COMMENTS, ADD_COMMENT, UPDATE_COMMENT, DELETE_COMMENT } from "../graphq
 import { useAuth } from "../store/auth";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { withToast } from "../store/toast";
+import { Modal } from "./Modal";
 
 type Target = "ISSUE" | "APP_TEST";
 
@@ -20,6 +21,7 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
   const [body, setBody] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+  const [delId, setDelId] = useState<string | null>(null);
   const comments = data?.comments ?? [];
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 
@@ -88,7 +90,7 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
                       </button>
                     )}
                     <button
-                      onClick={() => withToast(del({ variables: { id: c.id } }), t("cmt.deleted"), t("c.somethingWrong"))}
+                      onClick={() => setDelId(c.id)}
                       className="text-destructive hover:underline"
                     >
                       {t("c.delete")}
@@ -132,6 +134,29 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
           </button>
         </form>
       </div>
+
+      <Modal
+        open={!!delId}
+        onClose={() => setDelId(null)}
+        title={t("cmt.deleteTitle")}
+        footer={
+          <>
+            <button onClick={() => setDelId(null)} className="h-7 rounded border border-border px-3 text-xs hover:bg-muted">{t("c.cancel")}</button>
+            <button
+              onClick={() => {
+                const id = delId;
+                setDelId(null);
+                if (id) withToast(del({ variables: { id } }), t("cmt.deleted"), t("c.somethingWrong"));
+              }}
+              className="h-7 rounded bg-destructive px-3 text-xs font-medium text-white hover:bg-destructive/90"
+            >
+              {t("c.delete")}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">{t("cmt.deleteBody")}</p>
+      </Modal>
     </div>
   );
 }

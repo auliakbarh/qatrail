@@ -96,6 +96,8 @@ export function IssueForm({
   const atts = useFieldArray({ control, name: "attachments" });
   const platform = watch("platform");
   const mobileVersionRequired = platform === "IOS" || platform === "ANDROID";
+  // Coming from an app-test FAIL: env/platform/versions are the app's and locked.
+  const lockFields = !editing && !!init.fromAppTest;
 
   useEffect(() => {
     if (editing && issueData?.issue) {
@@ -144,10 +146,11 @@ export function IssueForm({
       type: v.type,
       title: v.title,
       description: v.description,
-      environment: v.environment,
-      platform: v.platform,
-      appVersion: v.appVersion || null,
-      backendVersion: v.backendVersion || null,
+      // Locked fields are disabled inputs (RHF omits them) — take from app test.
+      environment: lockFields ? init.environment : v.environment,
+      platform: lockFields ? init.platform : v.platform,
+      appVersion: (lockFields ? init.appVersion : v.appVersion) || null,
+      backendVersion: (lockFields ? init.backendVersion : v.backendVersion) || null,
       testAccount: v.testAccount,
       testPassword: v.testPassword || null,
       testedAt: new Date(v.testedAt).toISOString(),
@@ -202,13 +205,13 @@ export function IssueForm({
         </Field>
         <div className="flex gap-2">
           <Field label={t("iss.environment")}>
-            <select className={inputCls} {...register("environment")}>
+            <select className={inputCls} disabled={lockFields} {...register("environment")}>
               <option value="STAGING">STAGING</option>
               <option value="PRODUCTION">PRODUCTION</option>
             </select>
           </Field>
           <Field label={t("iss.platform")}>
-            <select className={inputCls} {...register("platform")}>
+            <select className={inputCls} disabled={lockFields} {...register("platform")}>
               <option value="WEB">WEB</option>
               <option value="ANDROID">ANDROID</option>
               <option value="IOS">IOS</option>
@@ -219,11 +222,12 @@ export function IssueForm({
           <Field label={t("form.appVersion")} optional={!mobileVersionRequired} error={formState.errors.appVersion && t("form.requiredMobile")}>
             <input
               className={inputCls}
-              {...register("appVersion", { validate: (v) => !mobileVersionRequired || !!v.trim() })}
+              disabled={lockFields}
+              {...register("appVersion", { validate: (v) => lockFields || !mobileVersionRequired || !!v.trim() })}
             />
           </Field>
           <Field label={t("form.backendVersion")} optional>
-            <input className={inputCls} {...register("backendVersion")} />
+            <input className={inputCls} disabled={lockFields} {...register("backendVersion")} />
           </Field>
         </div>
         <div className="flex gap-2">

@@ -96,7 +96,7 @@ export const issueResolvers = {
       _: unknown,
       args: {
         scope?: string;
-        filter?: { search?: string; status?: string; priority?: string; type?: string };
+        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; testCaseId?: string };
         sort?: string;
         dir?: string;
         page?: number;
@@ -114,6 +114,8 @@ export const issueResolvers = {
       if (f.status) where.status = f.status;
       if (f.priority) where.priority = f.priority;
       if (f.type) where.type = f.type;
+      if (f.appTestId) where.appTestId = f.appTestId;
+      if (f.testCaseId) where.testCaseId = f.testCaseId;
       if (f.search?.trim()) where.title = { contains: f.search.trim(), mode: "insensitive" };
 
       const SORTABLE = new Set(["createdAt", "priority", "status", "title", "type"]);

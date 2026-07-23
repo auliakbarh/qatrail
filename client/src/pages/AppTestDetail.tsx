@@ -2,7 +2,7 @@ import { useState, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST } from "../graphql/apptest";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
@@ -54,6 +54,13 @@ export default function AppTestDetail() {
   const [fFeature, setFFeature] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fQa, setFQa] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (label: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
   const [del, setDel] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(false);
@@ -66,10 +73,27 @@ export default function AppTestDetail() {
 
   if (loading && !data) return <div className="p-6 text-sm text-muted-foreground">{t("c.loading")}</div>;
   const a = data?.appTest;
-  if (!a) return <div className="p-6 text-sm text-muted-foreground">{t("c.notFound")}</div>;
+  // App test was deleted (or never existed): show a deleted state, not a blank page.
+  if (!a) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/30 px-4 text-center">
+        <h1 className="text-lg font-semibold">{t("at.deletedTitle")}</h1>
+        <p className="max-w-sm text-sm text-muted-foreground">{t("at.deletedText")}</p>
+        <button onClick={() => navigate("/app-tests")} className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
+          {t("at.backToList")}
+        </button>
+      </div>
+    );
+  }
 
   const canEdit = a.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const askDelete = () => (a.status !== "OPEN" ? setBlocked(true) : setDel(true));
+
+  // Deep-link into the dashboard drilldown to show a test case's detail page.
+  const openTestCase = (r: any) => {
+    useNav.setState({ projectId: a.projectId, featureId: r.featureId, testCaseId: r.testCase.id, issueId: null, panel: null });
+    navigate("/");
+  };
 
   const rows0 = (tcData?.assignedTestCases ?? []).map((r: any) => ({
     ...r,
@@ -181,17 +205,30 @@ export default function AppTestDetail() {
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>
                       {groupKey && (
-                        <tr className="bg-muted/40">
-                          <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">{label || "—"} · {gr.length}</td>
+                        <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
+                          <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              {label || "—"} · {gr.length}
+                            </span>
+                          </td>
                         </tr>
                       )}
-                      {gr.map((r: any) => (
+                      {!collapsed.has(label) && gr.map((r: any) => (
                         <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                          <td className="px-3 py-2 font-mono text-xs">{r.tcKey}</td>
-                          <td className="px-3 py-2">{r.tcName}</td>
+                          <td className="px-3 py-2">
+                            <button onClick={() => openTestCase(r)} className="font-mono text-xs text-primary hover:underline">{r.tcKey}</button>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button onClick={() => openTestCase(r)} className="text-left hover:underline">{r.tcName}</button>
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.featureName}</td>
                           <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{r.status}</span></td>
-                          <td className="px-3 py-2 tabular-nums">{r.issueCount}</td>
+                          <td className="px-3 py-2 tabular-nums">
+                            {r.issueCount > 0
+                              ? <button onClick={() => navigate(`/issues?appTest=${id}&testCase=${r.testCase.id}`)} className="text-primary hover:underline">{r.issueCount}</button>
+                              : r.issueCount}
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.qaName}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(r.assignedAt)}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">{r.doneTestAt ? fmt(r.doneTestAt) : "—"}</td>
@@ -241,7 +278,7 @@ export default function AppTestDetail() {
       {panel?.kind === "apptest" && <AppTestForm panel={panel} />}
       {panel?.kind === "assigntc" && <AssignTestCasesPanel appTestId={id} projectId={a.projectId} />}
       {panel?.kind === "record" && panel.initial?.testCaseId && (
-        <RecordForm testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} appTestId={id} retestIssueId={panel.initial.retestIssueId} />
+        <RecordForm testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} appTestId={id} retestIssueId={panel.initial.retestIssueId} appTest={a} />
       )}
       {panel?.kind === "issue" && panel.initial?.testCaseId && (
         <IssueForm panel={panel} testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} appTestId={id} />

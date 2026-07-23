@@ -33,11 +33,15 @@ export function RecordForm({
   featureId,
   retestIssueId,
   appTestId,
+  appTest,
 }: {
   testCaseId: string;
   featureId: string;
   retestIssueId?: string;
   appTestId?: string;
+  // App test context — prefills + locks the issue's env/platform/versions and
+  // defaults the assignee to the app's creator when a FAIL opens an issue.
+  appTest?: { environment: string; platform: string; appVersion?: string | null; backendVersion?: string | null; createdBy?: { id: string; name: string } };
 }) {
   const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
@@ -105,8 +109,20 @@ export function RecordForm({
       openPanel({
         kind: "issue",
         mode: "create",
-        // Carry app-test context so the issue links to the same app test.
-        initial: { recordTestId: rec.id, testedAt: rec.executedAt, appTestId, testCaseId, featureId },
+        // Carry app-test context: link + locked env/platform/versions + default assignee.
+        initial: {
+          recordTestId: rec.id,
+          testedAt: rec.executedAt,
+          appTestId,
+          testCaseId,
+          featureId,
+          fromAppTest: !!appTestId,
+          environment: appTest?.environment,
+          platform: appTest?.platform,
+          appVersion: appTest?.appVersion,
+          backendVersion: appTest?.backendVersion,
+          assignee: appTest?.createdBy,
+        },
       });
     } else {
       closePanel();

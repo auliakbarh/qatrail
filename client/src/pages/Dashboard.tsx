@@ -30,6 +30,8 @@ export default function Dashboard() {
   const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
   const projName = projData?.projects?.find((p: any) => p.id === projectId)?.name;
   const featName = featData?.features?.find((f: any) => f.id === featureId)?.name;
+  // Feature open but gone from the loaded list → it was deleted.
+  const featDeleted = !!featureId && !!featData?.features && !featData.features.some((f: any) => f.id === featureId);
 
   return (
     <div className="flex h-full">
@@ -78,7 +80,16 @@ export default function Dashboard() {
             <FeatureList projectId={projectId} />
           </div>
         )}
-        {featureId && !testCaseId && (
+        {featureId && !testCaseId && featDeleted && (
+          <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/30 px-4 text-center">
+            <h1 className="text-lg font-semibold">{t("feat.deletedTitle")}</h1>
+            <p className="max-w-sm text-sm text-muted-foreground">{t("feat.deletedText")}</p>
+            <button onClick={() => selectFeature(null)} className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
+              {t("feat.backToList")}
+            </button>
+          </div>
+        )}
+        {featureId && !testCaseId && !featDeleted && (
           <div className="space-y-4 p-6">
             <TestCaseList featureId={featureId} />
           </div>

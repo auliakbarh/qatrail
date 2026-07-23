@@ -190,6 +190,8 @@ export const typeDefs = /* GraphQL */ `
     status: WorkStatus
     priority: Priority
     type: FindingType
+    appTestId: ID
+    testCaseId: ID
   }
   type IssuePage {
     items: [Issue!]!

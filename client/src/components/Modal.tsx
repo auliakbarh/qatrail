@@ -16,16 +16,22 @@ const FOCUSABLE =
 export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
+  // Keep the latest onClose without making it an effect dep — otherwise callers
+  // that pass an inline arrow (recreated each render) would re-run the effect on
+  // every keystroke, stealing focus back to the first focusable element.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
-    // Focus the first focusable element in the dialog.
+    // Focus the first field if there is one (prompt modals), else the first
+    // focusable element — so typing starts in the input, not on a button.
     const box = boxRef.current;
-    box?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    (box?.querySelector<HTMLElement>("input,textarea,select") ?? box?.querySelector<HTMLElement>(FOCUSABLE))?.focus();
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") return onClose();
+      if (e.key === "Escape") return onCloseRef.current();
       if (e.key !== "Tab" || !box) return;
       const items = Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE));
       if (!items.length) return;
@@ -45,7 +51,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       window.removeEventListener("keydown", onKey);
       prev?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return (
