@@ -4,6 +4,7 @@ import { useQuery } from "@apollo/client";
 import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox, Smartphone, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { SidebarTree } from "./SidebarTree";
+import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { HEALTH } from "../graphql";
 import { UI_VERSION, THEME_KEY } from "../config";
@@ -94,6 +95,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavLink
                 to={to}
                 end={end}
+                // Dashboard always lands on the full project list, not the last drilldown.
+                onClick={() => { if (to === "/") useNav.getState().selectProject(null); }}
                 title={expanded ? undefined : label}
                 className={({ isActive }) =>
                   cn(

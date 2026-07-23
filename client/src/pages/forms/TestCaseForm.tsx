@@ -21,6 +21,7 @@ interface Form {
   description: string;
   precondition: string;
   note: string;
+  kind: string;
   steps: { step: string; expectedResult: string }[];
   attachments: { url: string; kind: string; label: string }[];
 }
@@ -30,6 +31,7 @@ const EMPTY: Form = {
   description: "",
   precondition: "",
   note: "",
+  kind: "",
   steps: [{ step: "", expectedResult: "" }],
   attachments: [],
 };
@@ -58,6 +60,7 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
         description: tc.description ?? "",
         precondition: tc.precondition ?? "",
         note: tc.note ?? "",
+        kind: tc.kind ?? "",
         steps: tc.steps.length
           ? tc.steps.map((s: any) => ({ step: s.step, expectedResult: s.expectedResult ?? "" }))
           : [{ step: "", expectedResult: "" }],
@@ -76,6 +79,7 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
       description: v.description || null,
       precondition: v.precondition || null,
       note: v.note || null,
+      kind: v.kind || null,
       steps: v.steps
         .filter((s) => s.step.trim())
         .map((s) => ({ step: s.step, expectedResult: s.expectedResult || null })),
@@ -101,6 +105,13 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
         </Field>
         <Field label={t("c.description")} optional>
           <textarea className={inputCls} rows={2} {...register("description")} />
+        </Field>
+        <Field label={t("tc.kind")} optional>
+          <select className={inputCls} {...register("kind")}>
+            <option value="">{t("tc.kindNone")}</option>
+            <option value="POSITIVE">{t("tc.kindPositive")}</option>
+            <option value="NEGATIVE">{t("tc.kindNegative")}</option>
+          </select>
         </Field>
         <Field label={t("tc.precondition")} optional>
           <textarea className={inputCls} rows={2} {...register("precondition")} />

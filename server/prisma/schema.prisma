@@ -73,6 +73,11 @@ enum CommentTarget {
   APP_TEST
 }
 
+enum TestCaseKind {
+  POSITIVE
+  NEGATIVE
+}
+
 enum TestResult {
   PASS
   FAIL
@@ -160,6 +165,7 @@ model TestCase {
   description  String?
   precondition String?
   note         String?
+  kind         TestCaseKind?
   createdById  String
   createdBy    User     @relation("testCaseAuthor", fields: [createdById], references: [id])
   createdAt    DateTime @default(now())

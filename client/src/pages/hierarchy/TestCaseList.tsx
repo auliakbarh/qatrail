@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ArrowRightLeft, Copy } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, ArrowRightLeft, Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { TEST_CASES, DELETE_TEST_CASE } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
@@ -9,7 +9,7 @@ import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
 import { SortableTh, nextSort } from "../../components/SortableTh";
-import { searchRows, sortRows } from "../../lib/list";
+import { searchRows, sortRows, groupRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
@@ -42,18 +42,28 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [groupKey, setGroupKey] = useState("");
+  const [fKind, setFKind] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
+  const toggleGroup = (label: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
   const onSort = (key: string) => {
     const n = nextSort({ key: sortKey, dir: sortDir }, key);
     setSortKey(n.key);
     setSortDir(n.dir);
   };
-  const rows = sortRows(
-    searchRows(data?.testCases ?? [], search, ["name", "description"]),
-    sortKey as any,
-    sortDir,
-  );
+  // Rows show "—" for an unset kind; group/filter treat it as its own bucket.
+  const base = (data?.testCases ?? []).map((tc: any) => ({ ...tc, kindLabel: tc.kind ?? "—" }));
+  const filtered = fKind ? base.filter((tc: any) => (fKind === "—" ? !tc.kind : tc.kind === fKind)) : base;
+  const rows = sortRows(searchRows(filtered, search, ["name", "description"]), sortKey as any, sortDir);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <div className="rounded border border-border">
@@ -64,7 +74,21 @@ export function TestCaseList({ featureId }: { featureId: string }) {
         </HeaderButton>
       </div>
       <div className="px-5 py-4">
-        <FilterBar search={search} onSearch={setSearch} />
+        <FilterBar
+          search={search}
+          onSearch={setSearch}
+          groupKey={groupKey}
+          onGroupKey={setGroupKey}
+          groupOptions={[{ value: "kindLabel", label: t("tc.kind") }]}
+        />
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <select value={fKind} onChange={(e) => setFKind(e.target.value)} className={selCls}>
+            <option value="">{t("tc.kind")}: {t("c.all")}</option>
+            <option value="POSITIVE">{t("tc.kindPositive")}</option>
+            <option value="NEGATIVE">{t("tc.kindNegative")}</option>
+            <option value="—">{t("tc.kindNone")}</option>
+          </select>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -72,6 +96,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.testCase")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("tc.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.latest")} colKey="latestResult" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.records")} colKey="recordCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -81,19 +106,31 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     {t("c.loading")}
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     {t("dash.noTestCases")}
                   </td>
                 </tr>
               )}
-              {rows.map((tc: any, idx: number) => (
+              {groups.map(([label, gr]) => (
+                <Fragment key={label || "all"}>
+                  {groupKey && (
+                    <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
+                      <td colSpan={8} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          {label || "—"} · {gr.length}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                  {!collapsed.has(label) && gr.map((tc: any, idx: number) => (
                 <tr key={tc.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
@@ -101,6 +138,11 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                     <button onClick={() => selectTestCase(tc.id)} className="text-left font-medium hover:underline">
                       {tc.name}
                     </button>
+                  </td>
+                  <td className="px-3 py-2">
+                    {tc.kind
+                      ? <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", tc.kind === "POSITIVE" ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground")}>{tc.kind === "POSITIVE" ? t("tc.kindPositive") : t("tc.kindNegative")}</span>
+                      : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
                   <td className="px-3 py-2">
                     <ResultBadge result={tc.latestResult} />
@@ -139,6 +181,8 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                     </div>
                   </td>
                 </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>

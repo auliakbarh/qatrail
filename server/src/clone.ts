@@ -21,6 +21,7 @@ export async function cloneTestCaseInto(
       description: src.description,
       precondition: src.precondition,
       note: src.note,
+      kind: src.kind,
       createdById,
       steps: {
         create: [...src.steps]

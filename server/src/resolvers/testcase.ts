@@ -18,6 +18,7 @@ interface TestCaseInput {
   description?: string | null;
   precondition?: string | null;
   note?: string | null;
+  kind?: "POSITIVE" | "NEGATIVE" | null;
   steps: StepInput[];
   attachments: AttachmentInput[];
 }
@@ -54,6 +55,7 @@ export const testCaseResolvers = {
           description: input.description ?? null,
           precondition: input.precondition ?? null,
           note: input.note ?? null,
+          kind: input.kind ?? null,
           createdById: user.id,
           steps: { create: stepData(input.steps) },
           attachments: { create: attachData(input.attachments) },
@@ -71,6 +73,7 @@ export const testCaseResolvers = {
           description: input.description ?? null,
           precondition: input.precondition ?? null,
           note: input.note ?? null,
+          kind: input.kind ?? null,
           steps: { deleteMany: {}, create: stepData(input.steps) },
           attachments: { deleteMany: {}, create: attachData(input.attachments) },
         },

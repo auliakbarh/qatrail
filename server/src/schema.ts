@@ -11,6 +11,7 @@ export const typeDefs = /* GraphQL */ `
   enum TestResult { PASS FAIL }
   enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
   enum CommentTarget { ISSUE APP_TEST }
+  enum TestCaseKind { POSITIVE NEGATIVE }
 
   type User {
     id: ID!
@@ -91,6 +92,7 @@ export const typeDefs = /* GraphQL */ `
     description: String
     precondition: String
     note: String
+    kind: TestCaseKind
     steps: [TestCaseStep!]!
     attachments: [Attachment!]!
     recordCount: Int!
@@ -286,6 +288,7 @@ export const typeDefs = /* GraphQL */ `
     description: String
     precondition: String
     note: String
+    kind: TestCaseKind
     steps: [StepInput!]!
     attachments: [AttachmentInput!]!
   }
