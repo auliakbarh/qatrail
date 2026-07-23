@@ -155,6 +155,67 @@ export interface IssueComment {
   note?: string | null;
 }
 
+export interface AppTestComment {
+  url: string; // deep link to the app test in this app
+  key: string; // APP-<n>
+  status: string;
+  projectName: string;
+  environment: string;
+  platform: string;
+  appVersion?: string | null;
+  backendVersion?: string | null;
+  creatorName: string;
+  downloadLink: string;
+  createdAt: Date;
+  doneAt?: Date | null;
+  passPercent: number;
+  assignedCount: number;
+  issueCount: number;
+  note?: string | null;
+  postedByName: string;
+  postedByEmail: string;
+  cases: { key: string; name: string; feature: string; status: string; issueCount: number }[];
+}
+
+export function appTestMarkdown(c: AppTestComment): string {
+  const cell = (s: string) => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+  const platform = c.platform + (c.appVersion ? ` · app ${c.appVersion}` : "");
+  const rows = [
+    ["Project", c.projectName],
+    ["Status", c.status],
+    ["Environment", c.environment],
+    ["Platform", platform],
+    ...(c.backendVersion ? [["Backend version", c.backendVersion]] : []),
+    ["Created by", c.creatorName],
+    ["Created at", c.createdAt.toISOString()],
+    ...(c.doneAt ? [["Done at", c.doneAt.toISOString()]] : []),
+    ["Pass rate", `${c.passPercent}%`],
+    ["Test cases", String(c.assignedCount)],
+    ["Issues", String(c.issueCount)],
+    ["Download", `[link](${c.downloadLink})`],
+  ];
+  const md = [
+    `## 📱 App Test ${cell(c.key)}`,
+    "",
+    `| Field | Value |`,
+    `| --- | --- |`,
+    ...rows.map(([k, v]) => `| ${cell(k)} | ${cell(v)} |`),
+  ];
+  if (c.cases.length) {
+    md.push(
+      "",
+      `**Test case results (${c.cases.length})**`,
+      "",
+      `| Test case | Feature | Status | Issues |`,
+      `| --- | --- | --- | --- |`,
+      ...c.cases.map((r) => `| ${cell(r.key)} — ${cell(r.name)} | ${cell(r.feature)} | ${cell(r.status)} | ${r.issueCount} |`),
+    );
+  }
+  if (c.note) md.push("", `**Note**`, c.note);
+  md.push("", `Posted by **${cell(c.postedByName)}** (${cell(c.postedByEmail)}) via [QA Reporting](${c.url})`);
+  return md.join("\n");
+}
+
 export function issueMarkdown(c: IssueComment): string {
   const cell = (s: string) => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
   const platform = c.platform + (c.appVersion ? ` · app ${c.appVersion}` : "");

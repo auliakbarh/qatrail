@@ -71,3 +71,8 @@ export const CLOSE_APP_TEST = gql`
     closeAppTestTesting(appTestId: $appTestId) { id status }
   }
 `;
+export const POST_APP_TEST_TO_JIRA = gql`
+  mutation PostAppTestToJira($id: ID!) {
+    postAppTestToJira(id: $id) { id }
+  }
+`;

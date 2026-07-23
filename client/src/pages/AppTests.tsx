@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
 import { APP_TESTS, DELETE_APP_TEST } from "../graphql/apptest";
+import { HEALTH } from "../graphql";
+import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { FilterBar } from "../components/FilterBar";
@@ -36,6 +38,7 @@ export default function AppTests() {
   const { user } = useAuth();
   const { panel, openPanel } = useNav();
   const { data, loading } = useQuery(APP_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [deleteAppTest] = useMutation(DELETE_APP_TEST, { refetchQueries: [{ query: APP_TESTS, variables: { projectId: null } }] });
 
   const [search, setSearch] = useState("");
@@ -196,11 +199,7 @@ export default function AppTests() {
                             <td className="px-3 py-2 text-xs text-muted-foreground">{a.doneTestAt ? fmt(a.doneTestAt) : "—"}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.creatorName}</td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">
-                              {tickets.length === 0 ? "—" : (
-                                <span title={tickets.join(", ")}>
-                                  {tickets[0]}{tickets.length > 1 && ` +${tickets.length - 1}`}
-                                </span>
-                              )}
+                              <JiraTicketLinks tickets={tickets} baseUrl={healthData?.health?.jiraBaseUrl} max={1} />
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex justify-end gap-1">

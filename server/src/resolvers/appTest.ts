@@ -4,6 +4,8 @@ import { requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
+import { env } from "../env.js";
+import { toADF, addComment, appTestMarkdown } from "../jira.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -186,6 +188,56 @@ export const appTestResolvers = {
       await ctx.prisma.appTest.update({ where: { id: args.appTestId }, data: { closedAt: new Date() } });
       await recomputeAppTest(args.appTestId);
       return ctx.prisma.appTest.findUnique({ where: { id: args.appTestId } });
+    },
+    // Post a formatted comment (all app-test details + poster identity) to each
+    // linked JIRA ticket. Only works when tickets are linked.
+    async postAppTestToJira(_: unknown, args: { id: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const at = await ctx.prisma.appTest.findUnique({
+        where: { id: args.id },
+        include: { createdBy: true, project: true },
+      });
+      if (!at) throw new Error("App test not found");
+      const tickets = (at.jiraTickets ?? []).map((k) => k.trim().toUpperCase()).filter(Boolean);
+      if (!tickets.length) throw new Error("No JIRA tickets linked to this app test.");
+      const cov = await appTestCoverage(at.id);
+      const rows: any[] = await appTestResolvers.Query.assignedTestCases(_, { appTestId: at.id }, ctx);
+      const issueCount = await ctx.prisma.issue.count({ where: { appTestId: at.id } });
+      const adf = toADF(
+        appTestMarkdown({
+          url: `${env.frontendBaseUrl}/app-tests/${at.id}`,
+          key: `APP-${at.number}`,
+          status: at.status,
+          projectName: at.project.name,
+          environment: at.environment,
+          platform: at.platform,
+          appVersion: at.appVersion,
+          backendVersion: at.backendVersion,
+          creatorName: at.createdBy.name,
+          downloadLink: at.downloadLink,
+          createdAt: at.createdAt,
+          doneAt: at.closedAt ?? at.passedAt,
+          passPercent: cov.percent,
+          assignedCount: rows.length,
+          issueCount,
+          note: at.note,
+          postedByName: user.name,
+          postedByEmail: user.email,
+          cases: rows.map((r) => ({
+            key: `TC-${r.testCase.number}`,
+            name: r.testCase.name,
+            feature: r.featureName,
+            status: r.status,
+            issueCount: r.issueCount,
+          })),
+        }),
+      );
+      // ponytail: one fresh comment per ticket each call. AppTest has no
+      // jiraCommentId column, so no idempotent edit — add one if duplicate
+      // comments on re-post become a problem.
+      const posted = await Promise.all(tickets.map((k) => addComment(k, adf)));
+      if (!posted.some(Boolean)) throw new Error("Failed to post to JIRA (check credentials / ticket keys).");
+      return at;
     },
   },
 

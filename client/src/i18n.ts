@@ -283,6 +283,7 @@ const en = {
   "jira.postComment": "Post comment",
   "jira.help": "Posts a formatted comment (issue link + all fields). Re-posting edits the same comment.",
   "jira.notConfigured": "JIRA is not configured on the server.",
+  "at.postToJira": "Post details to JIRA tickets",
   // postmortem display
   "cmt.title": "Comments",
   "cmt.placeholder": "Write a comment…",
@@ -1020,6 +1021,7 @@ const id: typeof en = {
   "jira.postComment": "Kirim komentar",
   "jira.help": "Mengirim komentar terformat (tautan isu + semua field). Mengirim ulang akan mengubah komentar yang sama.",
   "jira.notConfigured": "JIRA belum dikonfigurasi di server.",
+  "at.postToJira": "Kirim detail ke tiket JIRA",
   "cmt.title": "Komentar",
   "cmt.placeholder": "Tulis komentar…",
   "cmt.send": "Kirim",

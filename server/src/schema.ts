@@ -33,6 +33,7 @@ export const typeDefs = /* GraphQL */ `
     maintenance: Boolean!
     maintenanceMessage: String
     jiraConfigured: Boolean!
+    jiraBaseUrl: String
     ssoEnabled: Boolean!
   }
 
@@ -514,6 +515,7 @@ export const typeDefs = /* GraphQL */ `
     assignFeatureTestCases(appTestId: ID!, featureId: ID!): AppTest!
     unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
     closeAppTestTesting(appTestId: ID!): AppTest!
+    postAppTestToJira(id: ID!): AppTest!
 
     createUserTest(input: UserTestInput!): UserTest!
     updateUserTest(id: ID!, input: UserTestInput!): UserTest!

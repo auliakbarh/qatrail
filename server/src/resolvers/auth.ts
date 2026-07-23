@@ -22,6 +22,7 @@ export const authResolvers = {
         maintenance,
         maintenanceMessage: s?.maintenanceMessage ?? null,
         jiraConfigured: hasJiraCreds(),
+        jiraBaseUrl: env.jira.baseUrl || null,
         ssoEnabled: env.msSso.enabled,
       };
     },

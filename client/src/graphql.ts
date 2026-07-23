@@ -21,6 +21,7 @@ export const HEALTH = gql`
       maintenance
       maintenanceMessage
       jiraConfigured
+      jiraBaseUrl
       ssoEnabled
     }
   }

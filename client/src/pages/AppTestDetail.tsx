@@ -2,8 +2,10 @@ import { useState, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight } from "lucide-react";
-import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST } from "../graphql/apptest";
+import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Send } from "lucide-react";
+import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST, POST_APP_TEST_TO_JIRA } from "../graphql/apptest";
+import { HEALTH } from "../graphql";
+import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { canManageContent } from "../lib/perm";
@@ -47,6 +49,8 @@ export default function AppTestDetail() {
   const [unassign] = useMutation(UNASSIGN_TEST_CASE, refetch);
   const [closeTesting] = useMutation(CLOSE_APP_TEST, refetch);
   const [deleteAppTest] = useMutation(DELETE_APP_TEST);
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  const [postToJira, { loading: posting }] = useMutation(POST_APP_TEST_TO_JIRA);
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("tcKey");
@@ -127,6 +131,12 @@ export default function AppTestDetail() {
             </div>
             <div className="flex items-center gap-1.5">
               <WatchButton target="APP_TEST" targetId={id} />
+              {tickets.length > 0 && healthData?.health?.jiraConfigured && (
+                <IconBtn title={posting ? t("jira.posting") : t("at.postToJira")} allowed={manage}
+                  onClick={() => withToast(postToJira({ variables: { id } }), t("t.jiraPosted"), t("t.jiraPostFail"))}>
+                  <Send className="h-3.5 w-3.5" />
+                </IconBtn>
+              )}
               {a.status !== "CLOSED" && (
                 <IconBtn title={t("at.closeTesting")} allowed={manage} onClick={() => setCloseConfirm(true)}><XCircle className="h-3.5 w-3.5" /></IconBtn>
               )}
@@ -144,7 +154,7 @@ export default function AppTestDetail() {
             <Info label={t("at.dateCreated")} value={fmt(a.createdAt)} />
             <Info label={t("at.dateDone")} value={a.doneTestAt ? fmt(a.doneTestAt) : "—"} />
             <Info label={t("at.downloadLink")} value={<a href={a.downloadLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">{t("at.openLink")}</a>} />
-            <Info label={t("at.jiraTickets")} value={tickets.length ? tickets.join(", ") : "—"} />
+            <Info label={t("at.jiraTickets")} value={<JiraTicketLinks tickets={tickets} baseUrl={healthData?.health?.jiraBaseUrl} />} />
             <div className="col-span-2 md:col-span-2">
               <div className="text-muted-foreground">{t("at.progress")}</div>
               <CoverageBar percent={a.passPercent} min={100} ready={a.status === "PASSED"} />
