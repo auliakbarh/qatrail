@@ -10,6 +10,7 @@ import { analyticsResolvers } from "./analytics.js";
 import { adminResolvers } from "./admin.js";
 import { commentResolvers } from "./comment.js";
 import { appTestResolvers } from "./appTest.js";
+import { userTestResolvers } from "./userTest.js";
 import { watchResolvers } from "./watch.js";
 import { suggestionsResolvers } from "./suggestions.js";
 
@@ -26,6 +27,7 @@ export const resolvers = {
     ...adminResolvers.Query,
     ...commentResolvers.Query,
     ...appTestResolvers.Query,
+    ...userTestResolvers.Query,
     ...watchResolvers.Query,
     ...suggestionsResolvers.Query,
   },
@@ -41,6 +43,7 @@ export const resolvers = {
     ...adminResolvers.Mutation,
     ...commentResolvers.Mutation,
     ...appTestResolvers.Mutation,
+    ...userTestResolvers.Mutation,
     ...watchResolvers.Mutation,
   },
   Subscription: {
@@ -54,6 +57,7 @@ export const resolvers = {
   Comment: commentResolvers.Comment,
   AppTest: appTestResolvers.AppTest,
   AssignedTestCase: appTestResolvers.AssignedTestCase,
+  UserTest: userTestResolvers.UserTest,
   StatusEvent: workflowResolvers.StatusEvent,
   Postmortem: workflowResolvers.Postmortem,
   Notification: notificationResolvers.Notification,

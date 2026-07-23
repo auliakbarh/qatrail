@@ -2,7 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { notify } from "../notify.js";
 
-type Target = "ISSUE" | "APP_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -21,9 +21,12 @@ async function recipients(ctx: Context, target: Target, targetId: string, author
   if (target === "ISSUE") {
     const issue = await ctx.prisma.issue.findUnique({ where: { id: targetId }, select: { reporterId: true, assigneeId: true } });
     if (issue) { set.add(issue.reporterId); set.add(issue.assigneeId); }
-  } else {
+  } else if (target === "APP_TEST") {
     const at = await ctx.prisma.appTest.findUnique({ where: { id: targetId }, select: { createdById: true } });
     if (at) set.add(at.createdById);
+  } else {
+    const ut = await ctx.prisma.userTest.findUnique({ where: { id: targetId }, select: { createdById: true } });
+    if (ut) set.add(ut.createdById);
   }
   // Watchers of this target also hear about new comments.
   const watchers = await ctx.prisma.watch.findMany({ where: { target, targetId }, select: { userId: true } });
@@ -38,9 +41,14 @@ async function assertTargetExists(ctx: Context, target: Target, targetId: string
     if (!i) throw new Error("Issue not found");
     return i.title;
   }
-  const a = await ctx.prisma.appTest.findUnique({ where: { id: targetId }, select: { number: true } });
-  if (!a) throw new Error("App test not found");
-  return `APP-${a.number}`;
+  if (target === "APP_TEST") {
+    const a = await ctx.prisma.appTest.findUnique({ where: { id: targetId }, select: { number: true } });
+    if (!a) throw new Error("App test not found");
+    return `APP-${a.number}`;
+  }
+  const u = await ctx.prisma.userTest.findUnique({ where: { id: targetId }, select: { number: true } });
+  if (!u) throw new Error("User test not found");
+  return `UT-${u.number}`;
 }
 
 export const commentResolvers = {
@@ -65,7 +73,8 @@ export const commentResolvers = {
       const to = await recipients(ctx, args.target, args.targetId, userId);
       const issueId = args.target === "ISSUE" ? args.targetId : null;
       const appTestId = args.target === "APP_TEST" ? args.targetId : null;
-      await Promise.all(to.map((uid) => notify(uid, "COMMENT", `New comment on: ${label}`, issueId, appTestId)));
+      const userTestId = args.target === "USER_TEST" ? args.targetId : null;
+      await Promise.all(to.map((uid) => notify(uid, "COMMENT", `New comment on: ${label}`, issueId, appTestId, userTestId)));
       return comment;
     },
     async updateComment(_: unknown, args: { id: string; body: string }, ctx: Context) {

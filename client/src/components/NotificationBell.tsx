@@ -75,6 +75,7 @@ export function NotificationBell() {
                   await refetch();
                   setOpen(false);
                   if (n.appTestId) navigate(`/app-tests/${n.appTestId}`);
+                  else if (n.userTestId) navigate(`/user-tests/${n.userTestId}`);
                   else if (n.issueId) navigate(`/issues/${n.issueId}`);
                 }}
                 className={cn(

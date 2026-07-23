@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { IS_WATCHING, SET_WATCH } from "../graphql/watch";
 
-type Target = "ISSUE" | "APP_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST";
 
 // Toggle watching an issue/app test to receive its activity notifications.
 export function WatchButton({ target, targetId }: { target: Target; targetId: string }) {

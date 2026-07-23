@@ -9,6 +9,7 @@ export async function notify(
   message: string,
   issueId?: string | null,
   appTestId?: string | null,
+  userTestId?: string | null,
 ): Promise<void> {
   const n = await prisma.notification.create({
     data: {
@@ -17,6 +18,7 @@ export async function notify(
       message,
       issueId: issueId ?? null,
       appTestId: appTestId ?? null,
+      userTestId: userTestId ?? null,
     },
   });
   publishNotification(userId, {
@@ -25,25 +27,26 @@ export async function notify(
     message: n.message,
     issueId: n.issueId,
     appTestId: n.appTestId,
+    userTestId: n.userTestId,
     read: n.read,
     createdAt: n.createdAt.toISOString(),
   });
 }
 
-// Fan a notification out to everyone watching a target (issue/app test).
+// Fan a notification out to everyone watching a target (issue/app test/user test).
 export async function notifyWatchers(
-  target: "ISSUE" | "APP_TEST",
+  target: "ISSUE" | "APP_TEST" | "USER_TEST",
   targetId: string,
   kind: string,
   message: string,
-  refs: { issueId?: string | null; appTestId?: string | null },
+  refs: { issueId?: string | null; appTestId?: string | null; userTestId?: string | null },
   exceptUserId?: string,
 ): Promise<void> {
   const ws = await prisma.watch.findMany({ where: { target, targetId }, select: { userId: true } });
   await Promise.all(
     ws
       .filter((w) => w.userId !== exceptUserId)
-      .map((w) => notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null)),
+      .map((w) => notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null)),
   );
 }
 
@@ -63,5 +66,20 @@ export async function notifyQaAdmins(
     users
       .filter((u) => u.id !== exceptUserId)
       .map((u) => notify(u.id, kind, message, null, appTestId)),
+  );
+}
+
+// Broadcast to every active user (e.g. a new user-test credential), except the actor.
+export async function notifyAll(
+  kind: string,
+  message: string,
+  refs: { issueId?: string | null; appTestId?: string | null; userTestId?: string | null } = {},
+  exceptUserId?: string,
+): Promise<void> {
+  const users = await prisma.user.findMany({ where: { active: true }, select: { id: true } });
+  await Promise.all(
+    users
+      .filter((u) => u.id !== exceptUserId)
+      .map((u) => notify(u.id, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null)),
   );
 }

@@ -71,6 +71,7 @@ enum AppTestStatus {
 enum CommentTarget {
   ISSUE
   APP_TEST
+  USER_TEST
 }
 
 enum TestCaseKind {
@@ -121,6 +122,7 @@ model User {
 
   appTests              AppTest[]     @relation("appTestCreator")
   appTestCasesAssigned  AppTestCase[] @relation("appTestCaseAssigner")
+  userTests             UserTest[]    @relation("userTestCreator")
   watches               Watch[]
 }
 
@@ -135,8 +137,9 @@ model Project {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  features Feature[]
-  appTests AppTest[]
+  features  Feature[]
+  appTests  AppTest[]
+  userTests UserTest[]
 
   @@index([name])
 }
@@ -374,6 +377,24 @@ model AppTest {
   @@index([status])
 }
 
+// A reusable test credential (account/password) for a project+environment.
+model UserTest {
+  id          String      @id @default(cuid())
+  number      Int         @unique @default(autoincrement()) // human key: UT-<number>
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User        @relation("userTestCreator", fields: [createdById], references: [id])
+  account     String
+  password    String? // encrypted at rest (crypto.ts)
+  environment Environment
+  note        String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([projectId])
+}
+
 // Assignment of an existing test case to an app test (QA-driven).
 model AppTestCase {
   id           String   @id @default(cuid())
@@ -425,9 +446,10 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   kind      String
   message   String
-  issueId   String?
-  appTestId String?
-  read      Boolean  @default(false)
+  issueId    String?
+  appTestId  String?
+  userTestId String?
+  read       Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId, read])

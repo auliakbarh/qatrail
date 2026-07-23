@@ -7,7 +7,7 @@ import { fmtDateTime as fmt } from "../lib/utils";
 import { withToast } from "../store/toast";
 import { Modal } from "./Modal";
 
-type Target = "ISSUE" | "APP_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST";
 
 // Comments for any target. Author may edit/delete their own; admins may delete any.
 export function CommentsCard({ target, targetId }: { target: Target; targetId: string }) {

@@ -10,7 +10,7 @@ export const typeDefs = /* GraphQL */ `
   enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
   enum TestResult { PASS FAIL }
   enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
-  enum CommentTarget { ISSUE APP_TEST }
+  enum CommentTarget { ISSUE APP_TEST USER_TEST }
   enum TestCaseKind { POSITIVE NEGATIVE }
 
   type User {
@@ -151,6 +151,7 @@ export const typeDefs = /* GraphQL */ `
     message: String!
     issueId: ID
     appTestId: ID
+    userTestId: ID
     read: Boolean!
     createdAt: String!
   }
@@ -379,6 +380,29 @@ export const typeDefs = /* GraphQL */ `
     jiraTickets: [String!]!
   }
 
+  # A reusable test credential for a project+environment.
+  type UserTest {
+    id: ID!
+    key: String!
+    projectId: ID!
+    projectName: String!
+    createdBy: User!
+    account: String!
+    password: String
+    environment: Environment!
+    note: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  input UserTestInput {
+    projectId: ID!
+    account: String!
+    password: String
+    environment: Environment!
+    note: String
+  }
+
   type Query {
     health: Health!
     me: User
@@ -401,6 +425,9 @@ export const typeDefs = /* GraphQL */ `
     appTest(id: ID!): AppTest
     assignedTestCases(appTestId: ID!): [AssignedTestCase!]!
     assignableTestCases(appTestId: ID!): [TestCase!]!
+
+    userTests(projectId: ID): [UserTest!]!
+    userTest(id: ID!): UserTest
 
     isWatching(target: CommentTarget!, targetId: ID!): Boolean!
     suggestions(field: String!): [String!]!
@@ -487,6 +514,10 @@ export const typeDefs = /* GraphQL */ `
     assignFeatureTestCases(appTestId: ID!, featureId: ID!): AppTest!
     unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
     closeAppTestTesting(appTestId: ID!): AppTest!
+
+    createUserTest(input: UserTestInput!): UserTest!
+    updateUserTest(id: ID!, input: UserTestInput!): UserTest!
+    deleteUserTest(id: ID!): Boolean!
 
     setWatch(target: CommentTarget!, targetId: ID!, watching: Boolean!): Boolean!
 

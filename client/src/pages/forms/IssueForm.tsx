@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, KeyRound, ChevronLeft, ChevronRight } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { SuggestDatalist } from "../../components/SuggestDatalist";
+import { Modal } from "../../components/Modal";
 import {
   CREATE_ISSUE,
   UPDATE_ISSUE,
@@ -15,6 +16,7 @@ import {
 } from "../../graphql/issue";
 import { TEST_CASES } from "../../graphql/hierarchy";
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
+import { USER_TESTS } from "../../graphql/usertest";
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -60,10 +62,18 @@ export function IssueForm({
 }) {
   const { t } = useTranslation();
   const { closePanel } = useNav();
+  const navProjectId = useNav((s) => s.projectId);
   const editing = panel.mode === "edit";
   const init = panel.initial ?? {};
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickPage, setPickPage] = useState(1);
+  const [pickSearch, setPickSearch] = useState("");
 
   const { data: engData } = useQuery(ENGINEERS);
+  // Related project for the user-test picker: from the app test, else the nav drilldown.
+  const { data: atProjData } = useQuery(APP_TEST, { variables: { id: appTestId }, skip: !appTestId, fetchPolicy: "cache-first" });
+  const projectId = atProjData?.appTest?.projectId ?? navProjectId ?? null;
+  const { data: utData } = useQuery(USER_TESTS, { variables: { projectId }, skip: !pickOpen || !projectId, fetchPolicy: "cache-and-network" });
   const { data: issueData } = useQuery(ISSUE, {
     variables: { id: panel.id },
     skip: !editing,
@@ -72,7 +82,7 @@ export function IssueForm({
 
   // init may be: a FAIL-record prefill (recordTestId + testedAt), or a full
   // issue for "recreate from rejected" — in both cases prefill from init.*.
-  const { register, handleSubmit, control, reset, watch, formState } = useForm<Form>({
+  const { register, handleSubmit, control, reset, watch, setValue, formState } = useForm<Form>({
     defaultValues: {
       type: init.type ?? "DEFECT",
       title: init.title ?? "",
@@ -243,6 +253,15 @@ export function IssueForm({
             <input className={inputCls} {...register("testPassword")} />
           </Field>
         </div>
+        {projectId && (
+          <button
+            type="button"
+            onClick={() => { setPickPage(1); setPickSearch(""); setPickOpen(true); }}
+            className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
+          >
+            <KeyRound className="h-3 w-3" /> {t("ut.pick")}
+          </button>
+        )}
         <Field label={t("iss.testedAt")}>
           <input type="datetime-local" className={inputCls} {...register("testedAt", { required: true })} />
         </Field>
@@ -308,6 +327,78 @@ export function IssueForm({
         </Field>
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} />
       </form>
+
+      <Modal open={pickOpen} onClose={() => setPickOpen(false)} title={t("ut.pickTitle")}>
+        {(() => {
+          const q = pickSearch.trim().toLowerCase();
+          const items: any[] = (utData?.userTests ?? []).filter(
+            (u: any) => !q || `${u.account} ${u.note ?? ""} ${u.environment}`.toLowerCase().includes(q),
+          );
+          const PICK_SIZE = 6;
+          const pages = Math.max(1, Math.ceil(items.length / PICK_SIZE));
+          const page = Math.min(pickPage, pages);
+          const pageItems = items.slice((page - 1) * PICK_SIZE, page * PICK_SIZE);
+          return (
+            <div className="flex h-96 w-[36rem] max-w-full flex-col">
+              <input
+                value={pickSearch}
+                onChange={(e) => { setPickSearch(e.target.value); setPickPage(1); }}
+                placeholder={t("c.search")}
+                className="mb-2 h-8 w-full rounded border border-border bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <div className="flex-1 overflow-y-auto">
+                {items.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("ut.pickEmpty")}</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                        <th className="px-2 py-1.5">{t("ut.account")}</th>
+                        <th className="px-2 py-1.5">{t("ut.password")}</th>
+                        <th className="px-2 py-1.5">{t("iss.environment")}</th>
+                        <th className="px-2 py-1.5">{t("c.note")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((u: any) => (
+                        <tr
+                          key={u.id}
+                          className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/40"
+                          onClick={() => {
+                            setValue("testAccount", u.account, { shouldDirty: true });
+                            setValue("testPassword", u.password ?? "", { shouldDirty: true });
+                            setPickOpen(false);
+                          }}
+                        >
+                          <td className="px-2 py-1.5">{u.account}</td>
+                          <td className="px-2 py-1.5 font-mono text-xs text-muted-foreground">{u.password || "—"}</td>
+                          <td className="px-2 py-1.5 text-muted-foreground">{u.environment}</td>
+                          <td className="px-2 py-1.5 text-xs text-muted-foreground">{u.note || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              {items.length > 0 && (
+                <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                  <span className="text-xs text-muted-foreground">{t("page.of", { total: items.length, page, totalPages: pages })}</span>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setPickPage(Math.max(1, page - 1))} disabled={page <= 1}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => setPickPage(Math.min(pages, page + 1))} disabled={page >= pages}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
     </RightPanel>
   );
 }

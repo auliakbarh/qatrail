@@ -14,6 +14,8 @@ import { Toaster } from "./components/Toaster";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AppTests = lazy(() => import("./pages/AppTests"));
 const AppTestDetail = lazy(() => import("./pages/AppTestDetail"));
+const UserTests = lazy(() => import("./pages/UserTests"));
+const UserTestDetail = lazy(() => import("./pages/UserTestDetail"));
 const IssuePage = lazy(() => import("./pages/IssuePage"));
 const AllIssues = lazy(() => import("./pages/AllIssues"));
 const AssignedToMe = lazy(() => import("./pages/AssignedToMe"));
@@ -77,6 +79,8 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/app-tests" element={<AppTests />} />
         <Route path="/app-tests/:id" element={<AppTestDetail />} />
+        <Route path="/user-tests" element={<UserTests />} />
+        <Route path="/user-tests/:id" element={<UserTestDetail />} />
         <Route path="/issues" element={<AllIssues />} />
         <Route path="/assigned" element={<AssignedToMe />} />
         <Route path="/issues/:id" element={<IssuePage />} />

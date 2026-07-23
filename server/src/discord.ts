@@ -29,6 +29,9 @@ const LABELS: Record<string, string> = {
   issueClarifyRespond: "Clarification provided",
   issueReview: "Issue reviewed",
   setIssueArchived: "Issue archive toggled",
+  createUserTest: "User test created",
+  updateUserTest: "User test updated",
+  deleteUserTest: "User test deleted",
 };
 
 // Mutations worth broadcasting (project-domain actions). Excludes login/logout,
