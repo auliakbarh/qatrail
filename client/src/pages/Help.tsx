@@ -119,6 +119,7 @@ export default function Help() {
             <P><Trans i18nKey="help.apptest.p2" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.p3" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.p4" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.apptest.p5" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.apptest.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
@@ -173,6 +174,7 @@ export default function Help() {
 
           <Doc id="jira" title={t("help.sec.jira")}>
             <P><Trans i18nKey="help.jira.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.jira.p2" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="settings" title={t("help.sec.settings")}>

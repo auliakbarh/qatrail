@@ -192,7 +192,7 @@ export const appTestResolvers = {
     // Post a formatted comment (all app-test details + poster identity) to each
     // linked JIRA ticket. Only works when tickets are linked.
     async postAppTestToJira(_: unknown, args: { id: string }, ctx: Context) {
-      const user = await requireQA(ctx);
+      const user = await requireEngineerOrAdmin(ctx);
       const at = await ctx.prisma.appTest.findUnique({
         where: { id: args.id },
         include: { createdBy: true, project: true },

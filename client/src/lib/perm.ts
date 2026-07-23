@@ -3,3 +3,8 @@
 export function canManageContent(role?: string): boolean {
   return role === "QA" || role === "ADMIN" || role === "SUPER_ADMIN";
 }
+
+// Engineers (and admins) submit/manage app tests — e.g. posting to JIRA.
+export function canManageAppTest(role?: string): boolean {
+  return role === "ENGINEER" || role === "ADMIN" || role === "SUPER_ADMIN";
+}

@@ -8,7 +8,7 @@ import { HEALTH } from "../graphql";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
-import { canManageContent } from "../lib/perm";
+import { canManageContent, canManageAppTest } from "../lib/perm";
 import { FilterBar } from "../components/FilterBar";
 import { HeaderButton } from "../components/HeaderButton";
 import { IconBtn } from "../components/IconBtn";
@@ -42,6 +42,7 @@ export default function AppTestDetail() {
   const { user } = useAuth();
   const { panel, openPanel } = useNav();
   const manage = canManageContent(user?.role); // QA/admin: assign, record, close
+  const canPostJira = canManageAppTest(user?.role); // engineer/admin: post to JIRA
 
   const { data, loading } = useQuery(APP_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: tcData } = useQuery(ASSIGNED_TEST_CASES, { variables: { appTestId: id }, fetchPolicy: "cache-and-network" });
@@ -132,7 +133,7 @@ export default function AppTestDetail() {
             <div className="flex items-center gap-1.5">
               <WatchButton target="APP_TEST" targetId={id} />
               {tickets.length > 0 && healthData?.health?.jiraConfigured && (
-                <IconBtn title={posting ? t("jira.posting") : t("at.postToJira")} allowed={manage}
+                <IconBtn title={posting ? t("jira.posting") : t("at.postToJira")} allowed={canPostJira}
                   onClick={() => withToast(postToJira({ variables: { id } }), t("t.jiraPosted"), t("t.jiraPostFail"))}>
                   <Send className="h-3.5 w-3.5" />
                 </IconBtn>
