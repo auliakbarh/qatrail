@@ -31,7 +31,13 @@ export const analyticsResolvers = {
       const cacheKey = JSON.stringify([args.projectId ?? "", args.featureId ?? "", args.from ?? "", args.to ?? ""]);
       const hit = cache.get(cacheKey);
       if (hit && Date.now() - hit.at < CACHE_MS) return hit.val;
-      const where = issueWhere(args.projectId, args.featureId);
+      const where: any = issueWhere(args.projectId, args.featureId);
+      // Date range scopes findings by creation date (inclusive of the end day).
+      if (args.from || args.to) {
+        where.createdAt = {};
+        if (args.from) where.createdAt.gte = new Date(args.from);
+        if (args.to) where.createdAt.lte = new Date(args.to.length === 10 ? `${args.to}T23:59:59.999Z` : args.to);
+      }
       const issues = await ctx.prisma.issue.findMany({
         where,
         select: {

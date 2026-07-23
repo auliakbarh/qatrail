@@ -94,6 +94,9 @@ export default function Analytics() {
             ))}
           </select>
         )}
+        <div className="ml-auto">
+          <DateRangePicker from={from} to={to} onChange={(f, tt) => { setFrom(f); setTo(tt); }} />
+        </div>
       </div>
 
       {loading && !a && <div className="text-sm text-muted-foreground">{t("c.loading")}</div>}
@@ -107,10 +110,7 @@ export default function Analytics() {
             <Stat n={a.slaCompliance == null ? "—" : `${a.slaCompliance}%`} label={t("an.slaCompliance")} />
           </div>
 
-          <Card
-            title={t("an.createdVsResolved")}
-            action={<DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />}
-          >
+          <Card title={t("an.createdVsResolved")}>
             {a.createdVsResolved.every((p: any) => p.created === 0 && p.resolved === 0) ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 {t("an.noDataYet")}

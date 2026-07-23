@@ -73,8 +73,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Level view */}
-        {!projectId && <ProjectList />}
+        {/* Level view — exclusive by deepest selection. */}
+        {!projectId && !featureId && <ProjectList />}
         {projectId && !featureId && (
           <div className="space-y-4 p-6">
             <FeatureList projectId={projectId} />

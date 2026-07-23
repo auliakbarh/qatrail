@@ -75,7 +75,7 @@ function FeatureBranch({ projectId }: { projectId: string }) {
         <button
           key={f.id}
           onClick={() => {
-            selectFeature(f.id);
+            selectFeature(f.id, projectId);
             navigate("/");
           }}
           className={cn(

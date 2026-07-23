@@ -16,7 +16,7 @@ interface NavState {
   panel: PanelState | null;
 
   selectProject: (id: string | null) => void;
-  selectFeature: (id: string | null) => void;
+  selectFeature: (id: string | null, projectId?: string) => void;
   selectTestCase: (id: string | null) => void;
   selectIssue: (id: string | null) => void;
   openPanel: (p: PanelState) => void;
@@ -31,7 +31,7 @@ export const useNav = create<NavState>((set) => ({
   panel: null,
 
   selectProject: (id) => set({ projectId: id, featureId: null, testCaseId: null, issueId: null, panel: null }),
-  selectFeature: (id) => set({ featureId: id, testCaseId: null, issueId: null, panel: null }),
+  selectFeature: (id, projectId) => set((s) => ({ projectId: projectId ?? s.projectId, featureId: id, testCaseId: null, issueId: null, panel: null })),
   selectTestCase: (id) => set({ testCaseId: id, issueId: null, panel: null }),
   selectIssue: (id) => set({ issueId: id, panel: null }),
   openPanel: (panel) => set({ panel }),
