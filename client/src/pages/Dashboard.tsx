@@ -19,6 +19,7 @@ import { MoveTestCaseForm } from "./forms/MoveTestCaseForm";
 import { MoveFeatureForm } from "./forms/MoveFeatureForm";
 import { CloneFeatureForm } from "./forms/CloneFeatureForm";
 import { CloneTestCaseForm } from "./forms/CloneTestCaseForm";
+import { ImportTestCasesForm } from "./forms/ImportTestCasesForm";
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -131,6 +132,9 @@ export default function Dashboard() {
       )}
       {panel?.kind === "clonetc" && panel.id && projectId && featureId && (
         <CloneTestCaseForm testCaseId={panel.id} sourceProjectId={projectId} sourceFeatureId={featureId} />
+      )}
+      {panel?.kind === "importtc" && panel.initial && (
+        <ImportTestCasesForm scope={panel.initial.scope} projectId={panel.initial.projectId} featureId={panel.initial.featureId} />
       )}
     </div>
   );

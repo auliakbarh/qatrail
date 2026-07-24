@@ -65,6 +65,23 @@ export const DELETE_FEATURE = gql`
   mutation DeleteFeature($id: ID!) { deleteFeature(id: $id) }
 `;
 
+export const EXPORT_TEST_CASES = gql`
+  query ExportTestCases($projectId: ID, $featureId: ID) {
+    exportTestCases(projectId: $projectId, featureId: $featureId) {
+      featureName name description precondition note kind
+      steps { step expectedResult }
+    }
+  }
+`;
+export const IMPORT_TEST_CASES = gql`
+  mutation ImportTestCases($projectId: ID, $featureId: ID, $dryRun: Boolean!, $rows: [ImportTestCaseInput!]!) {
+    importTestCases(projectId: $projectId, featureId: $featureId, dryRun: $dryRun, rows: $rows) {
+      ok testCaseCount stepCount newFeatures
+      errors { row message }
+    }
+  }
+`;
+
 export const CREATE_TEST_CASE = gql`
   mutation CreateTestCase($featureId: ID!, $input: TestCaseInput!) {
     createTestCase(featureId: $featureId, input: $input) { id }

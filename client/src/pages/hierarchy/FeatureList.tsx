@@ -9,6 +9,7 @@ import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
+import { TestCaseCsvActions } from "../../components/TestCaseCsvActions";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
@@ -44,9 +45,12 @@ export function FeatureList({ projectId }: { projectId: string }) {
     <div className="rounded border border-border">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-sm font-semibold">{t("dash.features")}</h2>
-        <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "feature", mode: "create" })}>
-          {t("dash.addFeature")}
-        </HeaderButton>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <TestCaseCsvActions scope="project" projectId={projectId} manage={manage} />
+          <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "feature", mode: "create" })}>
+            {t("dash.addFeature")}
+          </HeaderButton>
+        </div>
       </div>
       <div className="px-5 py-4">
         <FilterBar search={search} onSearch={setSearch} />

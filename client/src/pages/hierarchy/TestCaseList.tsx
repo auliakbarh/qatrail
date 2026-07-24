@@ -8,6 +8,7 @@ import { FilterBar } from "../../components/FilterBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
+import { TestCaseCsvActions } from "../../components/TestCaseCsvActions";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
@@ -32,7 +33,7 @@ function ResultBadge({ result }: { result: string | null }) {
 
 export function TestCaseList({ featureId }: { featureId: string }) {
   const { t } = useTranslation();
-  const { selectTestCase, openPanel } = useNav();
+  const { selectTestCase, openPanel, projectId } = useNav();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(TEST_CASES, { variables: { featureId }, fetchPolicy: "cache-and-network" });
@@ -69,9 +70,12 @@ export function TestCaseList({ featureId }: { featureId: string }) {
     <div className="rounded border border-border">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-sm font-semibold">{t("dash.testCases")}</h2>
-        <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "testcase", mode: "create" })}>
-          {t("dash.addTestCase")}
-        </HeaderButton>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <TestCaseCsvActions scope="feature" projectId={projectId ?? undefined} featureId={featureId} manage={manage} />
+          <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "testcase", mode: "create" })}>
+            {t("dash.addTestCase")}
+          </HeaderButton>
+        </div>
       </div>
       <div className="px-5 py-4">
         <FilterBar

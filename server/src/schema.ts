@@ -294,6 +294,41 @@ export const typeDefs = /* GraphQL */ `
     steps: [StepInput!]!
     attachments: [AttachmentInput!]!
   }
+  # Bulk CSV import — kind is a loose String (validated server-side); feature
+  # name only used at project scope (auto-created if missing).
+  input ImportTestCaseInput {
+    feature: String
+    name: String!
+    description: String
+    precondition: String
+    note: String
+    kind: String
+    steps: [StepInput!]!
+  }
+  type ImportRowError {
+    row: Int!
+    message: String!
+  }
+  type ImportResult {
+    ok: Boolean!
+    testCaseCount: Int!
+    stepCount: Int!
+    newFeatures: [String!]!
+    errors: [ImportRowError!]!
+  }
+  type TestCaseExportStep {
+    step: String!
+    expectedResult: String
+  }
+  type TestCaseExport {
+    featureName: String!
+    name: String!
+    description: String
+    precondition: String
+    note: String
+    kind: String
+    steps: [TestCaseExportStep!]!
+  }
   input RecordTestInput {
     executedAt: String!
     note: String
@@ -415,6 +450,7 @@ export const typeDefs = /* GraphQL */ `
     feature(id: ID!): Feature
     testCases(featureId: ID!): [TestCase!]!
     testCase(id: ID!): TestCase
+    exportTestCases(projectId: ID, featureId: ID): [TestCaseExport!]!
 
     recordTests(testCaseId: ID!): [RecordTest!]!
     issues(testCaseId: ID, archived: Boolean): [Issue!]!
@@ -478,6 +514,7 @@ export const typeDefs = /* GraphQL */ `
     deleteTestCase(id: ID!): Boolean!
     moveTestCase(id: ID!, featureId: ID!): TestCase!
     cloneTestCase(id: ID!, targetFeatureId: ID!, name: String): TestCase!
+    importTestCases(projectId: ID, featureId: ID, dryRun: Boolean!, rows: [ImportTestCaseInput!]!): ImportResult!
 
     createRecordTest(testCaseId: ID!, input: RecordTestInput!): RecordTest!
     deleteRecordTest(id: ID!): Boolean!
