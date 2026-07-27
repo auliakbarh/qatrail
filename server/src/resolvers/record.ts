@@ -70,6 +70,11 @@ export const recordResolvers = {
       });
       return rows.map((a, i) => ({ ...a, order: i + 1 }));
     },
+    async appTestKey(r: any, _: unknown, ctx: Context) {
+      if (!r.appTestId) return null;
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: r.appTestId }, select: { number: true } });
+      return at ? `APP-${at.number}` : null;
+    },
     async issueId(r: any, _: unknown, ctx: Context) {
       const issue = await ctx.prisma.issue.findUnique({
         where: { recordTestId: r.id },

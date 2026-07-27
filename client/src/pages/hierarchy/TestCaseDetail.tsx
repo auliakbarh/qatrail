@@ -136,6 +136,7 @@ export function TestCaseDetail({ id }: { id: string }) {
 
 function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { selectIssue } = useNav();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
   const [del, setDel] = useState<string | null>(null);
@@ -155,16 +156,17 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.qa")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.result")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.note")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.attach")}</th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
+            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
+            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
           )}
           {rows.map((r: any, idx: number) => (
             <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
@@ -187,6 +189,11 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
                 </div>
               </td>
               <td className="px-3 py-2 text-xs text-muted-foreground">{r.note || "—"}</td>
+              <td className="px-3 py-2 text-xs">
+                {r.appTestId
+                  ? <button onClick={() => navigate(`/app-tests/${r.appTestId}`)} className="font-mono text-primary hover:underline">{r.appTestKey}</button>
+                  : <span className="text-muted-foreground">—</span>}
+              </td>
               <td className="px-3 py-2 text-xs">{r.attachments.length}</td>
               <td className="px-3 py-2 text-right">
                 <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel(r.id)}>

@@ -113,6 +113,7 @@ export const typeDefs = /* GraphQL */ `
     result: TestResult!
     retestIssueId: ID
     appTestId: ID
+    appTestKey: String
     attachments: [Attachment!]!
     issueId: ID
     createdAt: String!
