@@ -269,6 +269,11 @@ model Issue {
   priority       Priority
   note           String?
 
+  // QA-set: this really happened in production (SLA applies). A PRODUCTION
+  // environment alone is not enough — testing findings on prod get no SLA.
+  // Always false for issues found on an app test.
+  isProductionIssue Boolean @default(false)
+
   status   WorkStatus  @default(OPEN)
   review   ReviewState @default(PENDING)
   archived Boolean     @default(false)

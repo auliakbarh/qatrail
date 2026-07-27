@@ -13,7 +13,7 @@ async function checkSla() {
     const targets = await slaTargets();
     // Open production issues that haven't already been notified for each breach.
     const issues = await prisma.issue.findMany({
-      where: { environment: "PRODUCTION", archived: false, resolvedAt: null },
+      where: { environment: "PRODUCTION", isProductionIssue: true, archived: false, resolvedAt: null },
       select: {
         id: true, title: true, assigneeId: true, priority: true, createdAt: true,
         respondedAt: true, slaRespondNotifiedAt: true, slaResolveNotifiedAt: true,

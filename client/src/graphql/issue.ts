@@ -34,6 +34,7 @@ const ISSUE_FIELDS = `
   type title description environment platform
   appVersion backendVersion testAccount testPassword testedAt preconditions
   steps actualResult expectedResult priority note status review archived
+  isProductionIssue canMarkProductionIssue slaStatus
   reporter { id name } assignee { id name }
   attachments { order url kind label }
   history { id kind fromVal toVal note at by { id name } }
@@ -61,7 +62,7 @@ export const ISSUES_PAGED = gql`
   query IssuesPaged($scope: String, $filter: IssueFilter, $sort: String, $dir: String, $page: Int, $pageSize: Int) {
     issuesPaged(scope: $scope, filter: $filter, sort: $sort, dir: $dir, page: $page, pageSize: $pageSize) {
       items {
-        id key title type priority status review environment platform slaStatus createdAt
+        id key title type priority status review environment platform slaStatus isProductionIssue createdAt
         appTestId appTestKey
         assignee { id name } reporter { id name }
       }

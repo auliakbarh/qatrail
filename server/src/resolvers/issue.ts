@@ -5,7 +5,7 @@ import { env } from "../env.js";
 import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
-import { cachedSlaTargets, classifyResolve } from "../sla.js";
+import { cachedSlaTargets, classifyResolve, slaApplies, canMarkProductionIssue, resolveProductionFlag } from "../sla.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -17,6 +17,7 @@ interface IssueInput {
   title: string;
   description: string;
   environment: "STAGING" | "PRODUCTION";
+  isProductionIssue?: boolean | null;
   platform: "ANDROID" | "IOS" | "WEB";
   appVersion?: string | null;
   backendVersion?: string | null;
@@ -46,8 +47,12 @@ function encPw(pw?: string | null): string | null {
 }
 
 // Scalar fields shared by create/update (excludes relations + attachments).
-function scalarData(input: IssueInput) {
+function scalarData(
+  input: IssueInput,
+  cur: { appTestId: string | null; resolvedAt: Date | null; isProductionIssue: boolean },
+) {
   return {
+    isProductionIssue: resolveProductionFlag(input, cur),
     type: input.type,
     title: input.title.trim(),
     description: input.description,
@@ -96,7 +101,7 @@ export const issueResolvers = {
       _: unknown,
       args: {
         scope?: string;
-        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; testCaseId?: string };
+        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; testCaseId?: string; isProductionIssue?: boolean | null };
         sort?: string;
         dir?: string;
         page?: number;
@@ -116,6 +121,7 @@ export const issueResolvers = {
       if (f.type) where.type = f.type;
       if (f.appTestId) where.appTestId = f.appTestId;
       if (f.testCaseId) where.testCaseId = f.testCaseId;
+      if (f.isProductionIssue != null) where.isProductionIssue = f.isProductionIssue;
       if (f.search?.trim()) where.title = { contains: f.search.trim(), mode: "insensitive" };
 
       const SORTABLE = new Set(["createdAt", "priority", "status", "title", "type"]);
@@ -144,7 +150,7 @@ export const issueResolvers = {
       validate(input);
       const issue = await ctx.prisma.issue.create({
         data: {
-          ...scalarData(input),
+          ...scalarData(input, { appTestId: input.appTestId ?? null, resolvedAt: null, isProductionIssue: false }),
           testCaseId: input.testCaseId,
           recordTestId: input.recordTestId ?? null,
           recreatedFromId: input.recreatedFromId ?? null,
@@ -181,11 +187,18 @@ export const issueResolvers = {
       await requireQA(ctx);
       const { input } = args;
       validate(input);
+      // The flag depends on the stored issue (app-test link, resolved state) —
+      // the client's input.appTestId can't be trusted for it.
+      const cur = await ctx.prisma.issue.findUnique({
+        where: { id: args.id },
+        select: { appTestId: true, resolvedAt: true, isProductionIssue: true },
+      });
+      if (!cur) throw new Error("Issue not found");
       // Replace attachments wholesale. Only overwrite the password when a new one is given.
       return ctx.prisma.issue.update({
         where: { id: args.id },
         data: {
-          ...scalarData(input),
+          ...scalarData(input, cur),
           ...(input.testPassword && input.testPassword.trim()
             ? { testPassword: encPw(input.testPassword) }
             : {}),
@@ -292,9 +305,10 @@ export const issueResolvers = {
     respondedAt: (i: any) => i.respondedAt?.toISOString() ?? null,
     resolvedAt: (i: any) => i.resolvedAt?.toISOString() ?? null,
     closedAt: (i: any) => i.closedAt?.toISOString() ?? null,
+    canMarkProductionIssue: (i: any) => canMarkProductionIssue(i),
     // SLA status for production issues: MET | AT_RISK | BREACHED, else NA.
     async slaStatus(i: any) {
-      if (i.environment !== "PRODUCTION") return "NA";
+      if (!slaApplies(i)) return "NA";
       const targets = await cachedSlaTargets();
       if (!targets[i.priority]) return "NA";
       return classifyResolve(i, targets, new Date()).toUpperCase().replace("ATRISK", "AT_RISK");

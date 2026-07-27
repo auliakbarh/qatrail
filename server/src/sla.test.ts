@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyResolve, respondBreached, type SlaTarget } from "./sla.js";
+import { classifyResolve, respondBreached, slaApplies, canMarkProductionIssue, resolveProductionFlag, type SlaTarget } from "./sla.js";
 
 const targets: Record<string, SlaTarget> = {
   HIGH: { respondMins: 60, resolveMins: 240 },
@@ -39,5 +39,30 @@ describe("respondBreached", () => {
   });
   it("false when priority has no respond target", () => {
     expect(respondBreached({ createdAt: ago(9999), respondedAt: null, priority: "LOW" }, targets, now)).toBe(false);
+  });
+});
+
+describe("production-issue gate", () => {
+  const prod = { environment: "PRODUCTION", isProductionIssue: true };
+  it("SLA applies only when prod env AND flagged", () => {
+    expect(slaApplies(prod)).toBe(true);
+    expect(slaApplies({ environment: "PRODUCTION", isProductionIssue: false })).toBe(false);
+    expect(slaApplies({ environment: "STAGING", isProductionIssue: true })).toBe(false);
+  });
+  it("markable only for unresolved prod issues outside an app test", () => {
+    const base = { environment: "PRODUCTION", appTestId: null, resolvedAt: null };
+    expect(canMarkProductionIssue(base)).toBe(true);
+    expect(canMarkProductionIssue({ ...base, appTestId: "at1" })).toBe(false);
+    expect(canMarkProductionIssue({ ...base, resolvedAt: now })).toBe(false);
+    expect(canMarkProductionIssue({ ...base, environment: "STAGING" })).toBe(false);
+  });
+  it("stored flag forced false for app-test / non-prod, frozen after resolve", () => {
+    const cur = { appTestId: null, resolvedAt: null, isProductionIssue: false };
+    expect(resolveProductionFlag(prod, cur)).toBe(true);
+    expect(resolveProductionFlag(prod, { ...cur, appTestId: "at1" })).toBe(false);
+    expect(resolveProductionFlag({ environment: "STAGING", isProductionIssue: true }, cur)).toBe(false);
+    // resolved: input ignored, current value stands (both directions)
+    expect(resolveProductionFlag({ environment: "PRODUCTION", isProductionIssue: false }, { ...cur, resolvedAt: now, isProductionIssue: true })).toBe(true);
+    expect(resolveProductionFlag(prod, { ...cur, resolvedAt: now })).toBe(false);
   });
 });

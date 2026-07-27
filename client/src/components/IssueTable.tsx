@@ -66,6 +66,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const [fStatus, setFStatus] = useState("");
   const [fPriority, setFPriority] = useState("");
   const [fType, setFType] = useState("");
+  const [fProd, setFProd] = useState(""); // "" all | "YES" | "NO"
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
@@ -76,7 +77,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     return () => clearTimeout(id);
   }, [searchInput]);
   // Any filter/sort change resets to page 1 + clears selection.
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, sortKey, sortDir, fAppTest, fTestCase]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, sortKey, sortDir, fAppTest, fTestCase]);
 
   const filterVars = {
     search: search || null,
@@ -85,6 +86,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     type: fType || null,
     appTestId: fAppTest || null,
     testCaseId: fTestCase || null,
+    isProductionIssue: fProd ? fProd === "YES" : null,
   };
   const { data, loading, refetch } = useQuery(ISSUES_PAGED, {
     variables: { scope, filter: filterVars, sort: sortKey, dir: sortDir, page, pageSize: PAGE_SIZE },
@@ -116,14 +118,14 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     const items = res.data?.issuesPaged?.items ?? [];
     downloadCsv(
       `issues-${scope}.csv`,
-      ["ID", "Title", "Type", "Priority", "Status", "SLA", "Environment", "Platform", "App test", "Assignee", "Reporter", "Created"],
-      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.slaStatus, i.environment, i.platform, i.appTestKey ?? "", i.assignee?.name, i.reporter?.name, new Date(i.createdAt).toISOString()]),
+      ["ID", "Title", "Type", "Priority", "Status", "Production issue", "SLA", "Environment", "Platform", "App test", "Assignee", "Reporter", "Created"],
+      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.isProductionIssue ? "YES" : "NO", i.slaStatus, i.environment, i.platform, i.appTestKey ?? "", i.assignee?.name, i.reporter?.name, new Date(i.createdAt).toISOString()]),
     );
   };
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const colCount = (showPeople ? 10 : 8) + 2; // + checkbox + app-test columns
+  const colCount = (showPeople ? 11 : 9) + 2; // + checkbox + app-test columns
   const allOnPage = rows.length > 0 && rows.every((r: any) => selected.has(r.id));
   const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rows.map((r: any) => r.id)));
 
@@ -137,6 +139,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         <Filter label={t("c.status")} value={fStatus} onChange={setFStatus} options={STATUSES} />
         <Filter label={t("c.priority")} value={fPriority} onChange={setFPriority} options={PRIORITIES} />
         <Filter label={t("c.type")} value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
+        <Filter label={t("issue.colProdIssue")} value={fProd} onChange={setFProd} options={["YES", "NO"]} />
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs text-muted-foreground">{t("issue.count", { n: total })}</span>
           <button onClick={exportCsv} className="flex h-8 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
@@ -179,6 +182,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
               <SortableTh label={t("c.type")} colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("c.priority")} colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("issue.colProdIssue")}</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.sla")}</th>
               <SortableTh label={t("c.created")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
@@ -200,6 +204,11 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
                 <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
                 <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
                 <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
+                <td className="px-3 py-2">
+                  {i.isProductionIssue
+                    ? <Badge variant="destructive">{t("iss.prodIssueBadge")}</Badge>
+                    : <span className="text-xs text-muted-foreground">—</span>}
+                </td>
                 <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDateTime(i.createdAt)}</td>
                 <td className="px-3 py-2 text-xs" onClick={(e) => e.stopPropagation()}>

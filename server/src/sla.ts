@@ -3,6 +3,31 @@ import { prisma } from "./db.js";
 // SLA applies to PRODUCTION issues only (per requirement). Targets are
 // admin-editable rows keyed by priority (minutes). respondMins may be null.
 
+// SLA gate: PRODUCTION environment is not enough — QA must have flagged the
+// issue as a real production issue (findings from prod-env testing get no SLA).
+export const slaApplies = (i: { environment: string; isProductionIssue: boolean }) =>
+  i.environment === "PRODUCTION" && i.isProductionIssue;
+
+// The flag is QA-owned, locked once resolved (keeps historic SLA numbers
+// stable) and never available for issues found on an app test.
+export const canMarkProductionIssue = (i: {
+  environment: string;
+  appTestId: string | null;
+  resolvedAt: Date | null;
+}) => i.environment === "PRODUCTION" && !i.appTestId && !i.resolvedAt;
+
+// Decide the stored flag on create/update: never trust the input alone. Non-prod
+// environments and app-test findings force false; a resolved issue keeps its
+// current value so historic SLA numbers don't move.
+export function resolveProductionFlag(
+  input: { environment: string; isProductionIssue?: boolean | null },
+  cur: { appTestId: string | null; resolvedAt: Date | null; isProductionIssue: boolean },
+): boolean {
+  if (input.environment !== "PRODUCTION" || cur.appTestId) return false;
+  if (cur.resolvedAt) return cur.isProductionIssue;
+  return !!input.isProductionIssue;
+}
+
 export interface SlaTarget {
   respondMins: number | null;
   resolveMins: number;

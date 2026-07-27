@@ -14,6 +14,7 @@ import {
   ISSUE_REVIEW,
   ISSUE_REOPEN,
   SET_ISSUE_ARCHIVED,
+  SET_PRODUCTION_ISSUE,
 } from "../../graphql/workflow";
 import { useNav } from "../../store/nav";
 import { useAuth } from "../../store/auth";
@@ -62,6 +63,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const [review] = useMutation(ISSUE_REVIEW, refetch);
   const [reopen] = useMutation(ISSUE_REOPEN, refetch);
   const [setArchived] = useMutation(SET_ISSUE_ARCHIVED, refetch);
+  const [setProductionIssue] = useMutation(SET_PRODUCTION_ISSUE, refetch);
 
   if (loading && !data) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
   const i = data?.issue;
@@ -104,11 +106,15 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
             <Badge variant="outline">{i.priority}</Badge>
             <Badge variant="primary">{i.status}</Badge>
             {i.review !== "PENDING" && <Badge>{i.review}</Badge>}
+            {i.isProductionIssue && <Badge variant="destructive">{t("iss.prodIssueBadge")}</Badge>}
             {i.archived && <Badge variant="outline">ARCHIVED</Badge>}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 px-5 py-4 text-xs md:grid-cols-4">
-          <Info label={t("iss.environment")} value={i.environment} />
+          <Info
+            label={t("iss.environment")}
+            value={i.environment === "PRODUCTION" ? `${i.environment} · ${i.isProductionIssue ? t("iss.slaOn") : t("iss.slaOff")}` : i.environment}
+          />
           <Info label={t("iss.platform")} value={i.platform} />
           <Info label={t("iss.appVer")} value={i.appVersion ?? "—"} />
           <Info label={t("iss.backendVer")} value={i.backendVersion ?? "—"} />
@@ -250,6 +256,12 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           {i.review === "REJECTED" && !i.archived && (
             <ActBtn allowed={canQA} onClick={guard(canQA, () => openPanel({ kind: "issue", mode: "create", initial: { ...i, recreatedFromId: i.id } }))}>
               {t("act.recreate")}
+            </ActBtn>
+          )}
+          {/* QA marks whether a prod-env finding is a real production issue (SLA). */}
+          {i.canMarkProductionIssue && (
+            <ActBtn allowed={canQA} onClick={guard(canQA, () => withToast(setProductionIssue({ variables: { id, value: !i.isProductionIssue } }), t("t.prodIssueUpdated"), t("t.issueUpdateFail")))}>
+              {i.isProductionIssue ? t("act.unmarkProdIssue") : t("act.markProdIssue")}
             </ActBtn>
           )}
           <ActBtn allowed={canQA} onClick={guard(canQA, () => withToast(setArchived({ variables: { id, archived: !i.archived } }), i.archived ? t("t.issueUnarchived") : t("t.issueArchived"), t("t.issueUpdateFail")))}>

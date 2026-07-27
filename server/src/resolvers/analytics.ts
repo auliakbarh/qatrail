@@ -1,7 +1,7 @@
 import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { featureCoverage, projectCoverage, allCoverage } from "../coverage.js";
-import { slaTargets, classifyResolve } from "../sla.js";
+import { slaTargets, classifyResolve, slaApplies } from "../sla.js";
 
 // Build the issue `where` filter for the requested scope.
 function issueWhere(projectId?: string | null, featureId?: string | null) {
@@ -44,6 +44,7 @@ export const analyticsResolvers = {
           type: true,
           status: true,
           environment: true,
+          isProductionIssue: true,
           priority: true,
           createdAt: true,
           respondedAt: true,
@@ -58,7 +59,7 @@ export const analyticsResolvers = {
       const resolutionRate = total === 0 ? 0 : Math.round((resolved / total) * 100);
 
       // Avg resolve time (production, resolved).
-      const prodResolved = issues.filter((i) => i.environment === "PRODUCTION" && i.resolvedAt);
+      const prodResolved = issues.filter((i) => slaApplies(i) && i.resolvedAt);
       const avgResolveMins =
         prodResolved.length === 0
           ? null
@@ -70,7 +71,7 @@ export const analyticsResolvers = {
       // SLA (production).
       const now = new Date();
       const targets = await slaTargets();
-      const prod = issues.filter((i) => i.environment === "PRODUCTION");
+      const prod = issues.filter(slaApplies);
       let met = 0,
         atRisk = 0,
         breached = 0;

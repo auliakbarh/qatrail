@@ -196,6 +196,7 @@ export const typeDefs = /* GraphQL */ `
     type: FindingType
     appTestId: ID
     testCaseId: ID
+    isProductionIssue: Boolean
   }
   type IssuePage {
     items: [Issue!]!
@@ -252,6 +253,10 @@ export const typeDefs = /* GraphQL */ `
     status: WorkStatus!
     review: ReviewState!
     archived: Boolean!
+    # True only when QA marked this as a real production issue (SLA applies).
+    isProductionIssue: Boolean!
+    # Whether the flag may still be toggled (prod env, not from an app test, not resolved).
+    canMarkProductionIssue: Boolean!
     slaStatus: String!
     reporter: User!
     assignee: User!
@@ -364,6 +369,7 @@ export const typeDefs = /* GraphQL */ `
     expectedResult: String!
     priority: Priority!
     note: String
+    isProductionIssue: Boolean
     assigneeId: ID!
     appTestId: ID
     attachments: [AttachmentInput!]!
@@ -535,6 +541,7 @@ export const typeDefs = /* GraphQL */ `
     issueReview(id: ID!, pass: Boolean!, note: String): Issue!
     issueReopen(id: ID!, note: String): Issue!
     setIssueArchived(id: ID!, archived: Boolean!): Issue!
+    setProductionIssue(id: ID!, value: Boolean!): Issue!
     postIssueToJira(id: ID!, jiraKey: String!): Issue!
 
     bulkArchiveIssues(ids: [ID!]!, archived: Boolean!): Int!

@@ -2,6 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
+import { canMarkProductionIssue } from "../sla.js";
 
 // Load the issue or throw. Small helper to keep mutations terse.
 async function getIssue(ctx: Context, id: string) {
@@ -244,6 +245,28 @@ export const workflowResolvers = {
       );
       if (issue.appTestId) await recomputeAppTest(issue.appTestId);
       return updated;
+    },
+
+    // QA marks whether a PRODUCTION-environment finding is a real production
+    // issue. Only then does SLA apply. App-test findings can never be marked.
+    async setProductionIssue(_: unknown, args: { id: string; value: boolean }, ctx: Context) {
+      const user = await actor(ctx);
+      const issue = await getIssue(ctx, args.id);
+      assertReporterOrQA(user, issue);
+      if (issue.appTestId) throw new Error("Issues found on an app test cannot be production issues");
+      if (!canMarkProductionIssue(issue)) {
+        throw new Error(
+          issue.resolvedAt
+            ? "Cannot change the production-issue flag after the issue is resolved"
+            : "Only PRODUCTION-environment issues can be marked as production issues",
+        );
+      }
+      return transition(
+        ctx,
+        issue,
+        { isProductionIssue: args.value },
+        { kind: "productionIssue", fromVal: String(issue.isProductionIssue), toVal: String(args.value), byId: user.id },
+      );
     },
   },
 

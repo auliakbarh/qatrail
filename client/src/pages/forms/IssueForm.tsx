@@ -45,6 +45,7 @@ interface Form {
   expectedResult: string;
   priority: string;
   note: string;
+  isProductionIssue: boolean;
   assigneeId: string;
   attachments: { url: string; kind: string; label: string }[];
 }
@@ -100,12 +101,21 @@ export function IssueForm({
       expectedResult: init.expectedResult ?? "",
       priority: init.priority ?? "MEDIUM",
       note: init.note ?? "",
+      isProductionIssue: init.isProductionIssue ?? false,
       assigneeId: init.assignee?.id ?? "",
       attachments: (init.attachments ?? []).map((a: any) => ({ url: a.url, kind: a.kind, label: a.label ?? "" })),
     },
   });
   const atts = useFieldArray({ control, name: "attachments" });
   const platform = watch("platform");
+  const environment = watch("environment");
+  // Production-issue flag (SLA) — prod env only, never for app-test findings,
+  // and the server freezes it once the issue is resolved.
+  const canMarkProd =
+    environment === "PRODUCTION" &&
+    !appTestId &&
+    !init.fromAppTest &&
+    (!editing || (issueData?.issue?.canMarkProductionIssue ?? true));
   const mobileVersionRequired = platform === "IOS" || platform === "ANDROID";
   // Coming from an app-test FAIL: env/platform/versions are the app's and locked.
   const lockFields = !editing && !!init.fromAppTest;
@@ -130,6 +140,7 @@ export function IssueForm({
         expectedResult: i.expectedResult,
         priority: i.priority,
         note: i.note ?? "",
+        isProductionIssue: i.isProductionIssue,
         assigneeId: i.assignee.id,
         attachments: i.attachments.map((a: any) => ({ url: a.url, kind: a.kind, label: a.label ?? "" })),
       });
@@ -171,6 +182,7 @@ export function IssueForm({
       expectedResult: v.expectedResult,
       priority: v.priority,
       note: v.note || null,
+      isProductionIssue: canMarkProd && v.isProductionIssue,
       assigneeId: v.assigneeId,
       appTestId: appTestId ?? null,
       attachments: v.attachments
@@ -229,6 +241,15 @@ export function IssueForm({
             </select>
           </Field>
         </div>
+        {canMarkProd && (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-0.5 cursor-pointer" {...register("isProductionIssue")} />
+            <span>
+              {t("iss.isProductionIssue")}
+              <span className="block text-xs text-muted-foreground">{t("iss.isProductionIssueHint")}</span>
+            </span>
+          </label>
+        )}
         <div className="flex gap-2">
           <Field label={t("form.appVersion")} optional={!mobileVersionRequired} error={formState.errors.appVersion && t("form.requiredMobile")}>
             <input
