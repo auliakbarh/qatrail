@@ -128,6 +128,7 @@ export default function Help() {
             <P><Trans i18nKey="help.apptest.p3" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.p5" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.apptest.builds" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.apptest.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 

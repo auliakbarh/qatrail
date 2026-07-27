@@ -396,6 +396,18 @@ export const typeDefs = /* GraphQL */ `
     doneTestAt: String
     createdAt: String!
     updatedAt: String!
+    builds: [AppTestBuild!]!
+  }
+
+  # One submitted build of an app test (newest = the app test's current link).
+  type AppTestBuild {
+    id: ID!
+    downloadLink: String!
+    appVersion: String
+    backendVersion: String
+    note: String
+    createdBy: User!
+    createdAt: String!
   }
 
   # A test case as assigned to an app test, with per-app-test progress.
@@ -420,6 +432,13 @@ export const typeDefs = /* GraphQL */ `
     downloadLink: String!
     note: String
     jiraTickets: [String!]!
+  }
+
+  input AppTestBuildInput {
+    downloadLink: String!
+    appVersion: String
+    backendVersion: String
+    note: String
   }
 
   # A reusable test credential for a project+environment.
@@ -554,6 +573,7 @@ export const typeDefs = /* GraphQL */ `
 
     createAppTest(input: AppTestInput!): AppTest!
     updateAppTest(id: ID!, input: AppTestInput!): AppTest!
+    addAppTestBuild(appTestId: ID!, input: AppTestBuildInput!): AppTest!
     deleteAppTest(id: ID!): Boolean!
     assignTestCases(appTestId: ID!, testCaseIds: [ID!]!): AppTest!
     assignFeatureTestCases(appTestId: ID!, featureId: ID!): AppTest!

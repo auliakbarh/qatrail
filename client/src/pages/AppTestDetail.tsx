@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Send } from "lucide-react";
 import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST, POST_APP_TEST_TO_JIRA } from "../graphql/apptest";
+import { AppTestBuildForm } from "./forms/AppTestBuildForm";
 import { HEALTH } from "../graphql";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { useNav } from "../store/nav";
@@ -116,6 +117,7 @@ export default function AppTestDetail() {
 
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
   const tickets = a.jiraTickets ?? [];
+  const builds = a.builds ?? [];
 
   return (
     <div className="flex h-full">
@@ -162,6 +164,50 @@ export default function AppTestDetail() {
             </div>
           </div>
           {a.note && <div className="border-t border-border px-5 py-3 text-xs"><span className="text-muted-foreground">{t("c.note")}: </span>{a.note}</div>}
+        </div>
+
+        {/* Builds — newest first; the app test's link always mirrors build #1 of this list */}
+        <div className="rounded border border-border">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <h3 className="text-sm font-semibold">{t("at.builds")} ({builds.length})</h3>
+            <HeaderButton allowed={canPostJira} icon={Plus} onClick={() => openPanel({ kind: "apptestbuild", mode: "create" })}>
+              {t("at.newBuild")}
+            </HeaderButton>
+          </div>
+          <div className="overflow-x-auto px-5 py-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2">{t("at.buildNo")}</th>
+                  <th className="px-3 py-2">{t("at.downloadLink")}</th>
+                  <th className="px-3 py-2">{t("form.appVersion")}</th>
+                  <th className="px-3 py-2">{t("form.backendVersion")}</th>
+                  <th className="px-3 py-2">{t("at.buildBy")}</th>
+                  <th className="px-3 py-2">{t("at.dateCreated")}</th>
+                  <th className="px-3 py-2">{t("c.note")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {builds.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">{t("at.noBuilds")}</td></tr>}
+                {builds.map((b: any, i: number) => (
+                  <tr key={b.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                    <td className="px-3 py-2 font-mono text-xs">
+                      #{builds.length - i}
+                      {i === 0 && <span className="ml-1.5 inline-flex rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">{t("at.buildCurrent")}</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <a href={b.downloadLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">{t("at.openLink")}</a>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{b.appVersion ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{b.backendVersion ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{b.createdBy?.name}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(b.createdAt)}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{b.note ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Assigned test cases */}
@@ -289,6 +335,7 @@ export default function AppTestDetail() {
 
       {/* Right panel */}
       {panel?.kind === "apptest" && <AppTestForm panel={panel} />}
+      {panel?.kind === "apptestbuild" && <AppTestBuildForm appTestId={id} appTest={a} />}
       {panel?.kind === "assigntc" && <AssignTestCasesPanel appTestId={id} projectId={a.projectId} />}
       {panel?.kind === "record" && panel.initial?.testCaseId && (
         <RecordForm testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} appTestId={id} retestIssueId={panel.initial.retestIssueId} appTest={a} />

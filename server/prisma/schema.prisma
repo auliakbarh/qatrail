@@ -121,6 +121,7 @@ model User {
   comments       Comment[]
 
   appTests              AppTest[]     @relation("appTestCreator")
+  appTestBuilds         AppTestBuild[] @relation("appTestBuildCreator")
   appTestCasesAssigned  AppTestCase[] @relation("appTestCaseAssigner")
   userTests             UserTest[]    @relation("userTestCreator")
   watches               Watch[]
@@ -377,9 +378,29 @@ model AppTest {
   assigned AppTestCase[]
   records  RecordTest[]
   issues   Issue[]
+  builds   AppTestBuild[]
 
   @@index([projectId])
   @@index([status])
+}
+
+// One build submitted for an app test. The app test's own downloadLink/versions
+// always mirror the newest build; this table is the history (who shipped what,
+// when, why). Test-case assignments and records live on the app test, so a new
+// build continues the same testing round instead of starting a new one.
+model AppTestBuild {
+  id             String   @id @default(cuid())
+  appTestId      String
+  appTest        AppTest  @relation(fields: [appTestId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User     @relation("appTestBuildCreator", fields: [createdById], references: [id])
+  downloadLink   String
+  appVersion     String?
+  backendVersion String?
+  note           String?
+  createdAt      DateTime @default(now())
+
+  @@index([appTestId])
 }
 
 // A reusable test credential (account/password) for a project+environment.

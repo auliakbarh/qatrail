@@ -132,8 +132,24 @@ export const appTestResolvers = {
   Mutation: {
     async createAppTest(_: unknown, args: { input: AppTestInput }, ctx: Context) {
       const user = await requireEngineerOrAdmin(ctx);
+      const data = scalarData(args.input);
       const at = await ctx.prisma.appTest.create({
-        data: { ...scalarData(args.input), projectId: args.input.projectId, createdById: user.id, status: "OPEN" },
+        data: {
+          ...data,
+          projectId: args.input.projectId,
+          createdById: user.id,
+          status: "OPEN",
+          // Build #1, so the history is complete without backfilling.
+          builds: {
+            create: {
+              createdById: user.id,
+              downloadLink: data.downloadLink,
+              appVersion: data.appVersion,
+              backendVersion: data.backendVersion,
+              note: data.note,
+            },
+          },
+        },
       });
       await notifyQaAdmins("APP_TEST_CREATED", `New app test to test: APP-${at.number}`, at.id, user.id);
       return at;
@@ -141,10 +157,64 @@ export const appTestResolvers = {
     async updateAppTest(_: unknown, args: { id: string; input: AppTestInput }, ctx: Context) {
       const user = await requireEngineerOrAdmin(ctx);
       const at = await getOwned(ctx, args.id, user);
-      const updated = await ctx.prisma.appTest.update({ where: { id: at.id }, data: scalarData(args.input) });
+      const data = scalarData(args.input);
+      const updated = await ctx.prisma.appTest.update({
+        where: { id: at.id },
+        data: {
+          ...data,
+          // An edit that swaps the link is a new build too — keep the history honest
+          // whichever path the engineer used. No reopen: that's addAppTestBuild's job.
+          ...(data.downloadLink !== at.downloadLink && {
+            builds: {
+              create: {
+                createdById: user.id,
+                downloadLink: data.downloadLink,
+                appVersion: data.appVersion,
+                backendVersion: data.backendVersion,
+                note: data.note,
+              },
+            },
+          }),
+        },
+      });
       await notifyQaAdmins("APP_TEST_UPDATED", `App test updated: APP-${at.number}`, at.id, user.id);
       await notifyWatchers("APP_TEST", at.id, "WATCH", `App test updated: APP-${at.number}`, { appTestId: at.id }, user.id);
       return updated;
+    },
+    // Engineer ships a corrected/fixed build for the SAME app test: history, test
+    // case assignments and records all carry over (no re-assign for QA). Reopens
+    // the app test if QA had already closed testing.
+    async addAppTestBuild(
+      _: unknown,
+      args: { appTestId: string; input: { downloadLink: string; appVersion?: string | null; backendVersion?: string | null; note?: string | null } },
+      ctx: Context,
+    ) {
+      const user = await requireEngineerOrAdmin(ctx);
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: args.appTestId } });
+      if (!at) throw new Error("App test not found");
+      const downloadLink = args.input.downloadLink.trim();
+      if (!downloadLink) throw new GraphQLError("Download link is required.", { extensions: { code: "BAD_USER_INPUT" } });
+      const build = {
+        downloadLink,
+        appVersion: args.input.appVersion ?? null,
+        backendVersion: args.input.backendVersion ?? null,
+        note: args.input.note ?? null,
+      };
+      await ctx.prisma.appTest.update({
+        where: { id: at.id },
+        data: {
+          downloadLink: build.downloadLink,
+          appVersion: build.appVersion,
+          backendVersion: build.backendVersion,
+          closedAt: null, // resume testing on the same round
+          builds: { create: { ...build, createdById: user.id } },
+        },
+      });
+      await recomputeAppTest(at.id);
+      const msg = `New build on APP-${at.number} — please retest`;
+      await notifyQaAdmins("APP_TEST_NEW_BUILD", msg, at.id, user.id);
+      await notifyWatchers("APP_TEST", at.id, "APP_TEST_NEW_BUILD", msg, { appTestId: at.id }, user.id);
+      return ctx.prisma.appTest.findUnique({ where: { id: at.id } });
     },
     async deleteAppTest(_: unknown, args: { id: string }, ctx: Context) {
       const user = await requireEngineerOrAdmin(ctx);
@@ -253,6 +323,13 @@ export const appTestResolvers = {
     passPercent: async (a: any) => (await appTestCoverage(a.id)).percent,
     issueCount: (a: any, _: unknown, ctx: Context) => ctx.prisma.issue.count({ where: { appTestId: a.id } }),
     assignedCount: (a: any, _: unknown, ctx: Context) => ctx.prisma.appTestCase.count({ where: { appTestId: a.id } }),
+    builds: (a: any, _: unknown, ctx: Context) =>
+      ctx.prisma.appTestBuild.findMany({ where: { appTestId: a.id }, orderBy: { createdAt: "desc" } }),
+  },
+
+  AppTestBuild: {
+    createdAt: (b: any) => b.createdAt.toISOString(),
+    createdBy: (b: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: b.createdById } }),
   },
 
   AssignedTestCase: {

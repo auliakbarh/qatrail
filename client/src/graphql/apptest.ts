@@ -16,7 +16,10 @@ export const APP_TESTS = gql`
 
 export const APP_TEST = gql`
   query AppTest($id: ID!) {
-    appTest(id: $id) { ${APP_TEST_FIELDS} }
+    appTest(id: $id) {
+      ${APP_TEST_FIELDS}
+      builds { id downloadLink appVersion backendVersion note createdAt createdBy { id name } }
+    }
   }
 `;
 
@@ -46,6 +49,11 @@ export const CREATE_APP_TEST = gql`
 export const UPDATE_APP_TEST = gql`
   mutation UpdateAppTest($id: ID!, $input: AppTestInput!) {
     updateAppTest(id: $id, input: $input) { id }
+  }
+`;
+export const ADD_APP_TEST_BUILD = gql`
+  mutation AddAppTestBuild($appTestId: ID!, $input: AppTestBuildInput!) {
+    addAppTestBuild(appTestId: $appTestId, input: $input) { id }
   }
 `;
 export const DELETE_APP_TEST = gql`
