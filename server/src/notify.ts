@@ -1,8 +1,12 @@
 import { prisma } from "./db.js";
+import { logger } from "./logger.js";
 import { publishNotification } from "./pubsub.js";
 
+const log = logger.child({ mod: "notify" });
+
 // Create a notification row and push it live to the recipient's subscription.
-// Fire-and-forget from resolvers — a failed push must not break the mutation.
+// Fire-and-forget from resolvers — a failed push must not break the mutation, so
+// this swallows (e.g. the recipient was deleted between lookup and insert: FK error).
 export async function notify(
   userId: string,
   kind: string,
@@ -11,26 +15,30 @@ export async function notify(
   appTestId?: string | null,
   userTestId?: string | null,
 ): Promise<void> {
-  const n = await prisma.notification.create({
-    data: {
-      userId,
-      kind,
-      message,
-      issueId: issueId ?? null,
-      appTestId: appTestId ?? null,
-      userTestId: userTestId ?? null,
-    },
-  });
-  publishNotification(userId, {
-    id: n.id,
-    kind: n.kind,
-    message: n.message,
-    issueId: n.issueId,
-    appTestId: n.appTestId,
-    userTestId: n.userTestId,
-    read: n.read,
-    createdAt: n.createdAt.toISOString(),
-  });
+  try {
+    const n = await prisma.notification.create({
+      data: {
+        userId,
+        kind,
+        message,
+        issueId: issueId ?? null,
+        appTestId: appTestId ?? null,
+        userTestId: userTestId ?? null,
+      },
+    });
+    publishNotification(userId, {
+      id: n.id,
+      kind: n.kind,
+      message: n.message,
+      issueId: n.issueId,
+      appTestId: n.appTestId,
+      userTestId: n.userTestId,
+      read: n.read,
+      createdAt: n.createdAt.toISOString(),
+    });
+  } catch (e) {
+    log.warn({ err: e, userId, kind }, "notify failed");
+  }
 }
 
 // Fan a notification out to everyone watching a target (issue/app test/user test).
