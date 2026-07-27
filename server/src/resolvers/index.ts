@@ -56,6 +56,7 @@ export const resolvers = {
   Issue: issueResolvers.Issue,
   Comment: commentResolvers.Comment,
   AppTest: appTestResolvers.AppTest,
+  AppTestBuild: appTestResolvers.AppTestBuild,
   AssignedTestCase: appTestResolvers.AssignedTestCase,
   UserTest: userTestResolvers.UserTest,
   StatusEvent: workflowResolvers.StatusEvent,
