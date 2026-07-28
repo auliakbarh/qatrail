@@ -13,6 +13,7 @@ enum Role {
   ADMIN
   QA
   ENGINEER
+  VIEWER
 }
 
 enum AuthProvider {

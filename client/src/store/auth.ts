@@ -5,7 +5,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  role: "SUPER_ADMIN" | "ADMIN" | "QA" | "ENGINEER";
+  role: "SUPER_ADMIN" | "ADMIN" | "QA" | "ENGINEER" | "VIEWER";
   mustChangePassword: boolean;
   active: boolean;
 }

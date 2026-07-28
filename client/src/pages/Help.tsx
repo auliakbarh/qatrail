@@ -79,6 +79,7 @@ export default function Help() {
                 ["ADMIN", t("help.roles.admin")],
                 ["QA", t("help.roles.qa")],
                 ["ENGINEER", t("help.roles.engineer")],
+                ["VIEWER", t("help.roles.viewer")],
               ]}
             />
             <P>{t("help.roles.p")}</P>

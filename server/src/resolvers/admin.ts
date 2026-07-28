@@ -7,7 +7,7 @@ import { sendDiscordTest } from "../discord.js";
 interface UserInput {
   email: string;
   name: string;
-  role: "SUPER_ADMIN" | "ADMIN" | "QA" | "ENGINEER";
+  role: "SUPER_ADMIN" | "ADMIN" | "QA" | "ENGINEER" | "VIEWER";
   active?: boolean | null;
 }
 

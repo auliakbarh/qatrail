@@ -1,6 +1,6 @@
 // GraphQL type definitions. M0: auth+health. M1: hierarchy. M2: records+issues.
 export const typeDefs = /* GraphQL */ `
-  enum Role { SUPER_ADMIN ADMIN QA ENGINEER }
+  enum Role { SUPER_ADMIN ADMIN QA ENGINEER VIEWER }
   enum AttachKind { IMAGE VIDEO MARKDOWN JSON DOC XLS CSV PDF OTHER }
   enum FindingType { DEFECT BUG }
   enum Platform { ANDROID IOS WEB }

@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { COMMENTS, ADD_COMMENT, UPDATE_COMMENT, DELETE_COMMENT } from "../graphql/comment";
 import { useAuth } from "../store/auth";
 import { fmtDateTime as fmt } from "../lib/utils";
-import { withToast } from "../store/toast";
+import { withToast, denied } from "../store/toast";
+import { canAct } from "../lib/perm";
 import { Modal } from "./Modal";
 
 type Target = "ISSUE" | "APP_TEST" | "USER_TEST";
@@ -27,6 +28,7 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canAct(user?.role)) return denied();
     const text = body.trim();
     if (!text) return;
     setBody("");

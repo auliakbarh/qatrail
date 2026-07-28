@@ -16,7 +16,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { copyWithToast, withToast } from "../store/toast";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
-const ROLES = ["QA", "ENGINEER", "ADMIN", "SUPER_ADMIN"];
+const ROLES = ["QA", "ENGINEER", "VIEWER", "ADMIN", "SUPER_ADMIN"];
 
 export default function Settings() {
   const { t } = useTranslation();

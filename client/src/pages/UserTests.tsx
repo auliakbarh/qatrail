@@ -14,6 +14,8 @@ import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { UserTestForm } from "./forms/UserTestForm";
+import { useAuth } from "../store/auth";
+import { canAct } from "../lib/perm";
 
 const PAGE_SIZE = 25;
 
@@ -25,6 +27,8 @@ export default function UserTests() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { panel, openPanel } = useNav();
+  const { user } = useAuth();
+  const act = canAct(user?.role);
   const { data, loading } = useQuery(USER_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
   const [deleteUserTest] = useMutation(DELETE_USER_TEST, { refetchQueries: [{ query: USER_TESTS, variables: { projectId: null } }] });
 
@@ -71,7 +75,7 @@ export default function UserTests() {
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold">{t("ut.title")}</h2>
-            <HeaderButton allowed icon={Plus} onClick={() => openPanel({ kind: "usertest", mode: "create" })}>
+            <HeaderButton allowed={act} icon={Plus} onClick={() => openPanel({ kind: "usertest", mode: "create" })}>
               {t("ut.newItem")}
             </HeaderButton>
           </div>
@@ -140,8 +144,8 @@ export default function UserTests() {
                           <td className="px-3 py-2">
                             <div className="flex justify-end gap-1">
                               <IconBtn title={t("c.open")} onClick={() => navigate(`/user-tests/${u.id}`)}><FolderOpen className="h-3.5 w-3.5" /></IconBtn>
-                              <IconBtn title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
-                              <IconBtn title={t("c.delete")} onClick={() => setDel({ id: u.id, key: u.key })}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                              <IconBtn allowed={act} title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
+                              <IconBtn allowed={act} title={t("c.delete")} onClick={() => setDel({ id: u.id, key: u.key })}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
                             </div>
                           </td>
                         </tr>

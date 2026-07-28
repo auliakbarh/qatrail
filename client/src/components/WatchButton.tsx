@@ -2,6 +2,9 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
 import { IS_WATCHING, SET_WATCH } from "../graphql/watch";
+import { useAuth } from "../store/auth";
+import { canAct } from "../lib/perm";
+import { denied } from "../store/toast";
 
 type Target = "ISSUE" | "APP_TEST" | "USER_TEST";
 
@@ -14,15 +17,17 @@ export function WatchButton({ target, targetId }: { target: Target; targetId: st
     refetchQueries: [{ query: IS_WATCHING, variables: vars }],
   });
   const watching = !!data?.isWatching;
+  const { user } = useAuth();
+  const act = canAct(user?.role);
 
   return (
     <button
-      onClick={() => setWatch({ variables: { ...vars, watching: !watching } })}
+      onClick={() => (act ? setWatch({ variables: { ...vars, watching: !watching } }) : denied())}
       disabled={loading}
       title={watching ? t("watch.stop") : t("watch.start")}
       className={`flex h-7 items-center gap-1.5 rounded border px-2 text-xs disabled:opacity-50 ${
         watching ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
-      }`}
+      } ${act ? "" : "opacity-40"}`}
     >
       {watching ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
       {watching ? t("watch.watching") : t("watch.watch")}

@@ -6,24 +6,25 @@ export interface Context {
   prisma: typeof prisma;
   userId: string | null;
   userName: string | null;
+  // Read fresh per request so a role change applies immediately.
+  role?: string | null;
   // True when a valid token was rejected because a newer login superseded it.
   sessionSuperseded?: boolean;
 }
 
 export async function contextFromAuthHeader(header?: string | null): Promise<Context> {
-  const anon: Context = { prisma, userId: null, userName: null };
+  const anon: Context = { prisma, userId: null, userName: null, role: null };
   if (typeof header !== "string" || !header.startsWith("Bearer ")) return anon;
   const payload = verifyToken(header.slice(7));
   if (!payload) return anon;
+  const row = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { sessionId: true, role: true },
+  });
   // Single active session: token's sid must match the user's current sessionId.
-  if (payload.sid) {
-    const row = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { sessionId: true },
-    });
-    if (!row || row.sessionId !== payload.sid) return { ...anon, sessionSuperseded: true };
-  }
-  return { prisma, userId: payload.userId, userName: payload.name ?? null };
+  if (!row) return { ...anon, sessionSuperseded: !!payload.sid };
+  if (payload.sid && row.sessionId !== payload.sid) return { ...anon, sessionSuperseded: true };
+  return { prisma, userId: payload.userId, userName: payload.name ?? null, role: row.role };
 }
 
 export async function buildContext({ req }: { req: { headers: Record<string, any> } }): Promise<Context> {
@@ -66,6 +67,37 @@ export async function requireQA(ctx: Context) {
     throw new Error("Forbidden: QA only");
   }
   return user!;
+}
+
+// VIEWER is read-only: it may run only these mutations. Everything else is
+// denied by readOnlyGuard, so a newly added mutation is closed by default.
+const VIEWER_MUTATIONS = new Set([
+  "login",
+  "microsoftLogin",
+  "forgotPassword",
+  "resetPassword",
+  "changePassword",
+  "markNotificationRead",
+  "markAllNotificationsRead",
+]);
+
+// Wraps the whole Mutation map instead of adding a guard per resolver — the one
+// place a VIEWER can be stopped, covering HTTP and WS alike.
+export function readOnlyGuard<T extends Record<string, any>>(mutations: T): T {
+  const out: Record<string, any> = {};
+  for (const [field, fn] of Object.entries(mutations)) {
+    out[field] = VIEWER_MUTATIONS.has(field)
+      ? fn
+      : (parent: any, args: any, ctx: Context, info: any) => {
+          if (ctx.role === "VIEWER") {
+            throw new GraphQLError("Forbidden: the viewer role is read-only", {
+              extensions: { code: "FORBIDDEN" },
+            });
+          }
+          return fn(parent, args, ctx, info);
+        };
+  }
+  return out as T;
 }
 
 // Engineers (and admins) submit/manage app tests.

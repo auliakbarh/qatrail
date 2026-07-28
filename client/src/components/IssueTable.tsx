@@ -9,6 +9,8 @@ import { downloadCsv } from "../lib/csv";
 import { withToast } from "../store/toast";
 import { DeleteConfirm } from "./DeleteConfirm";
 import { cn, fmtDateTime } from "../lib/utils";
+import { useAuth } from "../store/auth";
+import { canAct } from "../lib/perm";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const c = {
@@ -56,6 +58,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const apollo = useApolloClient();
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   // Optional deep-link scoping (e.g. from an app test's assigned test case row).
   const fAppTest = params.get("appTest") || "";
@@ -125,7 +128,9 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const colCount = (showPeople ? 11 : 9) + 2; // + checkbox + app-test columns
+  // Viewers get no bulk actions, so the select column is dropped for them.
+  const bulk = canAct(user?.role);
+  const colCount = (showPeople ? 11 : 9) + (bulk ? 2 : 1); // + checkbox + app-test columns
   const allOnPage = rows.length > 0 && rows.every((r: any) => selected.has(r.id));
   const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rows.map((r: any) => r.id)));
 
@@ -153,7 +158,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           <button onClick={() => setParams({})} className="ml-auto underline">{t("issue.clearFilter")}</button>
         </div>
       )}
-      {selected.size > 0 && (
+      {bulk && selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-border bg-muted/40 px-3 py-2 text-xs">
           <span className="font-medium">{t("bulk.selected", { n: selected.size })}</span>
           <button onClick={() => withToast(bulkArchive({ variables: { ids, archived: true } }).then(afterBulk), t("bulk.archived"), t("c.somethingWrong"))} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("act.archive")}</button>
@@ -173,9 +178,11 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="w-8 px-3 py-2 text-left">
-                <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="cursor-pointer" />
-              </th>
+              {bulk && (
+                <th className="w-8 px-3 py-2 text-left">
+                  <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="cursor-pointer" />
+                </th>
+              )}
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
               <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("issue.colIssue")} colKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -195,9 +202,11 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
             {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("issue.none")}</td></tr>}
             {rows.map((i: any, idx: number) => (
               <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}`)}>
-                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleSel(i.id)} className="cursor-pointer" />
-                </td>
+                {bulk && (
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleSel(i.id)} className="cursor-pointer" />
+                  </td>
+                )}
                 <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
                 <td className="px-3 py-2 font-medium">{i.title}</td>

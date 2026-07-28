@@ -41,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ADMIN: "A",
     QA: "QA",
     ENGINEER: "EN",
+    VIEWER: "V",
   };
   const roleShort = ROLE_SHORT[user?.role ?? ""] ?? "?";
 

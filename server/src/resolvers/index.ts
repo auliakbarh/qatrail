@@ -13,6 +13,7 @@ import { appTestResolvers } from "./appTest.js";
 import { userTestResolvers } from "./userTest.js";
 import { watchResolvers } from "./watch.js";
 import { suggestionsResolvers } from "./suggestions.js";
+import { readOnlyGuard } from "../context.js";
 
 export const resolvers = {
   Query: {
@@ -31,7 +32,8 @@ export const resolvers = {
     ...watchResolvers.Query,
     ...suggestionsResolvers.Query,
   },
-  Mutation: {
+  // readOnlyGuard: every mutation is closed to the VIEWER role unless allowlisted.
+  Mutation: readOnlyGuard({
     ...authResolvers.Mutation,
     ...projectResolvers.Mutation,
     ...featureResolvers.Mutation,
@@ -45,7 +47,7 @@ export const resolvers = {
     ...appTestResolvers.Mutation,
     ...userTestResolvers.Mutation,
     ...watchResolvers.Mutation,
-  },
+  }),
   Subscription: {
     ...notificationResolvers.Subscription,
   },

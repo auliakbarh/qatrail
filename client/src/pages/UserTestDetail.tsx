@@ -12,6 +12,8 @@ import { WatchButton } from "../components/WatchButton";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { UserTestForm } from "./forms/UserTestForm";
+import { useAuth } from "../store/auth";
+import { canAct } from "../lib/perm";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -27,6 +29,8 @@ export default function UserTestDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { panel, openPanel } = useNav();
+  const { user } = useAuth();
+  const act = canAct(user?.role);
 
   const { data, loading } = useQuery(USER_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const [deleteUserTest] = useMutation(DELETE_USER_TEST);
@@ -62,8 +66,8 @@ export default function UserTestDetail() {
             </div>
             <div className="flex items-center gap-1.5">
               <WatchButton target="USER_TEST" targetId={id} />
-              <IconBtn title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
-              <IconBtn title={t("c.delete")} onClick={() => setDel(true)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+              <IconBtn allowed={act} title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
+              <IconBtn allowed={act} title={t("c.delete")} onClick={() => setDel(true)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 px-5 py-4 text-sm md:grid-cols-3">
