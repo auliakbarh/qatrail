@@ -14,6 +14,7 @@
     "dev:server": "npm -w server run dev",
     "dev:client": "npm -w client run dev",
     "build": "npm -w server run build && npm -w client run build",
+    "release": "./scripts/version.sh",
     "start": "npm -w server run start",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",

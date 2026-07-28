@@ -28,7 +28,11 @@ log "Redeploying from $APP_DIR"
 if [ "$DO_PULL" = 1 ]; then
   log "git pull"
   git pull --ff-only
+  # The displayed version is the newest tag, so make sure tags are up to date.
+  git fetch --tags --force
 fi
+
+log "version: $(git describe --tags --abbrev=0 2>/dev/null || echo 'no tag — falling back to package.json')"
 
 log "npm install"
 npm install
