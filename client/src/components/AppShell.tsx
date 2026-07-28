@@ -22,6 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { data } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  const apiVersion: string | undefined = data?.health?.apiVersion;
 
   // Sidebar collapse: minimized to an icon rail; hovering reveals it temporarily.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("qar_sidebar") === "1");
@@ -151,7 +152,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
             <div className="flex items-center justify-between border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-              <span>UI v{UI_VERSION} · API v{data?.health?.apiVersion ?? "…"}</span>
+              {/* Both versions come from the same release tag, so a mismatch means one side is stale. */}
+              <span
+                className={apiVersion && apiVersion !== UI_VERSION ? "text-[var(--warn)]" : undefined}
+                title={apiVersion && apiVersion !== UI_VERSION ? t("health.mismatch") : undefined}
+              >
+                UI v{UI_VERSION} · API v{apiVersion ?? "…"}
+              </span>
               <button onClick={switchLang} className="uppercase hover:text-foreground">
                 {i18n.language}
               </button>

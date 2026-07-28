@@ -14,6 +14,8 @@ export default function HealthPage() {
   });
   const h = data?.health;
   const apiUp = !error && !!h;
+  // Same release tag feeds both, so a mismatch means one side is stale.
+  const mismatch = apiUp && h?.apiVersion !== UI_VERSION;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
@@ -37,7 +39,7 @@ export default function HealthPage() {
 
         <div className="divide-y divide-border/60 rounded border border-border">
           <Row label={t("health.api")} value={apiUp ? `v${h?.apiVersion}` : "—"} ok={apiUp} />
-          <Row label={t("health.ui")} value={`v${UI_VERSION}`} ok />
+          <Row label={t("health.ui")} value={`v${UI_VERSION}`} ok={!mismatch} />
           <Row label={t("health.db")} value={apiUp ? t("health.reachable") : t("health.unknown")} ok={apiUp} />
           <Row
             label={t("health.maintenance")}
@@ -47,6 +49,12 @@ export default function HealthPage() {
           <Row label={t("health.jira")} value={h?.jiraConfigured ? t("health.configured") : t("health.notConfigured")} ok={!!h?.jiraConfigured} muted={!h?.jiraConfigured} />
           <Row label={t("health.sso")} value={h?.ssoEnabled ? t("health.enabled") : t("health.disabled")} ok={!!h?.ssoEnabled} muted={!h?.ssoEnabled} />
         </div>
+
+        {mismatch && (
+          <p className="mt-3 rounded border border-[var(--warn)] px-3 py-2 text-xs text-[var(--warn)]">
+            {t("health.mismatch")}
+          </p>
+        )}
 
         {h?.maintenance && h?.maintenanceMessage && (
           <p className="mt-3 rounded border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
