@@ -33,6 +33,7 @@ workflow, SLA tracking, analytics, and role-based access.
 - Test cases movable across features/projects; attachment previews (image, playable video + download, markdown/json/csv formatted in the right panel)
 - Full English/Indonesian i18n (language toggle in the sidebar)
 - Analytics: totals, resolution rate, avg resolve, SLA compliance, created-vs-resolved (date range), status donut, key coverage
+- Roles: super admin / admin / QA / engineer, plus **viewer** — read-only (sign in, change own password, see everything, act on nothing)
 - Admin: users, maintenance, SLA config, Discord webhook; forgot/reset password
 - Prepared seams: Microsoft SSO, SharePoint attachments, JIRA comment post
 
@@ -55,8 +56,25 @@ npm run dev                          # server :4000/graphql + client :5173
 | `npm run db:push` | Apply Prisma schema |
 | `npm run db:seed` | Seed super admin + SLA + settings |
 | `npm run build` | Build server + client |
+| `npm run release 1.2.0` | Bump `package.json`, commit, tag `v1.2.0` (no arg = print current version) |
 
 DB: Postgres on `localhost:5434` (see `docker-compose.yml`). API: `http://localhost:4000/graphql`. Web: `http://localhost:5173`.
+
+## Versioning
+
+The version in the sidebar footer and on `/health` (UI + API) is the newest git
+tag — `v1.2.3` shows as `1.2.3`; no source file is edited per release. The UI
+value is baked in by vite at build time, the API reads it at boot. Order:
+`APP_VERSION` env → newest tag → `package.json`.
+
+```bash
+./scripts/version.sh            # show the version a build would use
+npm run release 1.2.0           # bump package.json, commit, tag v1.2.0
+git push --follow-tags
+```
+
+Tags created in the GitHub UI work the same — `./scripts/redeploy.sh` fetches
+tags before building. Details in `docs/DEPLOY.md`.
 
 ## Deploy (PM2)
 

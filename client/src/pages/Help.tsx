@@ -235,6 +235,12 @@ export default function Help() {
             <Faq q={t("help.faq.q3")}>
               {t("help.faq.a3")}
             </Faq>
+            <Faq q={t("help.faq.q4")}>
+              {t("help.faq.a4")}
+            </Faq>
+            <Faq q={t("help.faq.q5")}>
+              {t("help.faq.a5")}
+            </Faq>
           </Doc>
         </article>
       </div>
