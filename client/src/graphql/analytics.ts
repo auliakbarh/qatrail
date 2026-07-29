@@ -1,8 +1,8 @@
 import { gql } from "@apollo/client";
 
 export const ANALYTICS = gql`
-  query Analytics($projectId: ID, $featureId: ID, $from: String, $to: String) {
-    analytics(projectId: $projectId, featureId: $featureId, from: $from, to: $to) {
+  query Analytics($projectId: ID, $featureId: ID, $sessionTestId: ID, $from: String, $to: String) {
+    analytics(projectId: $projectId, featureId: $featureId, sessionTestId: $sessionTestId, from: $from, to: $to) {
       totalFindings
       totalDefects
       totalBugs

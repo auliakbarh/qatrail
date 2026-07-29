@@ -99,6 +99,9 @@ export function TestCaseDetail({ id }: { id: string }) {
               <span className="font-medium">{t("c.note")}:</span> {tc.note}
             </p>
           )}
+          <p className="text-xs text-muted-foreground">
+            {t("tc.createdByAt", { name: tc.createdBy?.name ?? "—", at: fmt(tc.createdAt) })}
+          </p>
         </div>
       </div>
 
@@ -156,7 +159,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.qa")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.result")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.note")}</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.attach")}</th>
             <th className="px-3 py-2"></th>
           </tr>
@@ -192,7 +195,9 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
               <td className="px-3 py-2 text-xs">
                 {r.appTestId
                   ? <button onClick={() => navigate(`/app-tests/${r.appTestId}`)} className="font-mono text-primary hover:underline">{r.appTestKey}</button>
-                  : <span className="text-muted-foreground">—</span>}
+                  : r.sessionTestId
+                    ? <button onClick={() => navigate(`/session-tests/${r.sessionTestId}`)} className="font-mono text-primary hover:underline">{r.sessionTestKey}</button>
+                    : <span className="text-muted-foreground">—</span>}
               </td>
               <td className="px-3 py-2 text-xs">{r.attachments.length}</td>
               <td className="px-3 py-2 text-right">
@@ -236,7 +241,7 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.type")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.priority")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.status")}</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>
             <th className="px-3 py-2"></th>
           </tr>
@@ -263,7 +268,9 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
               <td className="px-3 py-2 text-xs">
                 {i.appTestId
                   ? <button onClick={() => navigate(`/app-tests/${i.appTestId}`)} className="font-mono text-primary hover:underline">{i.appTestKey}</button>
-                  : <span className="text-muted-foreground">—</span>}
+                  : i.sessionTestId
+                    ? <button onClick={() => navigate(`/session-tests/${i.sessionTestId}`)} className="font-mono text-primary hover:underline">{i.sessionTestKey}</button>
+                    : <span className="text-muted-foreground">—</span>}
               </td>
               <td className="px-3 py-2 text-muted-foreground">{i.assignee.name}</td>
               <td className="px-3 py-2 text-right">

@@ -33,6 +33,11 @@ const LABELS: Record<string, string> = {
   createUserTest: "User test created",
   updateUserTest: "User test updated",
   deleteUserTest: "User test deleted",
+  createSessionTest: "Testing session created",
+  updateSessionTest: "Testing session updated",
+  deleteSessionTest: "Testing session deleted",
+  closeSessionTest: "Testing session closed",
+  moveAppTestProject: "App test moved to another project",
 };
 
 // Mutations worth broadcasting (project-domain actions). Excludes login/logout,

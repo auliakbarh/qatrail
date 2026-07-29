@@ -14,6 +14,7 @@ export async function notify(
   issueId?: string | null,
   appTestId?: string | null,
   userTestId?: string | null,
+  sessionTestId?: string | null,
 ): Promise<void> {
   try {
     const n = await prisma.notification.create({
@@ -24,6 +25,7 @@ export async function notify(
         issueId: issueId ?? null,
         appTestId: appTestId ?? null,
         userTestId: userTestId ?? null,
+        sessionTestId: sessionTestId ?? null,
       },
     });
     publishNotification(userId, {
@@ -33,6 +35,7 @@ export async function notify(
       issueId: n.issueId,
       appTestId: n.appTestId,
       userTestId: n.userTestId,
+      sessionTestId: n.sessionTestId,
       read: n.read,
       createdAt: n.createdAt.toISOString(),
     });
@@ -41,20 +44,29 @@ export async function notify(
   }
 }
 
-// Fan a notification out to everyone watching a target (issue/app test/user test).
+export interface NotifyRefs {
+  issueId?: string | null;
+  appTestId?: string | null;
+  userTestId?: string | null;
+  sessionTestId?: string | null;
+}
+
+// Fan a notification out to everyone watching a target (issue/app test/user test/session).
 export async function notifyWatchers(
-  target: "ISSUE" | "APP_TEST" | "USER_TEST",
+  target: "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST",
   targetId: string,
   kind: string,
   message: string,
-  refs: { issueId?: string | null; appTestId?: string | null; userTestId?: string | null },
+  refs: NotifyRefs,
   exceptUserId?: string,
 ): Promise<void> {
   const ws = await prisma.watch.findMany({ where: { target, targetId }, select: { userId: true } });
   await Promise.all(
     ws
       .filter((w) => w.userId !== exceptUserId)
-      .map((w) => notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null)),
+      .map((w) =>
+        notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null, refs.sessionTestId ?? null),
+      ),
   );
 }
 
@@ -65,6 +77,7 @@ export async function notifyQaAdmins(
   message: string,
   appTestId?: string,
   exceptUserId?: string,
+  sessionTestId?: string,
 ): Promise<void> {
   const users = await prisma.user.findMany({
     where: { active: true, role: { in: ["QA", "ADMIN", "SUPER_ADMIN"] } },
@@ -73,7 +86,7 @@ export async function notifyQaAdmins(
   await Promise.all(
     users
       .filter((u) => u.id !== exceptUserId)
-      .map((u) => notify(u.id, kind, message, null, appTestId)),
+      .map((u) => notify(u.id, kind, message, null, appTestId, null, sessionTestId)),
   );
 }
 
@@ -81,13 +94,15 @@ export async function notifyQaAdmins(
 export async function notifyAll(
   kind: string,
   message: string,
-  refs: { issueId?: string | null; appTestId?: string | null; userTestId?: string | null } = {},
+  refs: NotifyRefs = {},
   exceptUserId?: string,
 ): Promise<void> {
   const users = await prisma.user.findMany({ where: { active: true }, select: { id: true } });
   await Promise.all(
     users
       .filter((u) => u.id !== exceptUserId)
-      .map((u) => notify(u.id, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null)),
+      .map((u) =>
+        notify(u.id, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null, refs.sessionTestId ?? null),
+      ),
   );
 }

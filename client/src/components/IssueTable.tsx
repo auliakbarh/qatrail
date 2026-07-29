@@ -62,6 +62,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const [params, setParams] = useSearchParams();
   // Optional deep-link scoping (e.g. from an app test's assigned test case row).
   const fAppTest = params.get("appTest") || "";
+  const fSession = params.get("session") || "";
   const fTestCase = params.get("testCase") || "";
   const showPeople = scope === "all";
   const [searchInput, setSearchInput] = useState("");
@@ -80,7 +81,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     return () => clearTimeout(id);
   }, [searchInput]);
   // Any filter/sort change resets to page 1 + clears selection.
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, sortKey, sortDir, fAppTest, fTestCase]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, sortKey, sortDir, fAppTest, fSession, fTestCase]);
 
   const filterVars = {
     search: search || null,
@@ -88,6 +89,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     priority: fPriority || null,
     type: fType || null,
     appTestId: fAppTest || null,
+    sessionTestId: fSession || null,
     testCaseId: fTestCase || null,
     isProductionIssue: fProd ? fProd === "YES" : null,
   };
@@ -121,8 +123,8 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     const items = res.data?.issuesPaged?.items ?? [];
     downloadCsv(
       `issues-${scope}.csv`,
-      ["ID", "Title", "Type", "Priority", "Status", "Production issue", "SLA", "Environment", "Platform", "App test", "Assignee", "Reporter", "Created"],
-      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.isProductionIssue ? "YES" : "NO", i.slaStatus, i.environment, i.platform, i.appTestKey ?? "", i.assignee?.name, i.reporter?.name, new Date(i.createdAt).toISOString()]),
+      ["ID", "Title", "Type", "Priority", "Status", "Production issue", "SLA", "Environment", "Platform", "App test", "Session", "Assignee", "Reporter", "Created"],
+      items.map((i: any) => [i.key, i.title, i.type, i.priority, i.status, i.isProductionIssue ? "YES" : "NO", i.slaStatus, i.environment, i.platform, i.appTestKey ?? "", i.sessionTestKey ?? "", i.assignee?.name, i.reporter?.name, fmtDateTime(i.createdAt)]),
     );
   };
   const rows = data?.issuesPaged?.items ?? [];
@@ -152,7 +154,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </button>
         </div>
       </div>
-      {(fAppTest || fTestCase) && (
+      {(fAppTest || fSession || fTestCase) && (
         <div className="mb-3 flex items-center gap-2 rounded border border-border bg-muted/40 px-3 py-2 text-xs">
           <span className="font-medium">{t("issue.scopedFilter")}</span>
           <button onClick={() => setParams({})} className="ml-auto underline">{t("issue.clearFilter")}</button>
@@ -192,7 +194,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("issue.colProdIssue")}</th>
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.sla")}</th>
               <SortableTh label={t("c.created")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.relatedAppTest")}</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>}
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.reporter")}</th>}
             </tr>
@@ -223,6 +225,8 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
                 <td className="px-3 py-2 text-xs" onClick={(e) => e.stopPropagation()}>
                   {i.appTestId
                     ? <button onClick={() => navigate(`/app-tests/${i.appTestId}`)} className="font-mono text-primary hover:underline">{i.appTestKey}</button>
+                    : i.sessionTestId
+                    ? <button onClick={() => navigate(`/session-tests/${i.sessionTestId}`)} className="font-mono text-primary hover:underline">{i.sessionTestKey}</button>
                     : <span className="text-muted-foreground">—</span>}
                 </td>
                 {showPeople && <td className="px-3 py-2 text-muted-foreground">{i.assignee?.name ?? "—"}</td>}

@@ -73,6 +73,14 @@ enum CommentTarget {
   ISSUE
   APP_TEST
   USER_TEST
+  SESSION_TEST
+}
+
+// Kind of testing session. OTHER carries a free-text label in kindOther.
+enum SessionKind {
+  SIT
+  UAT
+  OTHER
 }
 
 enum TestCaseKind {
@@ -83,6 +91,9 @@ enum TestCaseKind {
 enum TestResult {
   PASS
   FAIL
+  // Could not be run: a blocker stopped the test before a verdict existed.
+  // Never counts as passed, and never opens an issue on its own.
+  BLOCKED
 }
 
 enum AttachKind {
@@ -121,11 +132,14 @@ model User {
   passwordResets PasswordReset[]
   comments       Comment[]
 
-  appTests              AppTest[]     @relation("appTestCreator")
-  appTestBuilds         AppTestBuild[] @relation("appTestBuildCreator")
-  appTestCasesAssigned  AppTestCase[] @relation("appTestCaseAssigner")
-  userTests             UserTest[]    @relation("userTestCreator")
-  watches               Watch[]
+  appTests             AppTest[]      @relation("appTestCreator")
+  appTestBuilds        AppTestBuild[] @relation("appTestBuildCreator")
+  appTestCasesAssigned AppTestCase[]  @relation("appTestCaseAssigner")
+  userTests            UserTest[]     @relation("userTestCreator")
+  watches              Watch[]
+
+  sessionTests             SessionTest[]     @relation("sessionTestCreator")
+  sessionTestCasesAssigned SessionTestCase[] @relation("sessionTestCaseAssigner")
 }
 
 model Project {
@@ -139,9 +153,10 @@ model Project {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  features  Feature[]
-  appTests  AppTest[]
-  userTests UserTest[]
+  features     Feature[]
+  appTests     AppTest[]
+  userTests    UserTest[]
+  sessionTests SessionTest[]
 
   @@index([name])
 }
@@ -163,25 +178,26 @@ model Feature {
 }
 
 model TestCase {
-  id           String   @id @default(cuid())
-  number       Int      @unique @default(autoincrement()) // human key: TC-<number>
+  id           String        @id @default(cuid())
+  number       Int           @unique @default(autoincrement()) // human key: TC-<number>
   featureId    String
-  feature      Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  feature      Feature       @relation(fields: [featureId], references: [id], onDelete: Cascade)
   name         String
   description  String?
   precondition String?
   note         String?
   kind         TestCaseKind?
   createdById  String
-  createdBy    User     @relation("testCaseAuthor", fields: [createdById], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdBy    User          @relation("testCaseAuthor", fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  steps        TestCaseStep[]
-  attachments  TestCaseAttachment[]
-  records      RecordTest[]
-  issues       Issue[]
-  appTestCases AppTestCase[]
+  steps            TestCaseStep[]
+  attachments      TestCaseAttachment[]
+  records          RecordTest[]
+  issues           Issue[]
+  appTestCases     AppTestCase[]
+  sessionTestCases SessionTestCase[]
 
   @@index([featureId])
 }
@@ -210,22 +226,26 @@ model TestCaseAttachment {
 }
 
 model RecordTest {
-  id           String     @id @default(cuid())
-  number       Int        @unique @default(autoincrement()) // human key: REC-<number>
-  testCaseId   String
-  testCase     TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  executedById String
-  executedBy   User       @relation("testExecutor", fields: [executedById], references: [id])
-  executedAt   DateTime
-  note         String?
-  result       TestResult
+  id            String       @id @default(cuid())
+  number        Int          @unique @default(autoincrement()) // human key: REC-<number>
+  testCaseId    String
+  testCase      TestCase     @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  executedById  String
+  executedBy    User         @relation("testExecutor", fields: [executedById], references: [id])
+  executedAt    DateTime
+  note          String?
+  result        TestResult
   // Set when this record is a retest of a previously-failed issue (plain ref,
   // no FK) — marks it as verification of that issue's fix.
   retestIssueId String?
   // Set when this run was executed as part of an app test.
-  appTestId    String?
-  appTest      AppTest?   @relation(fields: [appTestId], references: [id], onDelete: SetNull)
-  createdAt    DateTime   @default(now())
+  appTestId     String?
+  appTest       AppTest?     @relation(fields: [appTestId], references: [id], onDelete: SetNull)
+  // Set when this run was executed as part of a testing session (SIT/UAT). A run
+  // belongs to one scope only — session runs never count toward app test coverage.
+  sessionTestId String?
+  sessionTest   SessionTest? @relation(fields: [sessionTestId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
 
   attachments RecordTestAttachment[]
   issue       Issue?
@@ -233,6 +253,7 @@ model RecordTest {
   @@index([testCaseId])
   @@index([result])
   @@index([appTestId])
+  @@index([sessionTestId])
 }
 
 model RecordTestAttachment {
@@ -247,12 +268,12 @@ model RecordTestAttachment {
 }
 
 model Issue {
-  id             String      @id @default(cuid())
-  number         Int         @unique @default(autoincrement()) // human key: ISSUE-<number>
-  testCaseId     String
-  testCase       TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  recordTestId   String?     @unique
-  recordTest     RecordTest? @relation(fields: [recordTestId], references: [id], onDelete: SetNull)
+  id           String      @id @default(cuid())
+  number       Int         @unique @default(autoincrement()) // human key: ISSUE-<number>
+  testCaseId   String
+  testCase     TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  recordTestId String?     @unique
+  recordTest   RecordTest? @relation(fields: [recordTestId], references: [id], onDelete: SetNull)
 
   type           FindingType
   title          String
@@ -286,21 +307,25 @@ model Issue {
   assignee   User   @relation("assignee", fields: [assigneeId], references: [id])
 
   // Set when this issue was found while testing an app test.
-  appTestId String?
-  appTest   AppTest? @relation(fields: [appTestId], references: [id], onDelete: SetNull)
+  appTestId     String?
+  appTest       AppTest?     @relation(fields: [appTestId], references: [id], onDelete: SetNull)
+  // Set when this issue was found during a testing session (SIT/UAT). Like an
+  // app-test finding, it can never be flagged as a production issue (sla.ts).
+  sessionTestId String?
+  sessionTest   SessionTest? @relation(fields: [sessionTestId], references: [id], onDelete: SetNull)
 
   recreatedFromId String?
 
   jiraKey       String?
   jiraCommentId String?
 
-  respondedAt DateTime?
-  resolvedAt  DateTime?
-  closedAt    DateTime?
+  respondedAt          DateTime?
+  resolvedAt           DateTime?
+  closedAt             DateTime?
   slaRespondNotifiedAt DateTime?
   slaResolveNotifiedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   attachments IssueAttachment[]
   history     StatusEvent[]
@@ -312,6 +337,7 @@ model Issue {
   @@index([reporterId])
   @@index([archived])
   @@index([appTestId])
+  @@index([sessionTestId])
 }
 
 model IssueAttachment {
@@ -376,13 +402,88 @@ model AppTest {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  assigned AppTestCase[]
-  records  RecordTest[]
-  issues   Issue[]
-  builds   AppTestBuild[]
+  assigned    AppTestCase[]
+  records     RecordTest[]
+  issues      Issue[]
+  builds      AppTestBuild[]
+  // Sessions that reference this app test as one of their tested apps.
+  sessionApps SessionTestApp[]
 
   @@index([projectId])
   @@index([status])
+}
+
+// A testing session QA runs on a date: SIT, UAT or something else. It collects
+// the test cases exercised, the apps under test, and closes with a summary —
+// the unit a sign-off report is produced from. Status is derived at query time
+// (see deriveSessionStatus), never stored.
+model SessionTest {
+  id             String      @id @default(cuid())
+  number         Int         @unique @default(autoincrement()) // human key: ST-<number>
+  projectId      String
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User        @relation("sessionTestCreator", fields: [createdById], references: [id])
+  testedAt       DateTime
+  kind           SessionKind
+  kindOther      String? // required when kind = OTHER
+  stakeholders   String[]
+  minPassPercent Int         @default(0) // agreed go/no-go threshold, 0..100
+  note           String?
+  summary        String? // filled when QA closes the session
+  closedAt       DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  apps    SessionTestApp[]
+  cases   SessionTestCase[]
+  records RecordTest[]
+  issues  Issue[]
+
+  @@index([projectId])
+  @@index([kind])
+}
+
+// One app under test in a session. Either a reference to an engineer-submitted
+// app test or a manually typed entry. Versions/environment are SNAPSHOT here:
+// AppTest always mirrors its newest build, so reading through would silently
+// rewrite a signed-off report when a later build lands.
+model SessionTestApp {
+  id            String       @id @default(cuid())
+  sessionTestId String
+  sessionTest   SessionTest  @relation(fields: [sessionTestId], references: [id], onDelete: Cascade)
+  appTestId     String?
+  appTest       AppTest?     @relation(fields: [appTestId], references: [id], onDelete: SetNull)
+  name          String
+  versionFe     String?
+  versionBe     String?
+  environment   Environment?
+  platform      Platform?
+  note          String?
+  createdAt     DateTime     @default(now())
+
+  cases SessionTestCase[]
+
+  @@index([sessionTestId])
+}
+
+// A test case pulled into a session, optionally related to the session's apps
+// (implicit m-n — Prisma owns the join table, no model of our own).
+model SessionTestCase {
+  id            String      @id @default(cuid())
+  sessionTestId String
+  sessionTest   SessionTest @relation(fields: [sessionTestId], references: [id], onDelete: Cascade)
+  testCaseId    String
+  testCase      TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  assignedById  String
+  assignedBy    User        @relation("sessionTestCaseAssigner", fields: [assignedById], references: [id])
+  assignedAt    DateTime    @default(now())
+
+  apps SessionTestApp[]
+
+  @@unique([sessionTestId, testCaseId])
+  @@index([sessionTestId])
+  @@index([testCaseId])
 }
 
 // One build submitted for an app test. The app test's own downloadLink/versions
@@ -468,16 +569,17 @@ model StatusEvent {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kind      String
-  message   String
-  issueId    String?
-  appTestId  String?
-  userTestId String?
-  read       Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind          String
+  message       String
+  issueId       String?
+  appTestId     String?
+  userTestId    String?
+  sessionTestId String?
+  read          Boolean  @default(false)
+  createdAt     DateTime @default(now())
 
   @@index([userId, read])
 }

@@ -8,6 +8,7 @@ import { CREATE_RECORD_TEST, RECORD_TESTS, ISSUE, ISSUES } from "../../graphql/i
 import { ISSUE_REVIEW } from "../../graphql/workflow";
 import { TEST_CASES } from "../../graphql/hierarchy";
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
+import { SESSION_TEST, SESSION_TEST_CASES, SESSION_TEST_RECORDS } from "../../graphql/sessiontest";
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
@@ -23,7 +24,7 @@ function nowLocal(): string {
 
 interface Form {
   executedAt: string;
-  result: "PASS" | "FAIL";
+  result: "PASS" | "FAIL" | "BLOCKED";
   note: string;
   attachments: { url: string; kind: string; label: string }[];
 }
@@ -34,6 +35,8 @@ export function RecordForm({
   retestIssueId,
   appTestId,
   appTest,
+  sessionTestId,
+  sessionApps,
 }: {
   testCaseId: string;
   featureId: string;
@@ -42,23 +45,36 @@ export function RecordForm({
   // App test context — prefills + locks the issue's env/platform/versions and
   // defaults the assignee to the app's creator when a FAIL opens an issue.
   appTest?: { environment: string; platform: string; appVersion?: string | null; backendVersion?: string | null; createdBy?: { id: string; name: string } };
+  sessionTestId?: string;
+  // Session context: only a single related app can prefill the issue — with two
+  // or more, guessing which one failed would be a lie, so QA fills it in.
+  sessionApps?: { id: string; name: string; environment?: string | null; platform?: string | null; versionFe?: string | null; versionBe?: string | null }[];
 }) {
   const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
   const { user } = useAuth();
-  const { register, handleSubmit, control, formState } = useForm<Form>({
+  const { register, handleSubmit, control, watch, formState } = useForm<Form>({
     defaultValues: { executedAt: nowLocal(), result: "PASS", note: "", attachments: [] },
   });
   const atts = useFieldArray({ control, name: "attachments" });
+  const result = watch("result");
 
   const appTestRefetch = appTestId
     ? [{ query: ASSIGNED_TEST_CASES, variables: { appTestId } }, { query: APP_TEST, variables: { id: appTestId } }]
+    : [];
+  const sessionRefetch = sessionTestId
+    ? [
+        { query: SESSION_TEST_CASES, variables: { sessionTestId } },
+        { query: SESSION_TEST_RECORDS, variables: { sessionTestId } },
+        { query: SESSION_TEST, variables: { id: sessionTestId } },
+      ]
     : [];
   const [createRecordTest] = useMutation(CREATE_RECORD_TEST, {
     refetchQueries: [
       { query: RECORD_TESTS, variables: { testCaseId } },
       { query: TEST_CASES, variables: { featureId } },
       ...appTestRefetch,
+      ...sessionRefetch,
     ],
   });
   const [reviewIssue] = useMutation(ISSUE_REVIEW, {
@@ -80,6 +96,7 @@ export function RecordForm({
             note: v.note || null,
             retestIssueId: retestIssueId ?? null,
             appTestId: appTestId ?? null,
+            sessionTestId: sessionTestId ?? null,
             attachments: v.attachments
               .filter((a) => a.url.trim())
               .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
@@ -93,6 +110,11 @@ export function RecordForm({
     const rec = res.data?.createRecordTest;
 
     // Retest mode: this record verifies an issue's fix. PASS closes it, FAIL reopens it.
+    // BLOCKED decides nothing, so the issue is left exactly as it was.
+    if (retestIssueId && rec?.result === "BLOCKED") {
+      closePanel();
+      return;
+    }
     if (retestIssueId) {
       const pass = rec?.result === "PASS";
       await withToast(
@@ -106,6 +128,7 @@ export function RecordForm({
 
     // Normal mode: FAIL → open a prefilled Issue form (per requirement).
     if (rec?.result === "FAIL") {
+      const onlyApp = sessionApps?.length === 1 ? sessionApps[0] : undefined;
       openPanel({
         kind: "issue",
         mode: "create",
@@ -114,13 +137,14 @@ export function RecordForm({
           recordTestId: rec.id,
           testedAt: rec.executedAt,
           appTestId,
+          sessionTestId,
           testCaseId,
           featureId,
           fromAppTest: !!appTestId,
-          environment: appTest?.environment,
-          platform: appTest?.platform,
-          appVersion: appTest?.appVersion,
-          backendVersion: appTest?.backendVersion,
+          environment: appTest?.environment ?? onlyApp?.environment ?? undefined,
+          platform: appTest?.platform ?? onlyApp?.platform ?? undefined,
+          appVersion: appTest?.appVersion ?? onlyApp?.versionFe ?? undefined,
+          backendVersion: appTest?.backendVersion ?? onlyApp?.versionBe ?? undefined,
           assignee: appTest?.createdBy,
         },
       });
@@ -147,10 +171,17 @@ export function RecordForm({
           <select className={inputCls} {...register("result")}>
             <option value="PASS">PASS</option>
             <option value="FAIL">FAIL</option>
+            <option value="BLOCKED">BLOCKED</option>
           </select>
+          {result === "BLOCKED" && <p className="text-xs text-muted-foreground">{t("rec.blockedHint")}</p>}
         </Field>
-        <Field label={t("c.note")} optional>
-          <textarea className={inputCls} rows={2} {...register("note")} />
+        {/* A blocked run has no verdict, so the blocker is the record's whole point. */}
+        <Field
+          label={result === "BLOCKED" ? t("rec.blocker") : t("c.note")}
+          optional={result !== "BLOCKED"}
+          error={formState.errors.note && t("c.required")}
+        >
+          <textarea className={inputCls} rows={2} {...register("note", { required: result === "BLOCKED" })} />
         </Field>
 
         <div className="space-y-2">
@@ -187,7 +218,7 @@ export function RecordForm({
           ))}
         </div>
 
-        {!retestIssueId && (
+        {!retestIssueId && result === "FAIL" && (
           <p className="text-xs text-muted-foreground">{t("form.failOpensIssue")}</p>
         )}
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel={t("form.saveRecord")} />

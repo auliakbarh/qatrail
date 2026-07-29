@@ -277,11 +277,17 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {/* Comments */}
       <CommentsCard target="ISSUE" targetId={id} />
 
-      {/* App test link */}
+      {/* Where this finding came from: an app test or a testing session */}
       {i.appTestId && (
         <div className="rounded border border-border px-5 py-3 text-xs">
           <span className="text-muted-foreground">{t("at.relatedAppTest")}: </span>
           <a href={`/app-tests/${i.appTestId}`} className="text-primary hover:underline">{i.appTestKey}</a>
+        </div>
+      )}
+      {i.sessionTestId && (
+        <div className="rounded border border-border px-5 py-3 text-xs">
+          <span className="text-muted-foreground">{t("st.relatedSession")}: </span>
+          <a href={`/session-tests/${i.sessionTestId}`} className="text-primary hover:underline">{i.sessionTestKey}</a>
         </div>
       )}
 

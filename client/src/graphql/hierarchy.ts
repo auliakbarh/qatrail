@@ -32,7 +32,7 @@ export const TEST_CASE = gql`
       id key featureId name description precondition note kind
       steps { id order step expectedResult }
       attachments { id order url kind label }
-      recordCount issueCount latestResult createdAt
+      recordCount issueCount latestResult createdAt createdBy { id name }
     }
   }
 `;

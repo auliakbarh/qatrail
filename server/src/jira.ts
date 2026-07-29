@@ -153,6 +153,7 @@ export interface IssueComment {
   actualResult: string;
   expectedResult: string;
   note?: string | null;
+  sessionKey?: string | null; // ST-<n> when found in a testing session
 }
 
 export interface AppTestComment {
@@ -229,6 +230,7 @@ export function issueMarkdown(c: IssueComment): string {
     ["Test account", c.testAccount],
     ["Reporter (QA)", c.reporterName],
     ["Assigned to", c.assigneeName],
+    ...(c.sessionKey ? [["Testing session", c.sessionKey]] : []),
   ];
   return [
     `## 🐞 QA Issue: ${cell(c.title)}`,

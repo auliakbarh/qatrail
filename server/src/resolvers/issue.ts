@@ -32,6 +32,7 @@ interface IssueInput {
   note?: string | null;
   assigneeId: string;
   appTestId?: string | null;
+  sessionTestId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
 }
 
@@ -49,7 +50,7 @@ function encPw(pw?: string | null): string | null {
 // Scalar fields shared by create/update (excludes relations + attachments).
 function scalarData(
   input: IssueInput,
-  cur: { appTestId: string | null; resolvedAt: Date | null; isProductionIssue: boolean },
+  cur: { appTestId: string | null; sessionTestId: string | null; resolvedAt: Date | null; isProductionIssue: boolean },
 ) {
   return {
     isProductionIssue: resolveProductionFlag(input, cur),
@@ -101,7 +102,7 @@ export const issueResolvers = {
       _: unknown,
       args: {
         scope?: string;
-        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; testCaseId?: string; isProductionIssue?: boolean | null };
+        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; sessionTestId?: string; testCaseId?: string; isProductionIssue?: boolean | null };
         sort?: string;
         dir?: string;
         page?: number;
@@ -120,6 +121,7 @@ export const issueResolvers = {
       if (f.priority) where.priority = f.priority;
       if (f.type) where.type = f.type;
       if (f.appTestId) where.appTestId = f.appTestId;
+      if (f.sessionTestId) where.sessionTestId = f.sessionTestId;
       if (f.testCaseId) where.testCaseId = f.testCaseId;
       if (f.isProductionIssue != null) where.isProductionIssue = f.isProductionIssue;
       if (f.search?.trim()) where.title = { contains: f.search.trim(), mode: "insensitive" };
@@ -150,11 +152,17 @@ export const issueResolvers = {
       validate(input);
       const issue = await ctx.prisma.issue.create({
         data: {
-          ...scalarData(input, { appTestId: input.appTestId ?? null, resolvedAt: null, isProductionIssue: false }),
+          ...scalarData(input, {
+            appTestId: input.appTestId ?? null,
+            sessionTestId: input.sessionTestId ?? null,
+            resolvedAt: null,
+            isProductionIssue: false,
+          }),
           testCaseId: input.testCaseId,
           recordTestId: input.recordTestId ?? null,
           recreatedFromId: input.recreatedFromId ?? null,
           appTestId: input.appTestId ?? null,
+          sessionTestId: input.sessionTestId ?? null,
           testPassword: encPw(input.testPassword),
           reporterId: user.id,
           attachments: {
@@ -181,6 +189,18 @@ export const issueResolvers = {
         await notifyWatchers("APP_TEST", issue.appTestId, "APP_TEST_ISSUE", `New issue on app test: ${issue.title}`, { issueId: issue.id, appTestId: issue.appTestId }, user.id);
         await recomputeAppTest(issue.appTestId);
       }
+      // Session-scoped issue: tell the session's watchers. No status to recompute —
+      // a session's status is derived per request.
+      if (issue.sessionTestId) {
+        await notifyWatchers(
+          "SESSION_TEST",
+          issue.sessionTestId,
+          "SESSION_TEST_ISSUE",
+          `New issue in testing session: ${issue.title}`,
+          { issueId: issue.id, sessionTestId: issue.sessionTestId },
+          user.id,
+        );
+      }
       return issue;
     },
     async updateIssue(_: unknown, args: { id: string; input: IssueInput }, ctx: Context) {
@@ -191,7 +211,7 @@ export const issueResolvers = {
       // the client's input.appTestId can't be trusted for it.
       const cur = await ctx.prisma.issue.findUnique({
         where: { id: args.id },
-        select: { appTestId: true, resolvedAt: true, isProductionIssue: true },
+        select: { appTestId: true, sessionTestId: true, resolvedAt: true, isProductionIssue: true },
       });
       if (!cur) throw new Error("Issue not found");
       // Replace attachments wholesale. Only overwrite the password when a new one is given.
@@ -249,6 +269,9 @@ export const issueResolvers = {
       });
       if (!issue) throw new Error("Issue not found");
       const jiraKey = args.jiraKey.trim().toUpperCase();
+      const session = issue.sessionTestId
+        ? await ctx.prisma.sessionTest.findUnique({ where: { id: issue.sessionTestId }, select: { number: true } })
+        : null;
       const adf = toADF(
         issueMarkdown({
           url: `${env.frontendBaseUrl}/issues/${issue.id}`,
@@ -267,6 +290,7 @@ export const issueResolvers = {
           actualResult: issue.actualResult,
           expectedResult: issue.expectedResult,
           note: issue.note,
+          sessionKey: session ? `ST-${session.number}` : null,
         }),
       );
       // Edit the same comment if we posted before to this key; else create.
@@ -287,6 +311,11 @@ export const issueResolvers = {
       if (!i.appTestId) return null;
       const at = await ctx.prisma.appTest.findUnique({ where: { id: i.appTestId }, select: { number: true } });
       return at ? `APP-${at.number}` : null;
+    },
+    async sessionTestKey(i: any, _: unknown, ctx: Context) {
+      if (!i.sessionTestId) return null;
+      const st = await ctx.prisma.sessionTest.findUnique({ where: { id: i.sessionTestId }, select: { number: true } });
+      return st ? `ST-${st.number}` : null;
     },
     async featureId(i: any, _: unknown, ctx: Context) {
       const tc = await ctx.prisma.testCase.findUnique({ where: { id: i.testCaseId }, select: { featureId: true } });

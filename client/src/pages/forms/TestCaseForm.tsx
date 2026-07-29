@@ -36,7 +36,17 @@ const EMPTY: Form = {
   attachments: [],
 };
 
-export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureId: string }) {
+// onCreated lets a caller act on the fresh test case — the session flow uses it
+// to assign the new case straight into the session it was authored from.
+export function TestCaseForm({
+  panel,
+  featureId,
+  onCreated,
+}: {
+  panel: PanelState;
+  featureId: string;
+  onCreated?: (testCaseId: string) => Promise<unknown> | void;
+}) {
   const { t } = useTranslation();
   const { closePanel } = useNav();
   const editing = panel.mode === "edit";
@@ -90,7 +100,10 @@ export function TestCaseForm({ panel, featureId }: { panel: PanelState; featureI
     const ok = editing
       ? await withToast(updateTestCase({ variables: { id: panel.id, input } }), t("t.testCaseUpdated"), t("t.testCaseUpdateFail"))
       : await withToast(createTestCase({ variables: { featureId, input } }), t("t.testCaseCreated"), t("t.testCaseCreateFail"));
-    if (ok) closePanel();
+    if (!ok) return;
+    const newId = (ok as any)?.data?.createTestCase?.id;
+    if (!editing && newId && onCreated) await onCreated(newId);
+    closePanel();
   };
 
   return (
