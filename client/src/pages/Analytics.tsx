@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useNav } from "../store/nav";
 import { ANALYTICS } from "../graphql/analytics";
+import { SESSION_TESTS } from "../graphql/sessiontest";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
 import { FilterBar } from "../components/FilterBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
@@ -42,12 +43,20 @@ export default function Analytics() {
   const { t } = useTranslation();
   const [projectId, setProjectId] = useState<string>("");
   const [featureId, setFeatureId] = useState<string>("");
+  const [sessionTestId, setSessionTestId] = useState<string>("");
   const [from, setFrom] = useState<string | null>(null);
   const [to, setTo] = useState<string | null>(null);
   const { data: projData } = useQuery(PROJECTS);
   const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
+  const { data: sessData } = useQuery(SESSION_TESTS, { variables: { projectId: projectId || null }, skip: !projectId });
   const { data, loading } = useQuery(ANALYTICS, {
-    variables: { projectId: projectId || null, featureId: featureId || null, from, to },
+    variables: {
+      projectId: projectId || null,
+      featureId: featureId || null,
+      sessionTestId: sessionTestId || null,
+      from,
+      to,
+    },
     fetchPolicy: "cache-and-network",
   });
 
@@ -74,6 +83,7 @@ export default function Analytics() {
           onChange={(e) => {
             setProjectId(e.target.value);
             setFeatureId("");
+            setSessionTestId("");
           }}
           className={small}
         >
@@ -85,11 +95,36 @@ export default function Analytics() {
           ))}
         </select>
         {projectId && (
-          <select value={featureId} onChange={(e) => setFeatureId(e.target.value)} className={small}>
+          <select
+            value={featureId}
+            onChange={(e) => {
+              setFeatureId(e.target.value);
+              if (e.target.value) setSessionTestId("");
+            }}
+            className={small}
+          >
             <option value="">{t("an.allFeatures")}</option>
             {(featData?.features ?? []).map((f: any) => (
               <option key={f.id} value={f.id}>
                 {f.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {/* A session is its own scope: picking one reports on that cycle only. */}
+        {projectId && (
+          <select
+            value={sessionTestId}
+            onChange={(e) => {
+              setSessionTestId(e.target.value);
+              if (e.target.value) setFeatureId("");
+            }}
+            className={small}
+          >
+            <option value="">{t("an.allSessions")}</option>
+            {(sessData?.sessionTests ?? []).map((s2: any) => (
+              <option key={s2.id} value={s2.id}>
+                {s2.key} · {s2.kindLabel}
               </option>
             ))}
           </select>

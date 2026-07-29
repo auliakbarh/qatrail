@@ -9,21 +9,23 @@ export const slaApplies = (i: { environment: string; isProductionIssue: boolean 
   i.environment === "PRODUCTION" && i.isProductionIssue;
 
 // The flag is QA-owned, locked once resolved (keeps historic SLA numbers
-// stable) and never available for issues found on an app test.
+// stable) and never available for issues found while testing — on an app test
+// or in a SIT/UAT session. Those are testing findings, not production incidents.
 export const canMarkProductionIssue = (i: {
   environment: string;
   appTestId: string | null;
+  sessionTestId?: string | null;
   resolvedAt: Date | null;
-}) => i.environment === "PRODUCTION" && !i.appTestId && !i.resolvedAt;
+}) => i.environment === "PRODUCTION" && !i.appTestId && !i.sessionTestId && !i.resolvedAt;
 
 // Decide the stored flag on create/update: never trust the input alone. Non-prod
-// environments and app-test findings force false; a resolved issue keeps its
-// current value so historic SLA numbers don't move.
+// environments and testing findings (app test or session) force false; a resolved
+// issue keeps its current value so historic SLA numbers don't move.
 export function resolveProductionFlag(
   input: { environment: string; isProductionIssue?: boolean | null },
-  cur: { appTestId: string | null; resolvedAt: Date | null; isProductionIssue: boolean },
+  cur: { appTestId: string | null; sessionTestId?: string | null; resolvedAt: Date | null; isProductionIssue: boolean },
 ): boolean {
-  if (input.environment !== "PRODUCTION" || cur.appTestId) return false;
+  if (input.environment !== "PRODUCTION" || cur.appTestId || cur.sessionTestId) return false;
   if (cur.resolvedAt) return cur.isProductionIssue;
   return !!input.isProductionIssue;
 }

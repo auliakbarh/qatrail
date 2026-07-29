@@ -12,6 +12,7 @@ const SECTION_IDS = [
   "records",
   "issues",
   "app-tests",
+  "session-tests",
   "user-tests",
   "defect-bug",
   "workflow",
@@ -131,6 +132,15 @@ export default function Help() {
             <P><Trans i18nKey="help.apptest.p5" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.builds" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.apptest.callout" components={{ b: <B /> }} /></Callout>
+          </Doc>
+
+          <Doc id="session-tests" title={t("help.sec.session-tests")}>
+            <P><Trans i18nKey="help.session.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.session.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.session.p3" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.session.p4" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.session.p5" components={{ b: <B /> }} /></P>
+            <Callout><Trans i18nKey="help.session.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
           <Doc id="user-tests" title={t("help.sec.user-tests")}>

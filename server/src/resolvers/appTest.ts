@@ -1,6 +1,7 @@
 import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
-import { requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
+import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
+import { cloneTestCaseInto } from "../clone.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
@@ -252,6 +253,54 @@ export const appTestResolvers = {
       await ctx.prisma.appTestCase.deleteMany({ where: { appTestId: args.appTestId, testCaseId: args.testCaseId } });
       await recomputeAppTest(args.appTestId);
       return ctx.prisma.appTest.findUnique({ where: { id: args.appTestId } });
+    },
+    // Admin-only: move an app test to another project. Its assignments point at
+    // the OLD project's test cases, so the caller picks what happens to them:
+    //   DROP  — release the assignments, start clean in the target project.
+    //   CLONE — copy each case into a same-named feature of the target project
+    //           (created if missing) and re-point the assignment to the copy.
+    // Existing records/issues keep pointing at the original test cases — history
+    // stays honest, so the app test's issueCount can still include old findings.
+    async moveAppTestProject(
+      _: unknown,
+      args: { id: string; projectId: string; mode: "DROP" | "CLONE" },
+      ctx: Context,
+    ) {
+      const user = await requireAdmin(ctx);
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: args.id } });
+      if (!at) throw new Error("App test not found");
+      const target = await ctx.prisma.project.findUnique({ where: { id: args.projectId } });
+      if (!target) throw new Error("Project not found");
+      if (target.id === at.projectId) return at;
+
+      const assigned = await ctx.prisma.appTestCase.findMany({
+        where: { appTestId: at.id },
+        include: { testCase: { include: { feature: true } } },
+      });
+
+      if (args.mode === "CLONE") {
+        for (const row of assigned) {
+          const srcFeature = row.testCase.feature;
+          const feature =
+            (await ctx.prisma.feature.findFirst({ where: { projectId: target.id, name: srcFeature.name } })) ??
+            (await ctx.prisma.feature.create({
+              data: {
+                projectId: target.id,
+                name: srcFeature.name,
+                description: srcFeature.description,
+                minPassPercent: srcFeature.minPassPercent,
+              },
+            }));
+          const copy = await cloneTestCaseInto(row.testCaseId, feature.id, user.id, row.testCase.name);
+          await ctx.prisma.appTestCase.update({ where: { id: row.id }, data: { testCaseId: copy.id } });
+        }
+      } else {
+        await ctx.prisma.appTestCase.deleteMany({ where: { appTestId: at.id } });
+      }
+
+      await ctx.prisma.appTest.update({ where: { id: at.id }, data: { projectId: target.id } });
+      await recomputeAppTest(at.id);
+      return ctx.prisma.appTest.findUnique({ where: { id: at.id } });
     },
     async closeAppTestTesting(_: unknown, args: { appTestId: string }, ctx: Context) {
       await requireQA(ctx);

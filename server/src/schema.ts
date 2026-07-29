@@ -10,8 +10,12 @@ export const typeDefs = /* GraphQL */ `
   enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
   enum TestResult { PASS FAIL }
   enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
-  enum CommentTarget { ISSUE APP_TEST USER_TEST }
+  enum CommentTarget { ISSUE APP_TEST USER_TEST SESSION_TEST }
   enum TestCaseKind { POSITIVE NEGATIVE }
+  enum SessionKind { SIT UAT OTHER }
+  enum SessionTestStatus { OPEN IN_TESTING PASSED CLOSED }
+  # What happens to a moved app test's assignments (admin-only project move).
+  enum MoveAssignmentMode { DROP CLONE }
 
   type User {
     id: ID!
@@ -99,6 +103,7 @@ export const typeDefs = /* GraphQL */ `
     recordCount: Int!
     issueCount: Int!
     latestResult: String
+    createdBy: User!
     createdAt: String!
     updatedAt: String!
   }
@@ -114,6 +119,8 @@ export const typeDefs = /* GraphQL */ `
     retestIssueId: ID
     appTestId: ID
     appTestKey: String
+    sessionTestId: ID
+    sessionTestKey: String
     attachments: [Attachment!]!
     issueId: ID
     createdAt: String!
@@ -154,6 +161,7 @@ export const typeDefs = /* GraphQL */ `
     issueId: ID
     appTestId: ID
     userTestId: ID
+    sessionTestId: ID
     read: Boolean!
     createdAt: String!
   }
@@ -196,6 +204,7 @@ export const typeDefs = /* GraphQL */ `
     priority: Priority
     type: FindingType
     appTestId: ID
+    sessionTestId: ID
     testCaseId: ID
     isProductionIssue: Boolean
   }
@@ -233,6 +242,8 @@ export const typeDefs = /* GraphQL */ `
     recreatedFromId: ID
     appTestId: ID
     appTestKey: String
+    sessionTestId: ID
+    sessionTestKey: String
     jiraKey: String
     jiraCommentId: String
     type: FindingType!
@@ -256,7 +267,7 @@ export const typeDefs = /* GraphQL */ `
     archived: Boolean!
     # True only when QA marked this as a real production issue (SLA applies).
     isProductionIssue: Boolean!
-    # Whether the flag may still be toggled (prod env, not from an app test, not resolved).
+    # Whether the flag may still be toggled (prod env, not a testing finding, not resolved).
     canMarkProductionIssue: Boolean!
     slaStatus: String!
     reporter: User!
@@ -341,6 +352,7 @@ export const typeDefs = /* GraphQL */ `
     result: TestResult!
     retestIssueId: ID
     appTestId: ID
+    sessionTestId: ID
     attachments: [AttachmentInput!]!
   }
   input PostmortemInput {
@@ -373,6 +385,7 @@ export const typeDefs = /* GraphQL */ `
     isProductionIssue: Boolean
     assigneeId: ID!
     appTestId: ID
+    sessionTestId: ID
     attachments: [AttachmentInput!]!
   }
 
@@ -465,6 +478,83 @@ export const typeDefs = /* GraphQL */ `
     note: String
   }
 
+  # A testing session (SIT/UAT/other): the reporting unit a sign-off is made
+  # from. status/passPercent are derived per request, never stored.
+  type SessionTest {
+    id: ID!
+    key: String!
+    projectId: ID!
+    projectName: String!
+    createdBy: User!
+    testedAt: String!
+    kind: SessionKind!
+    kindOther: String
+    kindLabel: String!        # "SIT" / "UAT" / the free-text label
+    stakeholders: [String!]!
+    minPassPercent: Int!
+    note: String
+    summary: String
+    status: SessionTestStatus!
+    coverage: Coverage!
+    passPercent: Int!
+    issueCount: Int!
+    caseCount: Int!
+    recordCount: Int!
+    apps: [SessionTestApp!]!
+    closedAt: String
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  # One app under test in a session. Versions are a snapshot taken when the app
+  # was added — an app test keeps mirroring its newest build, this must not.
+  type SessionTestApp {
+    id: ID!
+    appTestId: ID
+    appTestKey: String
+    name: String!
+    versionFe: String
+    versionBe: String
+    environment: Environment
+    platform: Platform
+    note: String
+    createdAt: String!
+  }
+
+  # A test case pulled into a session, with its progress inside that session.
+  type SessionTestCaseRow {
+    id: ID!                   # SessionTestCase row id
+    testCase: TestCase!
+    featureId: ID!
+    featureName: String!
+    status: String!           # PASSED | FAILED | NOT_STARTED
+    issueCount: Int!
+    apps: [SessionTestApp!]!
+    assignedBy: User!
+    assignedAt: String!
+    doneTestAt: String
+  }
+
+  input SessionTestInput {
+    projectId: ID!
+    testedAt: String!
+    kind: SessionKind!
+    kindOther: String
+    stakeholders: [String!]!
+    minPassPercent: Int!
+    note: String
+  }
+
+  input SessionTestAppInput {
+    appTestId: ID
+    name: String
+    versionFe: String
+    versionBe: String
+    environment: Environment
+    platform: Platform
+    note: String
+  }
+
   type Query {
     health: Health!
     me: User
@@ -492,6 +582,14 @@ export const typeDefs = /* GraphQL */ `
     userTests(projectId: ID): [UserTest!]!
     userTest(id: ID!): UserTest
 
+    sessionTests(projectId: ID): [SessionTest!]!
+    sessionTest(id: ID!): SessionTest
+    sessionTestCases(sessionTestId: ID!): [SessionTestCaseRow!]!
+    sessionAssignableTestCases(sessionTestId: ID!): [TestCase!]!
+    sessionTestRecords(sessionTestId: ID!): [RecordTest!]!
+    # App tests of the session's project that aren't linked to it yet.
+    sessionLinkableAppTests(sessionTestId: ID!): [AppTest!]!
+
     isWatching(target: CommentTarget!, targetId: ID!): Boolean!
     suggestions(field: String!): [String!]!
 
@@ -500,7 +598,7 @@ export const typeDefs = /* GraphQL */ `
 
     issuesPaged(scope: String, filter: IssueFilter, sort: String, dir: String, page: Int, pageSize: Int): IssuePage!
 
-    analytics(projectId: ID, featureId: ID, from: String, to: String): Analytics!
+    analytics(projectId: ID, featureId: ID, sessionTestId: ID, from: String, to: String): Analytics!
 
     users: [User!]!
     setting: Setting!
@@ -581,6 +679,20 @@ export const typeDefs = /* GraphQL */ `
     unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
     closeAppTestTesting(appTestId: ID!): AppTest!
     postAppTestToJira(id: ID!): AppTest!
+    # Admin-only: move an app test to another project. Its assignments point at
+    # the old project's test cases, so DROP releases them, CLONE copies them over.
+    moveAppTestProject(id: ID!, projectId: ID!, mode: MoveAssignmentMode!): AppTest!
+
+    createSessionTest(input: SessionTestInput!): SessionTest!
+    updateSessionTest(id: ID!, input: SessionTestInput!): SessionTest!
+    deleteSessionTest(id: ID!): Boolean!
+    addSessionTestApp(sessionTestId: ID!, input: SessionTestAppInput!): SessionTest!
+    updateSessionTestApp(id: ID!, input: SessionTestAppInput!): SessionTest!
+    removeSessionTestApp(id: ID!): SessionTest!
+    assignSessionTestCases(sessionTestId: ID!, testCaseIds: [ID!]!, appIds: [ID!]!): SessionTest!
+    setSessionTestCaseApps(sessionTestCaseId: ID!, appIds: [ID!]!): SessionTest!
+    unassignSessionTestCase(sessionTestId: ID!, testCaseId: ID!): SessionTest!
+    closeSessionTest(id: ID!, summary: String!): SessionTest!
 
     createUserTest(input: UserTestInput!): UserTest!
     updateUserTest(id: ID!, input: UserTestInput!): UserTest!

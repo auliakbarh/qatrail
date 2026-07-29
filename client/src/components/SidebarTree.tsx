@@ -10,8 +10,11 @@ import { cn } from "../lib/utils";
 // Collapsible Project → Feature tree in the sidebar. Selecting a node primes
 // nav state and routes to the dashboard, where the drilldown renders it.
 export function SidebarTree() {
+  const { t } = useTranslation();
   const { data } = useQuery(PROJECTS);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // The whole project list collapses, separate from each project's feature branch.
+  const [listOpen, setListOpen] = useState(true);
   const projects = data?.projects ?? [];
 
   const toggle = (id: string) =>
@@ -25,9 +28,18 @@ export function SidebarTree() {
 
   return (
     <div className="mt-1 flex flex-col gap-0.5">
-      {projects.map((p: any) => (
-        <ProjectNode key={p.id} project={p} expanded={expanded.has(p.id)} onToggle={() => toggle(p.id)} />
-      ))}
+      <button
+        onClick={() => setListOpen((v) => !v)}
+        className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        title={listOpen ? t("nav.collapseProjects") : t("nav.expandProjects")}
+      >
+        {listOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {t("dash.projects")} · {projects.length}
+      </button>
+      {listOpen &&
+        projects.map((p: any) => (
+          <ProjectNode key={p.id} project={p} expanded={expanded.has(p.id)} onToggle={() => toggle(p.id)} />
+        ))}
     </div>
   );
 }

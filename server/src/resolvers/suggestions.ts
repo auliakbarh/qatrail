@@ -22,6 +22,14 @@ export const suggestionsResolvers = {
         const rows = await ctx.prisma.issue.findMany({ distinct: ["testAccount"], select: { testAccount: true } });
         return uniq(rows.map((r) => r.testAccount));
       }
+      if (args.field === "stakeholder") {
+        const rows = await ctx.prisma.sessionTest.findMany({ select: { stakeholders: true } });
+        return uniq(rows.flatMap((r) => r.stakeholders));
+      }
+      if (args.field === "appName") {
+        const rows = await ctx.prisma.sessionTestApp.findMany({ distinct: ["name"], select: { name: true } });
+        return uniq(rows.map((r) => r.name));
+      }
       return [];
     },
   },

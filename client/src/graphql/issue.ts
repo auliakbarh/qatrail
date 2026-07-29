@@ -9,7 +9,7 @@ export const ENGINEERS = gql`
 export const RECORD_TESTS = gql`
   query RecordTests($testCaseId: ID!) {
     recordTests(testCaseId: $testCaseId) {
-      id key executedAt result note issueId retestIssueId appTestId appTestKey
+      id key executedAt result note issueId retestIssueId appTestId appTestKey sessionTestId sessionTestKey
       executedBy { id name }
       attachments { order url kind label }
       createdAt
@@ -30,7 +30,7 @@ export const DELETE_RECORD_TEST = gql`
 `;
 
 const ISSUE_FIELDS = `
-  id key testCaseId featureId projectId recordTestId recreatedFromId appTestId appTestKey jiraKey jiraCommentId
+  id key testCaseId featureId projectId recordTestId recreatedFromId appTestId appTestKey sessionTestId sessionTestKey jiraKey jiraCommentId
   type title description environment platform
   appVersion backendVersion testAccount testPassword testedAt preconditions
   steps actualResult expectedResult priority note status review archived
@@ -46,7 +46,7 @@ export const ISSUES = gql`
   query Issues($testCaseId: ID, $archived: Boolean) {
     issues(testCaseId: $testCaseId, archived: $archived) {
       id key title type priority status review environment platform archived slaStatus
-      appTestId appTestKey
+      appTestId appTestKey sessionTestId sessionTestKey
       assignee { id name } reporter { id name } createdAt
     }
   }
@@ -63,7 +63,7 @@ export const ISSUES_PAGED = gql`
     issuesPaged(scope: $scope, filter: $filter, sort: $sort, dir: $dir, page: $page, pageSize: $pageSize) {
       items {
         id key title type priority status review environment platform slaStatus isProductionIssue createdAt
-        appTestId appTestKey
+        appTestId appTestKey sessionTestId sessionTestKey
         assignee { id name } reporter { id name }
       }
       total

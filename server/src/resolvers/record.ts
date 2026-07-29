@@ -10,6 +10,7 @@ interface RecordTestInput {
   result: "PASS" | "FAIL";
   retestIssueId?: string | null;
   appTestId?: string | null;
+  sessionTestId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
 }
 
@@ -36,6 +37,8 @@ export const recordResolvers = {
           result: input.result,
           retestIssueId: input.retestIssueId ?? null,
           appTestId: input.appTestId ?? null,
+          // Session runs stay in their own scope — no recomputeAppTest here.
+          sessionTestId: input.sessionTestId ?? null,
           attachments: {
             create: input.attachments.map((a) => ({
               url: a.url,
@@ -74,6 +77,11 @@ export const recordResolvers = {
       if (!r.appTestId) return null;
       const at = await ctx.prisma.appTest.findUnique({ where: { id: r.appTestId }, select: { number: true } });
       return at ? `APP-${at.number}` : null;
+    },
+    async sessionTestKey(r: any, _: unknown, ctx: Context) {
+      if (!r.sessionTestId) return null;
+      const st = await ctx.prisma.sessionTest.findUnique({ where: { id: r.sessionTestId }, select: { number: true } });
+      return st ? `ST-${st.number}` : null;
     },
     async issueId(r: any, _: unknown, ctx: Context) {
       const issue = await ctx.prisma.issue.findUnique({

@@ -1,10 +1,12 @@
 import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
-import { featureCoverage, projectCoverage, allCoverage } from "../coverage.js";
+import { featureCoverage, projectCoverage, allCoverage, sessionTestCoverage } from "../coverage.js";
 import { slaTargets, classifyResolve, slaApplies } from "../sla.js";
 
-// Build the issue `where` filter for the requested scope.
-function issueWhere(projectId?: string | null, featureId?: string | null) {
+// Build the issue `where` filter for the requested scope. A session is the most
+// specific scope: only findings raised inside that testing session count.
+function issueWhere(projectId?: string | null, featureId?: string | null, sessionTestId?: string | null) {
+  if (sessionTestId) return { sessionTestId, archived: false };
   if (featureId) return { testCase: { featureId }, archived: false };
   if (projectId) return { testCase: { feature: { projectId } }, archived: false };
   return { archived: false };
@@ -24,14 +26,26 @@ export const analyticsResolvers = {
   Query: {
     async analytics(
       _: unknown,
-      args: { projectId?: string | null; featureId?: string | null; from?: string | null; to?: string | null },
+      args: {
+        projectId?: string | null;
+        featureId?: string | null;
+        sessionTestId?: string | null;
+        from?: string | null;
+        to?: string | null;
+      },
       ctx: Context,
     ) {
       requireAuth(ctx);
-      const cacheKey = JSON.stringify([args.projectId ?? "", args.featureId ?? "", args.from ?? "", args.to ?? ""]);
+      const cacheKey = JSON.stringify([
+        args.projectId ?? "",
+        args.featureId ?? "",
+        args.sessionTestId ?? "",
+        args.from ?? "",
+        args.to ?? "",
+      ]);
       const hit = cache.get(cacheKey);
       if (hit && Date.now() - hit.at < CACHE_MS) return hit.val;
-      const where: any = issueWhere(args.projectId, args.featureId);
+      const where: any = issueWhere(args.projectId, args.featureId, args.sessionTestId);
       // Date range scopes findings by creation date (inclusive of the end day).
       if (args.from || args.to) {
         where.createdAt = {};
@@ -115,19 +129,28 @@ export const analyticsResolvers = {
         resolved: issues.filter((i) => i.resolvedAt && monthKey(i.resolvedAt) === period).length,
       }));
 
+      // A session scope reports on its own cases; its project still drives the
+      // per-feature breakdown below.
+      const sessionProjectId = args.sessionTestId
+        ? (await ctx.prisma.sessionTest.findUnique({ where: { id: args.sessionTestId }, select: { projectId: true } }))
+            ?.projectId ?? null
+        : null;
+
       // Confidence coverage for the scope.
-      const confidence = args.featureId
-        ? await featureCoverage(args.featureId)
-        : args.projectId
-          ? await projectCoverage(args.projectId)
-          : await allCoverage();
+      const confidence = args.sessionTestId
+        ? await sessionTestCoverage(args.sessionTestId)
+        : args.featureId
+          ? await featureCoverage(args.featureId)
+          : args.projectId
+            ? await projectCoverage(args.projectId)
+            : await allCoverage();
 
       // Key coverage — features in scope.
       const features = await ctx.prisma.feature.findMany({
         where: args.featureId
           ? { id: args.featureId }
-          : args.projectId
-            ? { projectId: args.projectId }
+          : (args.projectId ?? sessionProjectId)
+            ? { projectId: (args.projectId ?? sessionProjectId)! }
             : {},
         select: { id: true, projectId: true, name: true, minPassPercent: true },
         orderBy: { name: "asc" },
