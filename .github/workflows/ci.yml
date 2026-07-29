@@ -20,6 +20,11 @@ jobs:
         # and --noEmit, so tsc gets tsconfig.json as a source file and fails.
         run: npm -w server exec -- tsc -p tsconfig.json --noEmit
       - name: Server unit tests
+        # env.ts validates config at import time, so the suite needs a
+        # DATABASE_URL even though the DB-backed tests stay gated off
+        # (RUN_DB_TESTS unset) and nothing ever connects.
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: npm -w server run test
       - name: Build (server + client)
         run: npm run build
