@@ -14,7 +14,7 @@ export const SET_PRODUCTION_ISSUE = gql`mutation($id: ID!,$value:Boolean!){ setP
 
 export const NOTIFICATIONS = gql`
   query Notifications {
-    notifications { id kind message issueId appTestId userTestId read createdAt }
+    notifications { id kind message issueId appTestId userTestId sessionTestId read createdAt }
     unreadCount
   }
 `;
@@ -22,6 +22,6 @@ export const MARK_NOTIFICATION_READ = gql`mutation($id: ID!){ markNotificationRe
 export const MARK_ALL_READ = gql`mutation{ markAllNotificationsRead }`;
 export const NOTIFICATION_ADDED = gql`
   subscription {
-    notificationAdded { id kind message issueId appTestId userTestId read createdAt }
+    notificationAdded { id kind message issueId appTestId userTestId sessionTestId read createdAt }
   }
 `;

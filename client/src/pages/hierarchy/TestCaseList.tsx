@@ -23,7 +23,9 @@ function ResultBadge({ result }: { result: string | null }) {
       ? "bg-primary text-primary-foreground"
       : result === "FAIL"
         ? "bg-destructive text-white"
-        : "bg-muted text-muted-foreground";
+        : result === "BLOCKED"
+          ? "bg-[var(--warn)] text-white"
+          : "bg-muted text-muted-foreground";
   return (
     <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", cls)}>
       {result ?? t("dash.notRun")}

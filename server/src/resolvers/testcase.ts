@@ -227,6 +227,7 @@ export const testCaseResolvers = {
     key: (t: any) => `TC-${t.number}`,
     createdAt: (t: any) => t.createdAt.toISOString(),
     updatedAt: (t: any) => t.updatedAt.toISOString(),
+    createdBy: (t: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: t.createdById } }),
     steps: (t: any, _: unknown, ctx: Context) =>
       ctx.prisma.testCaseStep.findMany({ where: { testCaseId: t.id }, orderBy: { order: "asc" } }),
     attachments: (t: any, _: unknown, ctx: Context) =>

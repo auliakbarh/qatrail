@@ -16,6 +16,7 @@ import {
 } from "../../graphql/issue";
 import { TEST_CASES } from "../../graphql/hierarchy";
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
+import { SESSION_TEST, SESSION_TEST_CASES } from "../../graphql/sessiontest";
 import { USER_TESTS } from "../../graphql/usertest";
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
@@ -55,11 +56,13 @@ export function IssueForm({
   testCaseId,
   featureId,
   appTestId,
+  sessionTestId,
 }: {
   panel: PanelState;
   testCaseId: string;
   featureId: string;
   appTestId?: string;
+  sessionTestId?: string;
 }) {
   const { t } = useTranslation();
   const { closePanel } = useNav();
@@ -115,6 +118,9 @@ export function IssueForm({
     environment === "PRODUCTION" &&
     !appTestId &&
     !init.fromAppTest &&
+    // Session findings are testing findings too — server forces the flag false.
+    !sessionTestId &&
+    !init.sessionTestId &&
     (!editing || (issueData?.issue?.canMarkProductionIssue ?? true));
   const mobileVersionRequired = platform === "IOS" || platform === "ANDROID";
   // Coming from an app-test FAIL: env/platform/versions are the app's and locked.
@@ -151,6 +157,12 @@ export function IssueForm({
     refetchQueries: [
       { query: ISSUES, variables: { testCaseId } },
       { query: TEST_CASES, variables: { featureId } },
+      ...(sessionTestId
+        ? [
+            { query: SESSION_TEST_CASES, variables: { sessionTestId } },
+            { query: SESSION_TEST, variables: { id: sessionTestId } },
+          ]
+        : []),
       ...(appTestId
         ? [{ query: ASSIGNED_TEST_CASES, variables: { appTestId } }, { query: APP_TEST, variables: { id: appTestId } }]
         : []),
@@ -185,6 +197,7 @@ export function IssueForm({
       isProductionIssue: canMarkProd && v.isProductionIssue,
       assigneeId: v.assigneeId,
       appTestId: appTestId ?? null,
+      sessionTestId: sessionTestId ?? init.sessionTestId ?? null,
       attachments: v.attachments
         .filter((a) => a.url.trim())
         .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),

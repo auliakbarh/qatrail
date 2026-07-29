@@ -2,7 +2,7 @@ import { useState, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Send } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Send, FolderInput } from "lucide-react";
 import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST, POST_APP_TEST_TO_JIRA } from "../graphql/apptest";
 import { AppTestBuildForm } from "./forms/AppTestBuildForm";
 import { HEALTH } from "../graphql";
@@ -23,6 +23,7 @@ import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { AppTestForm } from "./forms/AppTestForm";
+import { MoveAppTestProjectForm } from "./forms/MoveAppTestProjectForm";
 import { AssignTestCasesPanel } from "./forms/AssignTestCasesPanel";
 import { RecordForm } from "./forms/RecordForm";
 import { IssueForm } from "./forms/IssueForm";
@@ -94,6 +95,7 @@ export default function AppTestDetail() {
   }
 
   const canEdit = a.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const askDelete = () => (a.status !== "OPEN" ? setBlocked(true) : setDel(true));
 
   // Deep-link into the dashboard drilldown to show a test case's detail page.
@@ -143,6 +145,7 @@ export default function AppTestDetail() {
               {a.status !== "CLOSED" && (
                 <IconBtn title={t("at.closeTesting")} allowed={manage} onClick={() => setCloseConfirm(true)}><XCircle className="h-3.5 w-3.5" /></IconBtn>
               )}
+              <IconBtn title={t("at.moveProject")} allowed={isAdmin} onClick={() => openPanel({ kind: "moveapptest", mode: "edit", id: a.id })}><FolderInput className="h-3.5 w-3.5" /></IconBtn>
               <IconBtn title={t("c.edit")} allowed={canEdit} onClick={() => openPanel({ kind: "apptest", mode: "edit", id: a.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
               <IconBtn title={t("c.delete")} allowed={canEdit} onClick={askDelete}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
             </div>
@@ -335,6 +338,7 @@ export default function AppTestDetail() {
 
       {/* Right panel */}
       {panel?.kind === "apptest" && <AppTestForm panel={panel} />}
+      {panel?.kind === "moveapptest" && <MoveAppTestProjectForm appTest={a} assignedCount={rows0.length} />}
       {panel?.kind === "apptestbuild" && <AppTestBuildForm appTestId={id} appTest={a} />}
       {panel?.kind === "assigntc" && <AssignTestCasesPanel appTestId={id} projectId={a.projectId} />}
       {panel?.kind === "record" && panel.initial?.testCaseId && (

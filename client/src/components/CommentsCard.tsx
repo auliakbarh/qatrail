@@ -8,7 +8,7 @@ import { withToast, denied } from "../store/toast";
 import { canAct } from "../lib/perm";
 import { Modal } from "./Modal";
 
-type Target = "ISSUE" | "APP_TEST" | "USER_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST";
 
 // Comments for any target. Author may edit/delete their own; admins may delete any.
 export function CommentsCard({ target, targetId }: { target: Target; targetId: string }) {

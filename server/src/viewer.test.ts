@@ -14,7 +14,7 @@ describe("viewer read-only gate", () => {
 
   it("keeps the real Mutation map wrapped", () => {
     // Fails if someone unwraps resolvers/index.ts — the gate lives in one place.
-    const denied = ["createProject", "createIssue", "addComment", "setWatch", "createUserTest", "createUser"];
+    const denied = ["createProject", "createIssue", "addComment", "setWatch", "createUserTest", "createUser", "createSessionTest"];
     for (const field of denied) {
       expect(() => (resolvers.Mutation as any)[field](null, {}, ctx("VIEWER"), null), field).toThrow(/read-only/);
     }

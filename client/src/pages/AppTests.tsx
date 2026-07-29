@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, FolderInput, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
 import { APP_TESTS, DELETE_APP_TEST } from "../graphql/apptest";
 import { HEALTH } from "../graphql";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
@@ -18,6 +18,7 @@ import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { AppTestForm } from "./forms/AppTestForm";
+import { MoveAppTestProjectForm } from "./forms/MoveAppTestProjectForm";
 
 const canCreate = (r?: string) => r === "ENGINEER" || r === "ADMIN" || r === "SUPER_ADMIN";
 const PAGE_SIZE = 25;
@@ -87,6 +88,8 @@ export default function AppTests() {
   useEffect(() => { setPage(1); }, [search, fEnv, fPlat, fAppVer, fBeVer, fStatus, groupKey, sortKey, sortDir]);
 
   const canEditRow = (a: any) => a.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  // Only an admin may move an app test between projects (assignments follow the old project).
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const askDelete = (a: any) => {
     if (a.status !== "OPEN") setBlocked(true);
     else setDel({ id: a.id, key: a.key });
@@ -205,6 +208,7 @@ export default function AppTests() {
                               <div className="flex justify-end gap-1">
                                 <IconBtn title={t("c.open")} onClick={() => navigate(`/app-tests/${a.id}`)}><FolderOpen className="h-3.5 w-3.5" /></IconBtn>
                                 <IconBtn title={t("c.edit")} allowed={canEditRow(a)} onClick={() => openPanel({ kind: "apptest", mode: "edit", id: a.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
+                                <IconBtn title={t("at.moveProject")} allowed={isAdmin} onClick={() => openPanel({ kind: "moveapptest", mode: "edit", id: a.id, initial: a })}><FolderInput className="h-3.5 w-3.5" /></IconBtn>
                                 <IconBtn title={t("c.delete")} allowed={canEditRow(a)} onClick={() => askDelete(a)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
                               </div>
                             </td>
@@ -249,6 +253,9 @@ export default function AppTests() {
       </div>
 
       {panel?.kind === "apptest" && <AppTestForm panel={panel} />}
+      {panel?.kind === "moveapptest" && panel.initial && (
+        <MoveAppTestProjectForm appTest={panel.initial} assignedCount={panel.initial.assignedCount ?? 0} />
+      )}
     </div>
   );
 }

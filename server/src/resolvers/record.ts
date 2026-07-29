@@ -1,3 +1,4 @@
+import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { recomputeAppTest } from "../appTestStatus.js";
@@ -7,9 +8,10 @@ type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV
 interface RecordTestInput {
   executedAt: string;
   note?: string | null;
-  result: "PASS" | "FAIL";
+  result: "PASS" | "FAIL" | "BLOCKED";
   retestIssueId?: string | null;
   appTestId?: string | null;
+  sessionTestId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
 }
 
@@ -27,6 +29,11 @@ export const recordResolvers = {
     async createRecordTest(_: unknown, args: { testCaseId: string; input: RecordTestInput }, ctx: Context) {
       const user = await requireQA(ctx);
       const { input } = args;
+      // A blocked run has no verdict, so the blocker itself is the only useful
+      // information — refuse to store one silently.
+      if (input.result === "BLOCKED" && !input.note?.trim()) {
+        throw new GraphQLError("Say what blocked the test in the note.", { extensions: { code: "BAD_USER_INPUT" } });
+      }
       const rec = await ctx.prisma.recordTest.create({
         data: {
           testCaseId: args.testCaseId,
@@ -36,6 +43,8 @@ export const recordResolvers = {
           result: input.result,
           retestIssueId: input.retestIssueId ?? null,
           appTestId: input.appTestId ?? null,
+          // Session runs stay in their own scope — no recomputeAppTest here.
+          sessionTestId: input.sessionTestId ?? null,
           attachments: {
             create: input.attachments.map((a) => ({
               url: a.url,
@@ -74,6 +83,11 @@ export const recordResolvers = {
       if (!r.appTestId) return null;
       const at = await ctx.prisma.appTest.findUnique({ where: { id: r.appTestId }, select: { number: true } });
       return at ? `APP-${at.number}` : null;
+    },
+    async sessionTestKey(r: any, _: unknown, ctx: Context) {
+      if (!r.sessionTestId) return null;
+      const st = await ctx.prisma.sessionTest.findUnique({ where: { id: r.sessionTestId }, select: { number: true } });
+      return st ? `ST-${st.number}` : null;
     },
     async issueId(r: any, _: unknown, ctx: Context) {
       const issue = await ctx.prisma.issue.findUnique({
