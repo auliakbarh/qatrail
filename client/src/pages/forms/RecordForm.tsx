@@ -24,7 +24,7 @@ function nowLocal(): string {
 
 interface Form {
   executedAt: string;
-  result: "PASS" | "FAIL";
+  result: "PASS" | "FAIL" | "BLOCKED";
   note: string;
   attachments: { url: string; kind: string; label: string }[];
 }
@@ -53,10 +53,11 @@ export function RecordForm({
   const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
   const { user } = useAuth();
-  const { register, handleSubmit, control, formState } = useForm<Form>({
+  const { register, handleSubmit, control, watch, formState } = useForm<Form>({
     defaultValues: { executedAt: nowLocal(), result: "PASS", note: "", attachments: [] },
   });
   const atts = useFieldArray({ control, name: "attachments" });
+  const result = watch("result");
 
   const appTestRefetch = appTestId
     ? [{ query: ASSIGNED_TEST_CASES, variables: { appTestId } }, { query: APP_TEST, variables: { id: appTestId } }]
@@ -109,6 +110,11 @@ export function RecordForm({
     const rec = res.data?.createRecordTest;
 
     // Retest mode: this record verifies an issue's fix. PASS closes it, FAIL reopens it.
+    // BLOCKED decides nothing, so the issue is left exactly as it was.
+    if (retestIssueId && rec?.result === "BLOCKED") {
+      closePanel();
+      return;
+    }
     if (retestIssueId) {
       const pass = rec?.result === "PASS";
       await withToast(
@@ -165,10 +171,17 @@ export function RecordForm({
           <select className={inputCls} {...register("result")}>
             <option value="PASS">PASS</option>
             <option value="FAIL">FAIL</option>
+            <option value="BLOCKED">BLOCKED</option>
           </select>
+          {result === "BLOCKED" && <p className="text-xs text-muted-foreground">{t("rec.blockedHint")}</p>}
         </Field>
-        <Field label={t("c.note")} optional>
-          <textarea className={inputCls} rows={2} {...register("note")} />
+        {/* A blocked run has no verdict, so the blocker is the record's whole point. */}
+        <Field
+          label={result === "BLOCKED" ? t("rec.blocker") : t("c.note")}
+          optional={result !== "BLOCKED"}
+          error={formState.errors.note && t("c.required")}
+        >
+          <textarea className={inputCls} rows={2} {...register("note", { required: result === "BLOCKED" })} />
         </Field>
 
         <div className="space-y-2">
@@ -205,7 +218,7 @@ export function RecordForm({
           ))}
         </div>
 
-        {!retestIssueId && (
+        {!retestIssueId && result === "FAIL" && (
           <p className="text-xs text-muted-foreground">{t("form.failOpensIssue")}</p>
         )}
         <FormActions onCancel={closePanel} saving={formState.isSubmitting} saveLabel={t("form.saveRecord")} />

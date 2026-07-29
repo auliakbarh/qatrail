@@ -91,6 +91,9 @@ enum TestCaseKind {
 enum TestResult {
   PASS
   FAIL
+  // Could not be run: a blocker stopped the test before a verdict existed.
+  // Never counts as passed, and never opens an issue on its own.
+  BLOCKED
 }
 
 enum AttachKind {

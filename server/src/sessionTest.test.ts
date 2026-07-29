@@ -124,6 +124,30 @@ describe.skipIf(!enabled)("session tests (integration)", () => {
     expect((await sessionTestCoverage(st.id)).percent).toBe(50);
   });
 
+  it("treats BLOCKED as no verdict: not passed, own row status, note required", async () => {
+    const st = await newSession();
+    await S.assignSessionTestCases(null, { sessionTestId: st.id, testCaseIds: [tcId], appIds: [] }, ctxFor(qaId));
+    await expect(
+      recordResolvers.Mutation.createRecordTest(
+        null,
+        { testCaseId: tcId, input: { executedAt: new Date().toISOString(), result: "BLOCKED", note: " ", attachments: [] } },
+        ctxFor(qaId),
+      ),
+    ).rejects.toThrow(/blocked the test/i);
+
+    await recordResolvers.Mutation.createRecordTest(
+      null,
+      {
+        testCaseId: tcId,
+        input: { executedAt: new Date().toISOString(), result: "BLOCKED", note: "staging API down", sessionTestId: st.id, attachments: [] },
+      },
+      ctxFor(qaId),
+    );
+    expect((await sessionTestCoverage(st.id)).percent).toBe(0);
+    const rows: any[] = await sessionTestResolvers.Query.sessionTestCases(null, { sessionTestId: st.id }, ctxFor(qaId));
+    expect(rows.find((r) => r.testCase.id === tcId)?.status).toBe("BLOCKED");
+  });
+
   it("close requires a summary and happens once", async () => {
     const st = await newSession();
     await expect(S.closeSessionTest(null, { id: st.id, summary: "   " }, ctxFor(qaId))).rejects.toThrow(/summary is required/i);

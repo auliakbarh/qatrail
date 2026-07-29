@@ -26,7 +26,7 @@ workflow, SLA tracking, analytics, and role-based access.
 
 ## Features
 
-- Hierarchy: Project → Feature → Test Case → Record Test; pass %/coverage & readiness (an open issue keeps a case out of the pass count)
+- Hierarchy: Project → Feature → Test Case → Record Test (PASS / FAIL / BLOCKED); pass %/coverage & readiness (an open issue keeps a case out of the pass count)
 - Issues: Defect/Bug, full workflow (accept/reject/need-clarify/solve+postmortem/review), retest-to-close, SLA per priority (production), notifications (live)
 - Session tests (SIT/UAT): one testing event per date with stakeholders, apps under test (linked app test or typed by hand, versions snapshotted), agreed target pass %, close-with-summary and a printable sign-off report
 - Human keys: `ISSUE-/REC-/FEAT-/TC-/APP-/ST-<n>`; deep links `/issues/:id`, `/session-tests/:id`

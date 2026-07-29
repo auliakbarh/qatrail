@@ -1,3 +1,4 @@
+import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { recomputeAppTest } from "../appTestStatus.js";
@@ -7,7 +8,7 @@ type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV
 interface RecordTestInput {
   executedAt: string;
   note?: string | null;
-  result: "PASS" | "FAIL";
+  result: "PASS" | "FAIL" | "BLOCKED";
   retestIssueId?: string | null;
   appTestId?: string | null;
   sessionTestId?: string | null;
@@ -28,6 +29,11 @@ export const recordResolvers = {
     async createRecordTest(_: unknown, args: { testCaseId: string; input: RecordTestInput }, ctx: Context) {
       const user = await requireQA(ctx);
       const { input } = args;
+      // A blocked run has no verdict, so the blocker itself is the only useful
+      // information — refuse to store one silently.
+      if (input.result === "BLOCKED" && !input.note?.trim()) {
+        throw new GraphQLError("Say what blocked the test in the note.", { extensions: { code: "BAD_USER_INPUT" } });
+      }
       const rec = await ctx.prisma.recordTest.create({
         data: {
           testCaseId: args.testCaseId,

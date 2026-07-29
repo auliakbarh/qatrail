@@ -102,7 +102,7 @@ export function printSessionSignOff(
   ${row("Status", s.status)}
   ${row("Project", s.projectName)}
   ${row("Created by", s.createdBy?.name)}
-  ${row("Test cases", `${cases.length} (passed ${cases.filter((c) => c.status === "PASSED").length}, failed ${cases.filter((c) => c.status === "FAILED").length}, not run ${notStarted})`)}
+  ${row("Test cases", `${cases.length} (passed ${cases.filter((c) => c.status === "PASSED").length}, failed ${cases.filter((c) => c.status === "FAILED").length}, blocked ${cases.filter((c) => c.status === "BLOCKED").length}, not run ${notStarted})`)}
   ${row("Findings", s.issueCount)}
   ${row("Stakeholders", (s.stakeholders ?? []).join(", "))}
   ${row("Closed at", s.closedAt ? fmtDateTime(s.closedAt) : "—")}

@@ -171,6 +171,9 @@ export const sessionTestResolvers = {
         } else if (l?.result === "PASS" && !open) {
           status = "PASSED";
           doneTestAt = l.executedAt;
+        } else if (l?.result === "BLOCKED" && !open) {
+          // Blocked is not a failure: nobody got a verdict yet.
+          status = "BLOCKED";
         } else {
           status = "FAILED";
         }

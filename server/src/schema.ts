@@ -8,7 +8,7 @@ export const typeDefs = /* GraphQL */ `
   enum Priority { LOW MEDIUM HIGH }
   enum WorkStatus { OPEN IN_PROGRESS NEED_REVIEW IN_REVIEW CLOSED REOPENED HOLD }
   enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
-  enum TestResult { PASS FAIL }
+  enum TestResult { PASS FAIL BLOCKED }
   enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
   enum CommentTarget { ISSUE APP_TEST USER_TEST SESSION_TEST }
   enum TestCaseKind { POSITIVE NEGATIVE }
@@ -430,7 +430,7 @@ export const typeDefs = /* GraphQL */ `
     testCase: TestCase!
     featureId: ID!
     featureName: String!
-    status: String!    # PASSED | FAILED | IN_TESTING | NOT_STARTED
+    status: String!    # PASSED | FAILED | BLOCKED | IN_TESTING | NOT_STARTED
     issueCount: Int!
     assignedBy: User!
     assignedAt: String!
@@ -527,7 +527,7 @@ export const typeDefs = /* GraphQL */ `
     testCase: TestCase!
     featureId: ID!
     featureName: String!
-    status: String!           # PASSED | FAILED | NOT_STARTED
+    status: String!           # PASSED | FAILED | BLOCKED | NOT_STARTED
     issueCount: Int!
     apps: [SessionTestApp!]!
     assignedBy: User!

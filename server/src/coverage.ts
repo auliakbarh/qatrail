@@ -2,7 +2,8 @@ import { prisma } from "./db.js";
 
 // A test case is "passed" when its most recent RecordTest result is PASS AND it
 // has no open issue (any issue not CLOSED and not archived). An unresolved issue
-// keeps the case from counting as passed even if the latest run was green.
+// keeps the case from counting as passed even if the latest run was green. A
+// BLOCKED run is not a verdict, so it never counts as passed either.
 // pass% = passed test cases / total test cases (0 when there are none).
 
 export interface Coverage {
