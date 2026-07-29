@@ -8,6 +8,12 @@ export const COMMENTS = gql`
     }
   }
 `;
+// Names offered by the "@" picker; the server matches mentions by these exact names.
+export const MENTIONABLE_USERS = gql`
+  query MentionableUsers {
+    mentionableUsers { id name }
+  }
+`;
 export const ADD_COMMENT = gql`
   mutation AddComment($target: CommentTarget!, $targetId: ID!, $body: String!) {
     addComment(target: $target, targetId: $targetId, body: $body) {

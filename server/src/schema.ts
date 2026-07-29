@@ -559,6 +559,7 @@ export const typeDefs = /* GraphQL */ `
     health: Health!
     me: User
     engineers: [User!]!
+    mentionableUsers: [User!]!
 
     projects: [Project!]!
     project(id: ID!): Project
