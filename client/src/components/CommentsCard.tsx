@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { COMMENTS, ADD_COMMENT, UPDATE_COMMENT, DELETE_COMMENT } from "../graphql/comment";
+import { COMMENTS, ADD_COMMENT, UPDATE_COMMENT, DELETE_COMMENT, MENTIONABLE_USERS } from "../graphql/comment";
 import { useAuth } from "../store/auth";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { withToast, denied } from "../store/toast";
@@ -9,6 +9,76 @@ import { canAct } from "../lib/perm";
 import { Modal } from "./Modal";
 
 type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST";
+type MUser = { id: string; name: string };
+
+const inputCls = "w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
+// Textarea with an "@" name picker. Picking inserts the plain text "@Name" — the
+// server matches mentions by name, so there is no id to carry around.
+function MentionTextarea({ value, onChange, users, rows, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  users: MUser[];
+  rows: number;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [query, setQuery] = useState<string | null>(null);
+  const matches =
+    query === null ? [] : users.filter((u) => u.name.toLowerCase().includes(query.toLowerCase())).slice(0, 6);
+
+  // Open the picker while the caret sits inside an unfinished "@…" token.
+  const sync = (el: HTMLTextAreaElement) => {
+    const m = /@([^@\n]{0,30})$/.exec(el.value.slice(0, el.selectionStart));
+    setQuery(m ? m[1] : null);
+  };
+
+  const pick = (name: string) => {
+    const el = ref.current;
+    if (!el) return;
+    const caret = el.selectionStart;
+    const head = el.value.slice(0, caret).replace(/@[^@\n]{0,30}$/, `@${name} `);
+    onChange(head + el.value.slice(caret));
+    setQuery(null);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(head.length, head.length); });
+  };
+
+  return (
+    <div className="relative">
+      <textarea
+        ref={ref}
+        value={value}
+        rows={rows}
+        placeholder={placeholder}
+        onChange={(e) => { onChange(e.target.value); sync(e.target); }}
+        onKeyUp={(e) => sync(e.currentTarget)}
+        onBlur={() => setQuery(null)}
+        onKeyDown={(e) => {
+          if (!matches.length) return;
+          if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(matches[0].name); }
+          else if (e.key === "Escape") setQuery(null);
+        }}
+        className={inputCls}
+      />
+      {matches.length > 0 && (
+        <ul className="absolute left-0 top-full z-10 mt-1 w-56 overflow-hidden rounded border border-border bg-background shadow">
+          {matches.map((u) => (
+            <li key={u.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(u.name)}
+                className="block w-full px-3 py-1.5 text-left text-xs hover:bg-muted"
+              >
+                {u.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // Comments for any target. Author may edit/delete their own; admins may delete any.
 export function CommentsCard({ target, targetId }: { target: Target; targetId: string }) {
@@ -25,6 +95,26 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
   const [delId, setDelId] = useState<string | null>(null);
   const comments = data?.comments ?? [];
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const users: MUser[] = useQuery(MENTIONABLE_USERS).data?.mentionableUsers ?? [];
+
+  // Longest name first so "@Ana Lee" wins over "@Ana"; capture group => odd split parts are mentions.
+  const mentionRe = useMemo(() => {
+    const names = users
+      .map((u) => u.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .sort((a, b) => b.length - a.length);
+    return names.length ? new RegExp(`(@(?:${names.join("|")}))`, "gi") : null;
+  }, [users]);
+
+  const renderBody = (text: string) =>
+    !mentionRe
+      ? text
+      : text.split(mentionRe).map((part, i) =>
+          i % 2 ? (
+            <span key={i} className="rounded bg-primary/10 px-0.5 font-medium text-primary">{part}</span>
+          ) : (
+            part
+          ),
+        );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,12 +192,7 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
               </div>
               {editId === c.id ? (
                 <div className="mt-1 space-y-2">
-                  <textarea
-                    value={editBody}
-                    onChange={(e) => setEditBody(e.target.value)}
-                    rows={2}
-                    className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+                  <MentionTextarea value={editBody} onChange={setEditBody} users={users} rows={2} />
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(c.id)} disabled={!editBody.trim()} className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                       {t("c.save")}
@@ -118,19 +203,13 @@ export function CommentsCard({ target, targetId }: { target: Target; targetId: s
                   </div>
                 </div>
               ) : (
-                <div className="whitespace-pre-wrap">{c.body}</div>
+                <div className="whitespace-pre-wrap">{renderBody(c.body)}</div>
               )}
             </div>
           );
         })}
         <form onSubmit={submit} className="space-y-2 pt-1">
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={2}
-            placeholder={t("cmt.placeholder")}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+          <MentionTextarea value={body} onChange={setBody} users={users} rows={2} placeholder={t("cmt.placeholder")} />
           <button type="submit" disabled={loading || !body.trim()} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             {loading ? t("c.saving") : t("cmt.send")}
           </button>

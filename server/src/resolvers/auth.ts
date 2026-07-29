@@ -30,6 +30,11 @@ export const authResolvers = {
       if (!ctx.userId) return null;
       return ctx.prisma.user.findUnique({ where: { id: ctx.userId } });
     },
+    // Everyone an authed user may @mention in a comment.
+    async mentionableUsers(_: unknown, __: unknown, ctx: Context) {
+      requireAuth(ctx);
+      return ctx.prisma.user.findMany({ where: { active: true }, orderBy: { name: "asc" } });
+    },
     async engineers(_: unknown, __: unknown, ctx: Context) {
       requireAuth(ctx);
       return ctx.prisma.user.findMany({
