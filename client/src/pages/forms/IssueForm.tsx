@@ -17,6 +17,7 @@ import {
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
 import { SESSION_TEST, SESSION_TEST_CASES } from "../../graphql/sessiontest";
 import { USER_TESTS } from "../../graphql/usertest";
+import { TEST_CASE } from "../../graphql/hierarchy";
 import { useNav, useDrill, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -79,6 +80,9 @@ export function IssueForm({
   const [pickSearch, setPickSearch] = useState("");
 
   const { data: engData } = useQuery(ENGINEERS);
+  // Which case this finding came from. During a bulk run several of these forms
+  // open back to back, so the form has to say which one it is about.
+  const { data: tcData } = useQuery(TEST_CASE, { variables: { id: testCaseId }, fetchPolicy: "cache-first" });
   // Related project for the user-test picker: from the app test, else the caller's
   // context (a session), else the drilldown URL.
   const { data: atProjData } = useQuery(APP_TEST, { variables: { id: appTestId }, skip: !appTestId, fetchPolicy: "cache-first" });
@@ -224,6 +228,12 @@ export function IssueForm({
   return (
     <RightPanel title={editing ? t("form.editIssue") : t("tc.addIssue")} dirty={formState.isDirty} onClose={closePanel}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {tcData?.testCase && (
+          <div className="rounded border border-border bg-muted/40 px-3 py-2 text-xs">
+            <span className="text-muted-foreground">{t("iss.fromRun")}: </span>
+            <span className="font-mono">{tcData.testCase.key}</span> · {tcData.testCase.name}
+          </div>
+        )}
         <div className="flex gap-2">
           <Field label={t("c.type")}>
             <select className={inputCls} {...register("type")}>

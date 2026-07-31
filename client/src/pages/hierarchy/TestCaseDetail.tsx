@@ -26,6 +26,7 @@ import { AttachmentList } from "../../components/AttachmentList";
 import { CommentsCard } from "../../components/CommentsCard";
 import { WatchButton } from "../../components/WatchButton";
 import { TextPromptModal } from "../../components/TextPromptModal";
+import { Modal } from "../../components/Modal";
 import { withToast, denied } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
@@ -207,8 +208,17 @@ function PendingRequestCard({ tc }: { tc: any }) {
 export function TestCaseDetail({ id }: { id: string }) {
   const { t } = useTranslation();
   const { openPanel } = useNav();
+  const navigate = useNavigate();
+  const { from } = useDrill();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
+  // Reached from an app test or a testing session, the case is being *run*, not
+  // curated — catalogue actions (retire, move, edit) belong to the project
+  // hierarchy, where the case lives.
+  const fromTesting = !!from && (from.startsWith("app-test:") || from.startsWith("session:"));
+  // Suggest a testing session before a run is filed straight against the case:
+  // scoped runs are what a sign-off report can be built from.
+  const [suggestSession, setSuggestSession] = useState(false);
   const { data, loading } = useQuery(TEST_CASE, { variables: { id } });
   const [tab, setTab] = useState<"records" | "issues">("records");
   const [setActive] = useMutation(SET_TEST_CASE_ACTIVE, {
@@ -246,7 +256,7 @@ export function TestCaseDetail({ id }: { id: string }) {
             {/* Retiring and moving only mean something for a case that is in the
                 catalogue. While it's still in review, edit and delete are the
                 only sensible actions. */}
-            {approved && (
+            {approved && !fromTesting && (
               <>
                 <button
                   onClick={
@@ -277,15 +287,17 @@ export function TestCaseDetail({ id }: { id: string }) {
                 </button>
               </>
             )}
-            <button
-              onClick={manage && tc.active ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
-                (!manage || !tc.active) && "opacity-40",
-              )}
-            >
-              <Pencil className="h-3.5 w-3.5" /> {t("c.edit")}
-            </button>
+            {!fromTesting && (
+              <button
+                onClick={manage && tc.active ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
+                className={cn(
+                  "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+                  (!manage || !tc.active) && "opacity-40",
+                )}
+              >
+                <Pencil className="h-3.5 w-3.5" /> {t("c.edit")}
+              </button>
+            )}
           </div>
         </div>
         <div className="space-y-3 px-5 py-4 text-sm">
@@ -361,7 +373,7 @@ export function TestCaseDetail({ id }: { id: string }) {
               // refuses it, so don't offer the form.
               allowed={manage && editable}
               icon={Plus}
-              onClick={() => openPanel({ kind: tab === "records" ? "record" : "issue", mode: "create" })}
+              onClick={() => (fromTesting ? openPanel({ kind: tab === "records" ? "record" : "issue", mode: "create" }) : setSuggestSession(true))}
             >
               {tab === "records" ? t("tc.addRecord") : t("tc.addIssue")}
             </HeaderButton>
@@ -374,6 +386,40 @@ export function TestCaseDetail({ id }: { id: string }) {
       {/* Discussion stays open regardless of approval — that's how a pending case
           gets clarified in the first place. */}
       <CommentsCard target="TEST_CASE" targetId={tc.id} />
+
+      {/* A run filed straight against the case belongs to no app test and no
+          session, so no sign-off report can ever include it. Offer the session
+          first — but never block the direct run, it is still legitimate. */}
+      <Modal
+        open={suggestSession}
+        onClose={() => setSuggestSession(false)}
+        title={t("sug.title")}
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setSuggestSession(false);
+                openPanel({ kind: tab === "records" ? "record" : "issue", mode: "create" });
+              }}
+              className="h-7 rounded border border-border px-3 text-xs hover:bg-muted"
+            >
+              {tab === "records" ? t("sug.anywayRecord") : t("sug.anywayIssue")}
+            </button>
+            <button
+              onClick={() => {
+                setSuggestSession(false);
+                navigate("/session-tests");
+                openPanel({ kind: "sessiontest", mode: "create" });
+              }}
+              className="h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              {t("sug.createSession")}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">{t("sug.body")}</p>
+      </Modal>
     </div>
   );
 }

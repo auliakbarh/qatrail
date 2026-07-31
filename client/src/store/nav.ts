@@ -64,6 +64,9 @@ export function useDrill() {
     featureId,
     testCaseId,
     issueId,
+    // Where the drilldown was entered from: "app-test:<id>", "session:<id>",
+    // "assigned", "issues", "pending", or null for the project hierarchy.
+    from,
     goProject: (id: string | null) => go({ projectId: id }),
     goFeature: (id: string | null, pid?: string) => go({ projectId: pid ?? projectId, featureId: id }),
     goTestCase: (id: string | null) => go({ projectId, featureId, testCaseId: id }),
