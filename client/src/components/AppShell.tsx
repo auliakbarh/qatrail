@@ -1,10 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@apollo/client";
 import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox, Smartphone, KeyRound, CalendarCheck, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { SidebarTree } from "./SidebarTree";
-import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { HEALTH } from "../graphql";
 import { UI_VERSION, THEME_KEY } from "../config";
@@ -21,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { data } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const apiVersion: string | undefined = data?.health?.apiVersion;
 
@@ -99,14 +99,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavLink
                 to={to}
                 end={end}
-                // Dashboard always lands on the full project list, not the last drilldown.
-                onClick={() => { if (to === "/") useNav.getState().selectProject(null); }}
                 title={expanded ? undefined : label}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-2.5 rounded px-2 py-1.5 text-sm font-medium transition-colors",
                     !expanded && "justify-center",
-                    isActive
+                    // The drilldown lives under /projects/… but belongs to Dashboard.
+                    isActive || (to === "/" && pathname.startsWith("/projects"))
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )

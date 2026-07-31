@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { Plus, FolderOpen, Pencil, Trash2, Copy, ArrowRightLeft } from "lucide-react";
 import { FEATURES, DELETE_FEATURE } from "../../graphql/hierarchy";
-import { useNav } from "../../store/nav";
+import { useNav, useDrill } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
@@ -18,7 +18,8 @@ import { canManageContent } from "../../lib/perm";
 
 export function FeatureList({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
-  const { selectFeature, openPanel } = useNav();
+  const { openPanel } = useNav();
+  const { goFeature } = useDrill();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(FEATURES, { variables: { projectId }, fetchPolicy: "cache-and-network" });
@@ -86,7 +87,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.key}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => selectFeature(f.id)} className="text-left font-medium hover:underline">
+                    <button onClick={() => goFeature(f.id)} className="text-left font-medium hover:underline">
                       {f.name}
                     </button>
                     {f.description && <div className="text-xs text-muted-foreground">{f.description}</div>}
@@ -97,7 +98,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
-                      <IconBtn title={t("c.open")} onClick={() => selectFeature(f.id)}>
+                      <IconBtn title={t("c.open")} onClick={() => goFeature(f.id)}>
                         <FolderOpen className="h-3.5 w-3.5" />
                       </IconBtn>
                       <IconBtn

@@ -8,6 +8,7 @@ const SECTION_IDS = [
   "roles",
   "start",
   "structure",
+  "navigation",
   "import",
   "records",
   "issues",
@@ -105,6 +106,12 @@ export default function Help() {
             <P><Trans i18nKey="help.structure.p5" components={{ b: <B /> }} /></P>
           </Doc>
 
+          <Doc id="navigation" title={t("help.sec.navigation")}>
+            <P><Trans i18nKey="help.nav.p1" components={{ b: <B />, code: <Code /> }} /></P>
+            <P><Trans i18nKey="help.nav.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.nav.p3" components={{ b: <B />, code: <Code /> }} /></P>
+          </Doc>
+
           <Doc id="import" title={t("help.sec.import")}>
             <P><Trans i18nKey="help.import.p1" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.import.p2" components={{ b: <B />, code: <Code /> }} /></P>
@@ -122,6 +129,8 @@ export default function Help() {
           <Doc id="issues" title={t("help.sec.issues")}>
             <P><Trans i18nKey="help.issues.p1" components={{ b: <B /> }} /></P>
             <P>{t("help.issues.p2")}</P>
+            <P><Trans i18nKey="help.issues.p3" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.issues.p4" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="app-tests" title={t("help.sec.app-tests")}>

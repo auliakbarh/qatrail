@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useNav } from "../store/nav";
+import { drillPath } from "../store/nav";
 import { ANALYTICS } from "../graphql/analytics";
 import { SESSION_TESTS } from "../graphql/sessiontest";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
@@ -309,8 +309,7 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const openFeature = (r: any) => {
-    useNav.setState({ projectId: r.projectId, featureId: r.featureId, testCaseId: null, issueId: null, panel: null });
-    navigate("/");
+    navigate(drillPath({ projectId: r.projectId, featureId: r.featureId }));
   };
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");

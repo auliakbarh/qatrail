@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Pencil, Plus, Trash2, ArrowRightLeft } from "lucide-react";
 import { TEST_CASE } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
-import { useNav } from "../../store/nav";
+import { useNav, useDrill } from "../../store/nav";
 import { cn, fmtDateTime as fmt } from "../../lib/utils";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
@@ -140,7 +140,7 @@ export function TestCaseDetail({ id }: { id: string }) {
 function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { selectIssue } = useNav();
+  const { goIssue } = useDrill();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
   const [del, setDel] = useState<string | null>(null);
   const [deleteRecord] = useMutation(DELETE_RECORD_TEST, {
@@ -182,7 +182,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
                   <Badge variant={r.result === "PASS" ? "primary" : "destructive"}>{r.result}</Badge>
                   {r.retestIssueId && (
                     <button
-                      onClick={() => selectIssue(r.retestIssueId)}
+                      onClick={() => goIssue(r.retestIssueId)}
                       title={t("rec.retestTitle")}
                       className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
                     >
@@ -222,7 +222,8 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
 function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { openPanel, selectIssue } = useNav();
+  const { openPanel } = useNav();
+  const { goIssue } = useDrill();
   const { data, loading } = useQuery(ISSUES, { variables: { testCaseId } });
   const [del, setDel] = useState<{ id: string; title: string } | null>(null);
   const [deleteIssue] = useMutation(DELETE_ISSUE, {
@@ -258,7 +259,7 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
               <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
               <td className="px-3 py-2 font-medium">
-                <button onClick={() => selectIssue(i.id)} className="hover:underline">
+                <button onClick={() => goIssue(i.id)} className="hover:underline">
                   {i.title}
                 </button>
               </td>

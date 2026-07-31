@@ -15,7 +15,7 @@ import {
   SESSION_ASSIGNABLE_TEST_CASES,
 } from "../graphql/sessiontest";
 import { ANALYTICS } from "../graphql/analytics";
-import { useNav } from "../store/nav";
+import { useNav, drillPath } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { canManageContent } from "../lib/perm";
 import { FilterBar } from "../components/FilterBar";
@@ -129,10 +129,10 @@ export default function SessionTestDetail() {
   const rows = sortRows(searchRows(filtered, search, ["tcKey", "tcName", "featureName", "appNames"]), sortKey as any, sortDir);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
 
-  // Deep-link into the dashboard drilldown to show a test case's detail page.
+  // Deep-link into the hierarchy drilldown; `from` keeps the breadcrumb rooted here.
   const openTestCase = (r: any) => {
-    useNav.setState({ projectId: s.projectId, featureId: r.featureId, testCaseId: r.testCase.id, issueId: null, panel: null });
-    navigate("/");
+    const path = drillPath({ projectId: s.projectId, featureId: r.featureId, testCaseId: r.testCase.id });
+    navigate(`${path}?from=session:${id}`);
   };
 
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -417,7 +417,7 @@ export default function SessionTestDetail() {
         />
       )}
       {panel?.kind === "issue" && panel.initial?.testCaseId && (
-        <IssueForm panel={panel} testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} sessionTestId={id} />
+        <IssueForm panel={panel} testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} sessionTestId={id} projectId={s.projectId} />
       )}
     </div>
   );

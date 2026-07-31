@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@apollo/client";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
-import { useNav } from "../store/nav";
+import { useDrill } from "../store/nav";
 import { cn } from "../lib/utils";
 
 // Collapsible Project → Feature tree in the sidebar. Selecting a node primes
@@ -45,8 +44,7 @@ export function SidebarTree() {
 }
 
 function ProjectNode({ project, expanded, onToggle }: { project: any; expanded: boolean; onToggle: () => void }) {
-  const { projectId, selectProject } = useNav();
-  const navigate = useNavigate();
+  const { projectId, goProject } = useDrill();
   const active = projectId === project.id;
 
   return (
@@ -57,8 +55,7 @@ function ProjectNode({ project, expanded, onToggle }: { project: any; expanded: 
         </button>
         <button
           onClick={() => {
-            selectProject(project.id);
-            navigate("/");
+            goProject(project.id);
           }}
           className="flex-1 truncate text-left hover:text-foreground"
           title={project.name}
@@ -74,8 +71,7 @@ function ProjectNode({ project, expanded, onToggle }: { project: any; expanded: 
 function FeatureBranch({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const { data, loading } = useQuery(FEATURES, { variables: { projectId } });
-  const { featureId, selectFeature } = useNav();
-  const navigate = useNavigate();
+  const { featureId, goFeature } = useDrill();
   const features = data?.features ?? [];
 
   if (loading) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">{t("c.loading")}</div>;
@@ -87,8 +83,7 @@ function FeatureBranch({ projectId }: { projectId: string }) {
         <button
           key={f.id}
           onClick={() => {
-            selectFeature(f.id, projectId);
-            navigate("/");
+            goFeature(f.id, projectId);
           }}
           className={cn(
             "truncate rounded py-1 pl-7 pr-2 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground",

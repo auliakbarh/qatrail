@@ -33,6 +33,19 @@ function assertReporterOrQA(user: any, issue: any) {
   }
 }
 
+// Human key of an issue's current scope, for the timeline entry.
+async function scopeKey(ctx: Context, appTestId: string | null, sessionTestId: string | null) {
+  if (appTestId) {
+    const at = await ctx.prisma.appTest.findUnique({ where: { id: appTestId }, select: { number: true } });
+    return at ? `APP-${at.number}` : "none";
+  }
+  if (sessionTestId) {
+    const st = await ctx.prisma.sessionTest.findUnique({ where: { id: sessionTestId }, select: { number: true } });
+    return st ? `ST-${st.number}` : "none";
+  }
+  return "none";
+}
+
 // Apply a transition: update issue + write a StatusEvent in one go.
 async function transition(
   ctx: Context,
@@ -267,6 +280,62 @@ export const workflowResolvers = {
         { isProductionIssue: args.value },
         { kind: "productionIssue", fromVal: String(issue.isProductionIssue), toVal: String(args.value), byId: user.id },
       );
+    },
+
+    // Re-point a finding at the app test / testing session it actually came from
+    // (pass neither to unlink). QA needs this when an issue was filed outside the
+    // app-test flow, or filed against the wrong one.
+    async setIssueScope(
+      _: unknown,
+      args: { id: string; appTestId?: string | null; sessionTestId?: string | null },
+      ctx: Context,
+    ) {
+      const user = await actor(ctx);
+      const issue = await getIssue(ctx, args.id);
+      assertReporterOrQA(user, issue);
+      const appTestId = args.appTestId ?? null;
+      const sessionTestId = args.sessionTestId ?? null;
+      if (appTestId && sessionTestId) {
+        throw new Error("An issue belongs to one app test or one testing session, not both");
+      }
+      // Testing findings can never carry the SLA flag (`resolveProductionFlag`), so
+      // linking one would silently drop it. Refuse instead — QA unmarks it first.
+      if (issue.isProductionIssue && (appTestId || sessionTestId)) {
+        throw new Error("Unmark the production issue first — findings from an app test or session cannot be production issues");
+      }
+      if (issue.appTestId === appTestId && issue.sessionTestId === sessionTestId) return issue;
+
+      const target = appTestId
+        ? await ctx.prisma.appTest.findUnique({ where: { id: appTestId }, select: { number: true, projectId: true } })
+        : sessionTestId
+          ? await ctx.prisma.sessionTest.findUnique({ where: { id: sessionTestId }, select: { number: true, projectId: true } })
+          : null;
+      if ((appTestId || sessionTestId) && !target) throw new Error("App test or testing session not found");
+      if (target) {
+        const tc = await ctx.prisma.testCase.findUnique({
+          where: { id: issue.testCaseId },
+          select: { feature: { select: { projectId: true } } },
+        });
+        if (target.projectId !== tc?.feature.projectId) {
+          throw new Error("The app test or testing session must belong to the same project as the test case");
+        }
+      }
+
+      const updated = await transition(
+        ctx,
+        issue,
+        { appTestId, sessionTestId },
+        {
+          kind: "scope",
+          fromVal: await scopeKey(ctx, issue.appTestId, issue.sessionTestId),
+          toVal: appTestId ? `APP-${target!.number}` : sessionTestId ? `ST-${target!.number}` : "none",
+          byId: user.id,
+        },
+      );
+      // App-test coverage counts open issues, so both sides go stale.
+      if (issue.appTestId) await recomputeAppTest(issue.appTestId);
+      if (appTestId) await recomputeAppTest(appTestId);
+      return updated;
     },
   },
 

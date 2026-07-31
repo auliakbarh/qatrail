@@ -1,0 +1,67 @@
+import { useQuery } from "@apollo/client";
+import { useTranslation } from "react-i18next";
+import { RightPanel } from "../../components/RightPanel";
+import { AttachmentList } from "../../components/AttachmentList";
+import { TEST_CASE } from "../../graphql/hierarchy";
+import { useNav } from "../../store/nav";
+
+// Read-only test case, shown beside an issue so QA/engineers can check the steps
+// a finding came from without navigating away.
+export function TestCaseViewPanel({ testCaseId }: { testCaseId: string }) {
+  const { t } = useTranslation();
+  const { closePanel, openPanel } = useNav();
+  const { data, loading } = useQuery(TEST_CASE, { variables: { id: testCaseId } });
+  const tc = data?.testCase;
+
+  return (
+    <RightPanel title={t("iss.testCase")} onClose={closePanel}>
+      {loading && !tc && <p className="text-sm text-muted-foreground">{t("c.loading")}</p>}
+      {!loading && !tc && <p className="text-sm text-muted-foreground">{t("c.notFound")}</p>}
+      {tc && (
+        <div className="space-y-4 text-sm">
+          <div>
+            <div className="font-mono text-xs text-muted-foreground">{tc.key}</div>
+            <h4 className="font-semibold">{tc.name}</h4>
+            {tc.kind && <div className="mt-1 text-xs text-muted-foreground">{tc.kind}</div>}
+          </div>
+          {tc.description && <p className="whitespace-pre-wrap text-muted-foreground">{tc.description}</p>}
+          {tc.precondition && (
+            <div>
+              <div className="mb-0.5 font-medium">{t("tc.precondition")}</div>
+              <p className="whitespace-pre-wrap text-muted-foreground">{tc.precondition}</p>
+            </div>
+          )}
+          <div>
+            <div className="mb-1 font-medium">{t("tc.steps")}</div>
+            {tc.steps.length === 0 && <div className="text-xs text-muted-foreground">{t("tc.noSteps")}</div>}
+            <ol className="space-y-1.5">
+              {tc.steps.map((s: any) => (
+                <li key={s.id} className="text-xs">
+                  <span className="font-medium">{s.order}.</span> {s.step}
+                  {s.expectedResult && (
+                    <div className="pl-4 text-muted-foreground">→ {t("tc.expected")}: {s.expectedResult}</div>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+          {tc.attachments.length > 0 && (
+            <div>
+              <div className="mb-1 font-medium">{t("c.attachments")}</div>
+              <AttachmentList
+                items={tc.attachments}
+                onOpenText={(a) => openPanel({ kind: "attachment", mode: "create", initial: a })}
+              />
+            </div>
+          )}
+          {tc.note && (
+            <div>
+              <div className="mb-0.5 font-medium">{t("c.note")}</div>
+              <p className="whitespace-pre-wrap text-muted-foreground">{tc.note}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </RightPanel>
+  );
+}

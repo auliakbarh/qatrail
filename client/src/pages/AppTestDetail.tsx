@@ -7,7 +7,7 @@ import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLO
 import { AppTestBuildForm } from "./forms/AppTestBuildForm";
 import { HEALTH } from "../graphql";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
-import { useNav } from "../store/nav";
+import { useNav, drillPath } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { canManageContent, canManageAppTest } from "../lib/perm";
 import { FilterBar } from "../components/FilterBar";
@@ -98,10 +98,10 @@ export default function AppTestDetail() {
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const askDelete = () => (a.status !== "OPEN" ? setBlocked(true) : setDel(true));
 
-  // Deep-link into the dashboard drilldown to show a test case's detail page.
+  // Deep-link into the hierarchy drilldown; `from` keeps the breadcrumb rooted here.
   const openTestCase = (r: any) => {
-    useNav.setState({ projectId: a.projectId, featureId: r.featureId, testCaseId: r.testCase.id, issueId: null, panel: null });
-    navigate("/");
+    const path = drillPath({ projectId: a.projectId, featureId: r.featureId, testCaseId: r.testCase.id });
+    navigate(`${path}?from=app-test:${id}`);
   };
 
   const rows0 = (tcData?.assignedTestCases ?? []).map((r: any) => ({

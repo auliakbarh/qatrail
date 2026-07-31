@@ -30,6 +30,7 @@ const LABELS: Record<string, string> = {
   issueReview: "Issue reviewed",
   setIssueArchived: "Issue archive toggled",
   setProductionIssue: "Production issue flag toggled",
+  setIssueScope: "Issue app test / session changed",
   createUserTest: "User test created",
   updateUserTest: "User test updated",
   deleteUserTest: "User test deleted",

@@ -1,8 +1,8 @@
 import { useQuery } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ChevronRight } from "lucide-react";
-import { useNav } from "../store/nav";
-import { PROJECTS, FEATURES } from "../graphql/hierarchy";
+import { useNav, useDrill } from "../store/nav";
+import { Breadcrumb } from "../components/Breadcrumb";
+import { FEATURES } from "../graphql/hierarchy";
 import { ProjectList } from "./hierarchy/ProjectList";
 import { FeatureList } from "./hierarchy/FeatureList";
 import { TestCaseList } from "./hierarchy/TestCaseList";
@@ -20,59 +20,22 @@ import { MoveFeatureForm } from "./forms/MoveFeatureForm";
 import { CloneFeatureForm } from "./forms/CloneFeatureForm";
 import { CloneTestCaseForm } from "./forms/CloneTestCaseForm";
 import { ImportTestCasesForm } from "./forms/ImportTestCasesForm";
+import { IssueScopeForm } from "./forms/IssueScopeForm";
+import { TestCaseViewPanel } from "./forms/TestCaseViewPanel";
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { projectId, featureId, testCaseId, issueId, panel, selectProject, selectFeature, selectTestCase } =
-    useNav();
+  const { panel } = useNav();
+  const { projectId, featureId, testCaseId, issueId, goFeature } = useDrill();
 
-  // Names for breadcrumb (from cached lists).
-  const { data: projData } = useQuery(PROJECTS);
-  const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
-  const projName = projData?.projects?.find((p: any) => p.id === projectId)?.name;
-  const featName = featData?.features?.find((f: any) => f.id === featureId)?.name;
+  const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !featureId });
   // Feature open but gone from the loaded list → it was deleted.
   const featDeleted = !!featureId && !!featData?.features && !featData.features.some((f: any) => f.id === featureId);
 
   return (
     <div className="flex h-full">
       <div className="flex-1 overflow-y-auto">
-        {/* Breadcrumb */}
-        {projectId && (
-          <div className="flex items-center gap-1.5 border-b border-border px-6 py-3 text-xs text-muted-foreground">
-            <button onClick={() => selectProject(null)} className="hover:text-foreground">
-              {t("dash.projects")}
-            </button>
-            {projName && (
-              <>
-                <ChevronRight className="h-3 w-3" />
-                <button
-                  onClick={() => selectFeature(null)}
-                  className={featureId ? "hover:text-foreground" : "font-medium text-foreground"}
-                >
-                  {projName}
-                </button>
-              </>
-            )}
-            {featureId && featName && (
-              <>
-                <ChevronRight className="h-3 w-3" />
-                <button
-                  onClick={() => selectTestCase(null)}
-                  className={testCaseId ? "hover:text-foreground" : "font-medium text-foreground"}
-                >
-                  {featName}
-                </button>
-              </>
-            )}
-            {testCaseId && issueId && (
-              <>
-                <ChevronRight className="h-3 w-3" />
-                <span className="font-medium text-foreground">{t("dash.issueBreadcrumb")}</span>
-              </>
-            )}
-          </div>
-        )}
+        <Breadcrumb />
 
         {/* Level view — exclusive by deepest selection. */}
         {!projectId && !featureId && <ProjectList />}
@@ -85,7 +48,7 @@ export default function Dashboard() {
           <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/30 px-4 text-center">
             <h1 className="text-lg font-semibold">{t("feat.deletedTitle")}</h1>
             <p className="max-w-sm text-sm text-muted-foreground">{t("feat.deletedText")}</p>
-            <button onClick={() => selectFeature(null)} className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
+            <button onClick={() => goFeature(null)} className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
               {t("feat.backToList")}
             </button>
           </div>
@@ -112,7 +75,13 @@ export default function Dashboard() {
       {panel?.kind === "feature" && projectId && <FeatureForm panel={panel} projectId={projectId} />}
       {panel?.kind === "testcase" && featureId && <TestCaseForm panel={panel} featureId={featureId} />}
       {panel?.kind === "record" && testCaseId && featureId && (
-        <RecordForm testCaseId={testCaseId} featureId={featureId} retestIssueId={panel.initial?.retestIssueId} />
+        <RecordForm
+          testCaseId={testCaseId}
+          featureId={featureId}
+          retestIssueId={panel.initial?.retestIssueId}
+          appTestId={panel.initial?.appTestId}
+          sessionTestId={panel.initial?.sessionTestId}
+        />
       )}
       {panel?.kind === "issue" && testCaseId && featureId && (
         <IssueForm panel={panel} testCaseId={testCaseId} featureId={featureId} />
@@ -121,6 +90,8 @@ export default function Dashboard() {
         <PostmortemForm issueId={panel.id} testCaseId={testCaseId} />
       )}
       {panel?.kind === "attachment" && <AttachmentPanel panel={panel} />}
+      {panel?.kind === "issuescope" && panel.initial && <IssueScopeForm issue={panel.initial} />}
+      {panel?.kind === "testcaseview" && panel.id && <TestCaseViewPanel testCaseId={panel.id} />}
       {panel?.kind === "movetc" && panel.id && featureId && (
         <MoveTestCaseForm testCaseId={panel.id} sourceFeatureId={featureId} />
       )}

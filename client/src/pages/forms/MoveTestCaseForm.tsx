@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls } from "../../components/Form";
 import { PROJECTS, FEATURES, MOVE_TEST_CASE, TEST_CASES } from "../../graphql/hierarchy";
-import { useNav } from "../../store/nav";
+import { useNav, useDrill } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
 // Move a test case to another feature — optionally in a different project.
 export function MoveTestCaseForm({ testCaseId, sourceFeatureId }: { testCaseId: string; sourceFeatureId: string }) {
   const { t } = useTranslation();
-  const { closePanel, selectTestCase } = useNav();
+  const { closePanel } = useNav();
+  const { goTestCase } = useDrill();
   const [projectId, setProjectId] = useState("");
   const [featureId, setFeatureId] = useState("");
   const { data: projData } = useQuery(PROJECTS);
@@ -28,7 +29,7 @@ export function MoveTestCaseForm({ testCaseId, sourceFeatureId }: { testCaseId: 
     const ok = await withToast(move({ variables: { id: testCaseId, featureId } }), t("move.done"), t("move.fail"));
     if (ok) {
       closePanel();
-      selectTestCase(null); // it left this feature
+      goTestCase(null); // it left this feature
     }
   };
 

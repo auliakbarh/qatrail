@@ -18,7 +18,7 @@ import { TEST_CASES } from "../../graphql/hierarchy";
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
 import { SESSION_TEST, SESSION_TEST_CASES } from "../../graphql/sessiontest";
 import { USER_TESTS } from "../../graphql/usertest";
-import { useNav, type PanelState } from "../../store/nav";
+import { useNav, useDrill, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
@@ -57,16 +57,18 @@ export function IssueForm({
   featureId,
   appTestId,
   sessionTestId,
+  projectId: ctxProjectId,
 }: {
   panel: PanelState;
   testCaseId: string;
   featureId: string;
   appTestId?: string;
   sessionTestId?: string;
+  projectId?: string; // session/app context; falls back to the drilldown's project
 }) {
   const { t } = useTranslation();
   const { closePanel } = useNav();
-  const navProjectId = useNav((s) => s.projectId);
+  const drillProjectId = useDrill().projectId;
   const editing = panel.mode === "edit";
   const init = panel.initial ?? {};
   const [pickOpen, setPickOpen] = useState(false);
@@ -74,9 +76,10 @@ export function IssueForm({
   const [pickSearch, setPickSearch] = useState("");
 
   const { data: engData } = useQuery(ENGINEERS);
-  // Related project for the user-test picker: from the app test, else the nav drilldown.
+  // Related project for the user-test picker: from the app test, else the caller's
+  // context (a session), else the drilldown URL.
   const { data: atProjData } = useQuery(APP_TEST, { variables: { id: appTestId }, skip: !appTestId, fetchPolicy: "cache-first" });
-  const projectId = atProjData?.appTest?.projectId ?? navProjectId ?? null;
+  const projectId = atProjData?.appTest?.projectId ?? ctxProjectId ?? drillProjectId ?? null;
   const { data: utData } = useQuery(USER_TESTS, { variables: { projectId }, skip: !pickOpen || !projectId, fetchPolicy: "cache-and-network" });
   const { data: issueData } = useQuery(ISSUE, {
     variables: { id: panel.id },

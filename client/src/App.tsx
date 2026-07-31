@@ -78,7 +78,12 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route element={<ProtectedLayout />}>
+        {/* Hierarchy drilldown — one page, one route per depth, state in the URL. */}
         <Route path="/" element={<Dashboard />} />
+        <Route path="/projects/:projectId" element={<Dashboard />} />
+        <Route path="/projects/:projectId/features/:featureId" element={<Dashboard />} />
+        <Route path="/projects/:projectId/features/:featureId/test-cases/:testCaseId" element={<Dashboard />} />
+        <Route path="/projects/:projectId/features/:featureId/test-cases/:testCaseId/issues/:issueId" element={<Dashboard />} />
         <Route path="/app-tests" element={<AppTests />} />
         <Route path="/app-tests/:id" element={<AppTestDetail />} />
         <Route path="/user-tests" element={<UserTests />} />
@@ -91,8 +96,9 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/help" element={<Help />} />
+        {/* Inside the layout: a signed-in user who mistypes a URL keeps the shell. */}
+        <Route path="*" element={<NotFound />} />
       </Route>
-      <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
     </>

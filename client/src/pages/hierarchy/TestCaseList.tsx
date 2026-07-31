@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { Plus, FolderOpen, Pencil, Trash2, ArrowRightLeft, Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { TEST_CASES, DELETE_TEST_CASE } from "../../graphql/hierarchy";
-import { useNav } from "../../store/nav";
+import { useNav, useDrill } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
@@ -35,7 +35,8 @@ function ResultBadge({ result }: { result: string | null }) {
 
 export function TestCaseList({ featureId }: { featureId: string }) {
   const { t } = useTranslation();
-  const { selectTestCase, openPanel, projectId } = useNav();
+  const { openPanel } = useNav();
+  const { projectId, goTestCase } = useDrill();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(TEST_CASES, { variables: { featureId }, fetchPolicy: "cache-and-network" });
@@ -141,7 +142,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => selectTestCase(tc.id)} className="text-left font-medium hover:underline">
+                    <button onClick={() => goTestCase(tc.id)} className="text-left font-medium hover:underline">
                       {tc.name}
                     </button>
                   </td>
@@ -157,7 +158,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                   <td className="px-3 py-2 tabular-nums">{tc.issueCount}</td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
-                      <IconBtn title={t("c.open")} onClick={() => selectTestCase(tc.id)}>
+                      <IconBtn title={t("c.open")} onClick={() => goTestCase(tc.id)}>
                         <FolderOpen className="h-3.5 w-3.5" />
                       </IconBtn>
                       <IconBtn

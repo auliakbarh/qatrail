@@ -11,6 +11,7 @@ export const ISSUE_REVIEW = gql`mutation($id: ID!,$pass:Boolean!,$note:String){ 
 export const ISSUE_REOPEN = gql`mutation($id: ID!,$note:String){ issueReopen(id:$id,note:$note){ id status } }`;
 export const SET_ISSUE_ARCHIVED = gql`mutation($id: ID!,$archived:Boolean!){ setIssueArchived(id:$id,archived:$archived){ id archived } }`;
 export const SET_PRODUCTION_ISSUE = gql`mutation($id: ID!,$value:Boolean!){ setProductionIssue(id:$id,value:$value){ id isProductionIssue slaStatus } }`;
+export const SET_ISSUE_SCOPE = gql`mutation($id: ID!,$appTestId:ID,$sessionTestId:ID){ setIssueScope(id:$id,appTestId:$appTestId,sessionTestId:$sessionTestId){ id appTestId appTestKey sessionTestId sessionTestKey } }`;
 
 export const NOTIFICATIONS = gql`
   query Notifications {

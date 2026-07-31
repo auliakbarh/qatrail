@@ -203,7 +203,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
             {loading && !data && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
             {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("issue.none")}</td></tr>}
             {rows.map((i: any, idx: number) => (
-              <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}`)}>
+              <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}?from=${scope === "assigned" ? "assigned" : "issues"}`)}>
                 {bulk && (
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleSel(i.id)} className="cursor-pointer" />

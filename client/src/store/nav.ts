@@ -1,6 +1,7 @@
 import { create } from "zustand";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
-export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment" | "movetc" | "movefeature" | "clonefeature" | "clonetc" | "importtc" | "apptest" | "apptestbuild" | "assigntc" | "usertest" | "pickusertest" | "sessiontest" | "sessiontestapp" | "assignsessiontc" | "closesession" | "moveapptest";
+export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment" | "movetc" | "movefeature" | "clonefeature" | "clonetc" | "importtc" | "apptest" | "apptestbuild" | "assigntc" | "usertest" | "pickusertest" | "sessiontest" | "sessiontestapp" | "assignsessiontc" | "closesession" | "moveapptest" | "issuescope" | "testcaseview";
 export interface PanelState {
   kind: PanelKind;
   mode: "create" | "edit";
@@ -9,31 +10,74 @@ export interface PanelState {
 }
 
 interface NavState {
-  projectId: string | null;
-  featureId: string | null;
-  testCaseId: string | null;
-  issueId: string | null;
   panel: PanelState | null;
-
-  selectProject: (id: string | null) => void;
-  selectFeature: (id: string | null, projectId?: string) => void;
-  selectTestCase: (id: string | null) => void;
-  selectIssue: (id: string | null) => void;
   openPanel: (p: PanelState) => void;
   closePanel: () => void;
 }
 
+// Only the right-hand panel is app state. The drilldown itself lives in the URL
+// (see `useDrill`) so back/forward, refresh and shared links all work.
 export const useNav = create<NavState>((set) => ({
-  projectId: null,
-  featureId: null,
-  testCaseId: null,
-  issueId: null,
   panel: null,
-
-  selectProject: (id) => set({ projectId: id, featureId: null, testCaseId: null, issueId: null, panel: null }),
-  selectFeature: (id, projectId) => set((s) => ({ projectId: projectId ?? s.projectId, featureId: id, testCaseId: null, issueId: null, panel: null })),
-  selectTestCase: (id) => set({ testCaseId: id, issueId: null, panel: null }),
-  selectIssue: (id) => set({ issueId: id, panel: null }),
   openPanel: (panel) => set({ panel }),
   closePanel: () => set({ panel: null }),
 }));
+
+export interface DrillIds {
+  projectId?: string | null;
+  featureId?: string | null;
+  testCaseId?: string | null;
+  issueId?: string | null;
+}
+
+// The canonical drilldown URL. Each level requires the one above it, so a
+// half-filled object degrades to the deepest complete prefix.
+export function drillPath({ projectId, featureId, testCaseId, issueId }: DrillIds): string {
+  if (!projectId) return "/";
+  let path = `/projects/${projectId}`;
+  if (!featureId) return path;
+  path += `/features/${featureId}`;
+  if (!testCaseId) return path;
+  path += `/test-cases/${testCaseId}`;
+  if (!issueId) return path;
+  return `${path}/issues/${issueId}`;
+}
+
+// Drilldown read from / written to the URL. `?from=` (breadcrumb origin) is
+// carried along so the trail doesn't change identity halfway through.
+export function useDrill() {
+  const { projectId = null, featureId = null, testCaseId = null, issueId = null } = useParams();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const from = params.get("from");
+
+  const go = (ids: DrillIds) => {
+    const path = drillPath(ids);
+    useNav.getState().closePanel();
+    // The origin trail (app test / session / issue list) only describes how the
+    // test case was reached — above that level it's noise, so it's dropped.
+    navigate(from && ids.testCaseId ? `${path}?from=${encodeURIComponent(from)}` : path);
+  };
+
+  return {
+    projectId,
+    featureId,
+    testCaseId,
+    issueId,
+    goProject: (id: string | null) => go({ projectId: id }),
+    goFeature: (id: string | null, pid?: string) => go({ projectId: pid ?? projectId, featureId: id }),
+    goTestCase: (id: string | null) => go({ projectId, featureId, testCaseId: id }),
+    goIssue: (id: string | null) => go({ projectId, featureId, testCaseId, issueId: id }),
+    // One level up from wherever we are.
+    up: () =>
+      go(
+        issueId
+          ? { projectId, featureId, testCaseId }
+          : testCaseId
+            ? { projectId, featureId }
+            : featureId
+              ? { projectId }
+              : {},
+      ),
+  };
+}

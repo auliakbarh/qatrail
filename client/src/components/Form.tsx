@@ -31,17 +31,19 @@ export function FormActions({
   onCancel,
   saving,
   saveLabel,
+  disabled,
 }: {
   onCancel: () => void;
   saving?: boolean;
   saveLabel?: string;
+  disabled?: boolean; // blocks submit without claiming a save is in flight
 }) {
   const { t } = useTranslation();
   return (
     <div className="flex gap-2 pt-2">
       <button
         type="submit"
-        disabled={saving}
+        disabled={saving || disabled}
         className="flex-1 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
         {saving ? t("c.saving") : (saveLabel ?? t("c.save"))}

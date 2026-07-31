@@ -1,31 +1,33 @@
 import { useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ISSUE } from "../graphql/issue";
-import { useNav } from "../store/nav";
+import { drillPath } from "../store/nav";
 
-// Deep-link target for /issues/:id. Resolves the issue's project/feature/test-case
-// chain, primes nav, and redirects into the dashboard drilldown. If the issue was
-// deleted (query resolves to null), shows a not-found state instead of hanging.
+// Deep-link target for /issues/:id — the canonical issue URL used by notifications,
+// Discord and JIRA comments. Resolves the issue's project/feature/test-case chain and
+// redirects to the full drilldown URL, carrying `?from=` so the breadcrumb keeps its
+// origin. If the issue was deleted (query resolves to null), shows a not-found state.
 export default function IssuePage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { data, loading, error } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
 
   useEffect(() => {
     const i = data?.issue;
     if (!i) return;
-    useNav.setState({
+    const path = drillPath({
       projectId: i.projectId,
       featureId: i.featureId,
       testCaseId: i.testCaseId,
       issueId: i.id,
-      panel: null,
     });
-    navigate("/", { replace: true });
-  }, [data, navigate]);
+    const search = params.toString();
+    navigate(search ? `${path}?${search}` : path, { replace: true });
+  }, [data, navigate, params]);
 
   const notFound = error || (!loading && !data?.issue);
   if (notFound) {

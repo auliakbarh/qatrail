@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, Copy } from "lucide-react";
 import { PROJECTS, DELETE_PROJECT, CLONE_PROJECT } from "../../graphql/hierarchy";
-import { useNav } from "../../store/nav";
+import { useNav, useDrill } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
@@ -17,7 +17,8 @@ import { canManageContent } from "../../lib/perm";
 
 export function ProjectList() {
   const { t } = useTranslation();
-  const { selectProject, openPanel } = useNav();
+  const { openPanel } = useNav();
+  const { goProject } = useDrill();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(PROJECTS, { fetchPolicy: "cache-and-network" });
@@ -111,7 +112,7 @@ export function ProjectList() {
                   <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                     <td className="px-3 py-2">
-                      <button onClick={() => selectProject(p.id)} className="text-left font-medium hover:underline">
+                      <button onClick={() => goProject(p.id)} className="text-left font-medium hover:underline">
                         {p.name}
                       </button>
                       {p.description && (
@@ -125,7 +126,7 @@ export function ProjectList() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">
-                        <IconBtn title={t("c.open")} onClick={() => selectProject(p.id)}>
+                        <IconBtn title={t("c.open")} onClick={() => goProject(p.id)}>
                           <FolderOpen className="h-3.5 w-3.5" />
                         </IconBtn>
                         <IconBtn

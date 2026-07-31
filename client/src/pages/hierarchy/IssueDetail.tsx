@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Archive, ArchiveRestore, Copy, Printer } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, Copy, Printer, FileText } from "lucide-react";
 import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA } from "../../graphql/issue";
 import { HEALTH } from "../../graphql";
 import {
@@ -16,7 +16,7 @@ import {
   SET_ISSUE_ARCHIVED,
   SET_PRODUCTION_ISSUE,
 } from "../../graphql/workflow";
-import { useNav } from "../../store/nav";
+import { useNav, useDrill } from "../../store/nav";
 import { useAuth } from "../../store/auth";
 import { cn, fmtDateTime as fmt } from "../../lib/utils";
 import { printIssueReport } from "../../lib/printReport";
@@ -38,7 +38,8 @@ function Badge({ children, variant = "muted" }: { children: any; variant?: "mute
 
 export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string }) {
   const { t } = useTranslation();
-  const { selectIssue, openPanel } = useNav();
+  const { openPanel } = useNav();
+  const { up } = useDrill();
   const { user } = useAuth();
   const { data, loading } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
@@ -91,7 +92,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       <div className="rounded border border-border">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <button onClick={() => selectIssue(null)} className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted">
+            <button onClick={up} className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted">
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
             <span className="font-mono text-xs text-muted-foreground">{i.key}</span>
@@ -99,6 +100,14 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           </div>
           <div className="flex items-center gap-1.5">
             <WatchButton target="ISSUE" targetId={id} />
+            {/* Read the steps the finding came from without leaving the issue. */}
+            <button
+              onClick={() => openPanel({ kind: "testcaseview", mode: "edit", id: testCaseId })}
+              title={t("iss.viewTestCase")}
+              className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
+            >
+              <FileText className="h-3 w-3" /> {t("iss.testCase")}
+            </button>
             <button onClick={copyLink} title={t("iss.copyLinkTitle")} className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
               <Copy className="h-3 w-3" /> {t("iss.link")}
             </button>
@@ -244,7 +253,9 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           )}
           {i.status === "NEED_REVIEW" && (
             <>
-              <ActBtn allowed={canQA} primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id } }))}>
+              {/* The retest carries the issue's own scope, so the record lands on the same
+                  app test / session the finding came from — not as a scope-less run. */}
+              <ActBtn allowed={canQA} primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id, appTestId: i.appTestId, sessionTestId: i.sessionTestId } }))}>
                 {t("act.retestReview")}
               </ActBtn>
               <ActBtn allowed={canQA} destructive onClick={guard(canQA, () => setModal("reopen"))}>{t("act.reopen")}</ActBtn>
@@ -277,19 +288,29 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
       {/* Comments */}
       <CommentsCard target="ISSUE" targetId={id} />
 
-      {/* Where this finding came from: an app test or a testing session */}
-      {i.appTestId && (
-        <div className="rounded border border-border px-5 py-3 text-xs">
-          <span className="text-muted-foreground">{t("at.relatedAppTest")}: </span>
-          <a href={`/app-tests/${i.appTestId}`} className="text-primary hover:underline">{i.appTestKey}</a>
-        </div>
-      )}
-      {i.sessionTestId && (
-        <div className="rounded border border-border px-5 py-3 text-xs">
-          <span className="text-muted-foreground">{t("st.relatedSession")}: </span>
-          <a href={`/session-tests/${i.sessionTestId}`} className="text-primary hover:underline">{i.sessionTestKey}</a>
-        </div>
-      )}
+      {/* Where this finding came from: an app test or a testing session. QA can
+          re-point it — issues filed outside the app-test flow land here unlinked. */}
+      <div className="flex items-center gap-2 rounded border border-border px-5 py-3 text-xs">
+        {i.appTestId ? (
+          <>
+            <span className="text-muted-foreground">{t("at.relatedAppTest")}: </span>
+            <a href={`/app-tests/${i.appTestId}`} className="text-primary hover:underline">{i.appTestKey}</a>
+          </>
+        ) : i.sessionTestId ? (
+          <>
+            <span className="text-muted-foreground">{t("st.relatedSession")}: </span>
+            <a href={`/session-tests/${i.sessionTestId}`} className="text-primary hover:underline">{i.sessionTestKey}</a>
+          </>
+        ) : (
+          <span className="text-muted-foreground">{t("iss.scopeNotLinked")}</span>
+        )}
+        <button
+          onClick={guard(canQA, () => openPanel({ kind: "issuescope", mode: "edit", id, initial: i }))}
+          className={cn("ml-auto h-7 rounded border border-border px-2 hover:bg-muted", !canQA && "opacity-40")}
+        >
+          {i.appTestId || i.sessionTestId ? t("iss.scopeChange") : t("iss.scopeLink")}
+        </button>
+      </div>
 
       {/* Timeline */}
       <div className="rounded border border-border">

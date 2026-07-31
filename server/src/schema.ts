@@ -661,6 +661,8 @@ export const typeDefs = /* GraphQL */ `
     issueReopen(id: ID!, note: String): Issue!
     setIssueArchived(id: ID!, archived: Boolean!): Issue!
     setProductionIssue(id: ID!, value: Boolean!): Issue!
+    # Re-point a finding at an app test or a testing session (pass neither to unlink).
+    setIssueScope(id: ID!, appTestId: ID, sessionTestId: ID): Issue!
     postIssueToJira(id: ID!, jiraKey: String!): Issue!
 
     bulkArchiveIssues(ids: [ID!]!, archived: Boolean!): Int!
