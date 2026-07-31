@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             { to: "/session-tests", label: t("nav.sessionTests"), Icon: CalendarCheck, end: false, tree: false },
             { to: "/user-tests", label: t("nav.userTests"), Icon: KeyRound, end: false, tree: false },
             { to: "/issues", label: t("nav.allIssues"), Icon: ListChecks, end: true, tree: false },
-            { to: "/pending-test-cases", label: t("nav.pendingTestCases"), Icon: ClipboardCheck, end: true, tree: false, badge: pendingCount },
+            { to: "/approvals", label: t("nav.approvals"), Icon: ClipboardCheck, end: true, tree: false, badge: pendingCount },
             ...(user?.role === "ENGINEER"
               ? [{ to: "/assigned", label: t("nav.assigned"), Icon: Inbox, end: true, tree: false }]
               : []),

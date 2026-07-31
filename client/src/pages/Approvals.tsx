@@ -85,7 +85,7 @@ function requestRow(r: any) {
   };
 }
 
-export default function PendingTestCases() {
+export default function Approvals() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const refetchAfter = [

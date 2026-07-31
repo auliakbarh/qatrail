@@ -45,7 +45,7 @@ export default function TestCasePage() {
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/30 px-4 text-center">
         <h1 className="text-lg font-semibold">{t("tcPage.notFoundTitle")}</h1>
         <p className="max-w-sm text-sm text-muted-foreground">{t("tcPage.notFoundText")}</p>
-        <Link to="/pending-test-cases" className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
+        <Link to="/approvals" className="text-xs text-primary underline underline-offset-2 hover:text-primary/80">
           {t("tca.title")}
         </Link>
       </div>

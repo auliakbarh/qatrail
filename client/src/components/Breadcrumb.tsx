@@ -57,7 +57,7 @@ export function Breadcrumb() {
   } else if (origin === "issues") {
     crumbs.push({ label: t("nav.allIssues"), onClick: () => navigate("/issues") });
   } else if (origin === "pending") {
-    crumbs.push({ label: t("nav.pendingTestCases"), onClick: () => navigate("/pending-test-cases") });
+    crumbs.push({ label: t("nav.approvals"), onClick: () => navigate("/approvals") });
   } else {
     crumbs.push({ label: t("dash.projects"), onClick: () => goProject(null) });
     if (projectId) {
