@@ -132,6 +132,7 @@ export default function Help() {
             <P><Trans i18nKey="help.approval.p6" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p7" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p8" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p9" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.approval.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
@@ -218,6 +219,9 @@ export default function Help() {
 
           <Doc id="analytics" title={t("help.sec.analytics")}>
             <P><Trans i18nKey="help.analytics.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.analytics.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.analytics.p3" components={{ b: <B /> }} /></P>
+            <Callout><Trans i18nKey="help.analytics.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
           <Doc id="notifications" title={t("help.sec.notifications")}>

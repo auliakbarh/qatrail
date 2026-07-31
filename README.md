@@ -29,13 +29,15 @@ workflow, SLA tracking, analytics, and role-based access.
 - Hierarchy: Project → Feature → Test Case → Record Test (PASS / FAIL / BLOCKED); pass %/coverage & readiness (an open issue keeps a case out of the pass count)
 - Issues: Defect/Bug, full workflow (accept/reject/need-clarify/solve+postmortem/review), retest-to-close, SLA per priority (production), notifications (live)
 - Session tests (SIT/UAT): one testing event per date with stakeholders, apps under test (linked app test or typed by hand, versions snapshotted), agreed target pass %, close-with-summary and a printable sign-off report
-- Human keys: `ISSUE-/REC-/FEAT-/TC-/APP-/ST-<n>`; deep links `/issues/:id`, `/session-tests/:id`, `/app-tests/:id`
+- Human keys: `PRJ-/FEAT-/TC-/REC-/ISSUE-/APP-/ST-/UT-<n>`; deep links `/issues/:id`, `/session-tests/:id`, `/app-tests/:id`
 - The hierarchy drilldown is in the URL — `/projects/:p/features/:f/test-cases/:tc/issues/:i` — so back/forward, refresh and shared links work at every level; the breadcrumb's origin rides on `?from=`
 - Views: All issues & Assigned-to-me with search, status/priority/type/SLA filters, group-by (collapsible), sort, row numbers
 - Test cases movable across features/projects; attachment previews (image, playable video + download, markdown/json/csv formatted in the right panel)
 - Full English/Indonesian i18n (language toggle in the sidebar)
-- Analytics: totals, resolution rate, avg resolve, SLA compliance, created-vs-resolved (date range), status donut, key coverage — scopeable to a project, feature or one testing session
-- Roles: super admin / admin / QA / engineer, plus **viewer** — read-only (sign in, change own password, see everything, act on nothing)
+- Analytics: totals, resolution rate, avg resolve, SLA compliance, created-vs-resolved (date range), status donut, key coverage grouped per project, and work-by-person split per role — scopeable to a project, feature or one testing session, exportable as PDF via native print
+- Approval queue (**Approvals**): new and edited test cases wait for a QA lead, and so do move / copy / delete / activate / deactivate on a project, feature, test case or app test — the target keeps working until the decision lands. Approver must match or outrank the author and never be them; the requester can withdraw; admins can set auto-approval to immediate or after N hours
+- Retirement: a project, feature or test case can be made **inactive** — it keeps its history and stays visible, but leaves coverage, the counts and every new assignment or run, and becomes read-only. Retiring a project does that to everything under it without touching a row below it
+- Roles: super admin / admin / **QA lead** (QA + test case review) / QA / engineer, plus **viewer** — read-only (sign in, change own password, see everything, act on nothing)
 - Admin: users, maintenance, SLA config, Discord webhook; forgot/reset password
 - Prepared seams: Microsoft SSO, SharePoint attachments, JIRA comment post
 
