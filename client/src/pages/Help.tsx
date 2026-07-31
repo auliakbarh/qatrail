@@ -5,6 +5,8 @@ import { UI_VERSION } from "../config";
 // Documentation-style help page: sticky table of contents + long-form sections.
 const SECTION_IDS = [
   "overview",
+  "flow",
+  "usecases",
   "roles",
   "start",
   "structure",
@@ -72,6 +74,33 @@ export default function Help() {
           <Doc id="overview" title={t("help.sec.overview")}>
             <P><Trans i18nKey="help.overview.p1" components={{ b: <B /> }} /></P>
             <P>{t("help.overview.p2")}</P>
+          </Doc>
+
+          <Doc id="flow" title={t("help.sec.flow")}>
+            <P>{t("help.flow.p1")}</P>
+            <Pre>{t("help.flow.main")}</Pre>
+            <P><Trans i18nKey="help.flow.p2" components={{ b: <B />, code: <Code /> }} /></P>
+            <Pre>{t("help.flow.entry")}</Pre>
+            <P><Trans i18nKey="help.flow.p3" components={{ b: <B /> }} /></P>
+            <Pre>{t("help.flow.approval")}</Pre>
+          </Doc>
+
+          <Doc id="usecases" title={t("help.sec.usecases")}>
+            <P>{t("help.usecases.p1")}</P>
+            <Table
+              head={[t("help.usecases.head.want"), t("help.usecases.head.path")]}
+              rows={[
+                [t("help.usecases.u1"), t("help.usecases.u1p")],
+                [t("help.usecases.u2"), t("help.usecases.u2p")],
+                [t("help.usecases.u3"), t("help.usecases.u3p")],
+                [t("help.usecases.u4"), t("help.usecases.u4p")],
+                [t("help.usecases.u5"), t("help.usecases.u5p")],
+                [t("help.usecases.u6"), t("help.usecases.u6p")],
+                [t("help.usecases.u7"), t("help.usecases.u7p")],
+                [t("help.usecases.u8"), t("help.usecases.u8p")],
+              ]}
+            />
+            <Callout><Trans i18nKey="help.usecases.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
           <Doc id="roles" title={t("help.sec.roles")}>

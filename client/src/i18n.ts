@@ -618,6 +618,82 @@ const en = {
   "help.title": "QATrail — User Guide",
   "help.subtitle": "How the app is organized and how to run the QA workflow end to end. UI v{{v}}.",
   "help.sec.overview": "Overview",
+  "help.sec.flow": "How it fits together",
+  "help.sec.usecases": "Use cases",
+  "help.flow.p1": "The catalogue on the left, the testing on the right. A test case is written once and reviewed once; every run afterwards happens inside a context — an app test (one engineer build) or a testing session (one SIT/UAT round) — and that context is what a report is built from.",
+  "help.flow.main": `  CATALOGUE                          TESTING
+  ─────────                          ───────
+  Project  (PRJ-n)
+     |
+     +-- Feature  (FEAT-n)
+            |
+            +-- Test case  (TC-n)
+                   |
+                   | approval: QA lead reviews
+                   v
+                APPROVED --- assigned to --+--> App test   (APP-n)
+                                           |    one build from an engineer
+                                           |
+                                           +--> Session    (ST-n)
+                                                one SIT/UAT round
+                                                     |
+                                    run the case     |
+                                           +---------+
+                                           v
+                                   Record  (REC-n)
+                                   PASS / FAIL / BLOCKED
+                                           |
+                              FAIL         v
+                                   Issue  (ISSUE-n)  --> engineer
+                                           |             fixes it
+                                    retest v
+                                   PASS -> issue CLOSED
+                                           |
+                                           v
+                            pass % / coverage -> sign-off report`,
+  "help.flow.p2": "A case counts as passed only when its latest run is PASS <b>and</b> it has no open issue — which is why a green run with an unresolved finding still holds the pass % down. A run always belongs somewhere: recording from an app test or a session scopes it automatically, and so does the drilldown when you got there from one (the <code>?from=</code> in the address bar).",
+  "help.flow.entry": `WHERE A RUN CAN COME FROM
+
+  App test page    tick the rows -> Run selected -> one panel,
+                   one timestamp, a verdict per case   (scoped to APP-n)
+
+  Session page     tick the rows -> Run selected       (scoped to ST-n)
+
+  Test case page   Add record -> one case at a time.
+                   Reached from an app test / session? scoped to it.
+                   Reached from the hierarchy? nothing owns the run,
+                   so the app offers to open a session first.
+
+  Issue (retest)   Retest on the issue, or tick several in the issue
+                   list -> Retest. The run carries the issue's own scope.`,
+  "help.flow.p3": "Content changes never happen behind anyone's back: a new or edited case, and any move / copy / delete / retire, waits in <b>Approvals</b> while the target keeps working exactly as before.",
+  "help.flow.approval": `  new / edited case ---> PENDING ---> approved --> live in the catalogue
+                                 \\--> rejected --> author edits, asks again
+
+  move / copy / delete / retire -> request opens, TARGET KEEPS WORKING
+                                   approved -> the action runs now
+                                   rejected -> nothing happened
+                                   requester may withdraw it`,
+  "help.usecases.p1": "The paths people actually take, end to end.",
+  "help.usecases.head.want": "You want to",
+  "help.usecases.head.path": "Path",
+  "help.usecases.u1": "Test a build an engineer just handed over",
+  "help.usecases.u1p": "App tests → New (link + app/backend version). QA assigns the cases → tick them → Run selected. Each FAIL opens an issue prefilled with the build's environment, platform and versions, assigned to the engineer. A fix arrives as a new build on the same app test; the app test turns PASSED when every assigned case passes.",
+  "help.usecases.u2": "Run a SIT or UAT round with stakeholders",
+  "help.usecases.u2p": "Session tests → New: date, stakeholders, agreed minimum pass %, and the apps under test (link an app test to snapshot its versions, or type them). Assign the cases, run them, then Close with a summary and print the sign-off report. The report reads the snapshot, so a later build can't rewrite a signed-off number.",
+  "help.usecases.u3": "Verify a pile of fixes at once",
+  "help.usecases.u3p": "Issues → filter Status = NEED_REVIEW (add ?appTest= / ?session= by clicking through from that page) → tick → Retest. PASS closes, FAIL hands it back, BLOCKED just records the attempt. Issues an engineer moved in the meantime are named as skipped.",
+  "help.usecases.u4": "Report something found in production",
+  "help.usecases.u4p": "Open the test case it belongs to → Add issue → environment PRODUCTION, then tick Production issue. Only that combination starts the SLA clock. Findings made while testing — on an app test or in a session — never carry it.",
+  "help.usecases.u5": "Set up a new project's catalogue",
+  "help.usecases.u5p": "Project → Features → Test cases, or import a CSV (one row per step, blank name continues the previous case; missing features are created). Everything lands as PENDING and goes live once a QA lead approves it — bulk approve from Approvals.",
+  "help.usecases.u6": "Retire or move content without breaking history",
+  "help.usecases.u6p": "Deactivate or Move on the project, feature or case. It opens a request; the target keeps working until someone decides. Retired content keeps its history and stays readable, but leaves the lists, the coverage and every new run.",
+  "help.usecases.u7": "Know whether a release is ready",
+  "help.usecases.u7p": "Analytics, scoped to a project, a feature or one session: pass % against the agreed target, findings still open, resolution rate, SLA compliance, and work per person. Print it straight from the page.",
+  "help.usecases.u8": "Pick up what is waiting for you",
+  "help.usecases.u8p": "Assigned to me for issues on your plate, Approvals for reviews only you can make (the badge counts only what you personally may approve), and the bell for live notifications — SLA breaches included.",
+  "help.usecases.callout": "Two things decide where your work shows up: <b>a case must be APPROVED and assigned</b> before a run counts, and <b>a run must belong to an app test or a session</b> before a report can include it.",
   "help.sec.roles": "Roles & access",
   "help.sec.start": "Getting started",
   "help.sec.structure": "Projects, features, test cases",
@@ -1662,6 +1738,83 @@ const id: typeof en = {
   "help.title": "QATrail — Panduan Pengguna",
   "help.subtitle": "Bagaimana aplikasi ini disusun dan cara menjalankan alur kerja QA dari awal hingga akhir. UI v{{v}}.",
   "help.sec.overview": "Ikhtisar",
+  "help.sec.flow": "Cara semuanya terhubung",
+  "help.sec.usecases": "Use case",
+  "help.flow.p1": "Katalog di kiri, pengujian di kanan. Test case ditulis sekali dan direview sekali; setiap run sesudahnya terjadi di dalam sebuah konteks — app test (satu build dari engineer) atau sesi testing (satu siklus SIT/UAT) — dan konteks itulah yang jadi dasar laporan.",
+  "help.flow.main": `  KATALOG                            PENGUJIAN
+  ───────                            ─────────
+  Proyek  (PRJ-n)
+     |
+     +-- Fitur  (FEAT-n)
+            |
+            +-- Test case  (TC-n)
+                   |
+                   | approval: QA lead mereview
+                   v
+                APPROVED --- di-assign ke -+--> App test   (APP-n)
+                                           |    satu build dari engineer
+                                           |
+                                           +--> Sesi       (ST-n)
+                                                satu siklus SIT/UAT
+                                                     |
+                                    jalankan case    |
+                                           +---------+
+                                           v
+                                   Rekaman  (REC-n)
+                                   PASS / FAIL / BLOCKED
+                                           |
+                              FAIL         v
+                                    Isu  (ISSUE-n)  --> engineer
+                                           |            memperbaiki
+                                    retest v
+                                   PASS -> isu CLOSED
+                                           |
+                                           v
+                             pass % / coverage -> laporan sign-off`,
+  "help.flow.p2": "Sebuah case dihitung lulus hanya kalau run terakhirnya PASS <b>dan</b> tidak ada isu terbuka — itu sebabnya run hijau dengan temuan yang belum selesai tetap menahan pass %. Run selalu punya rumah: mencatat dari app test atau sesi otomatis memberinya scope, begitu juga drilldown kalau Anda sampai ke sana dari salah satunya (lihat <code>?from=</code> di address bar).",
+  "help.flow.entry": `DARI MANA SEBUAH RUN BISA DIBUAT
+
+  Halaman app test  centang baris -> Jalankan terpilih -> satu panel,
+                    satu waktu, hasil per case        (scope: APP-n)
+
+  Halaman sesi      centang baris -> Jalankan terpilih  (scope: ST-n)
+
+  Halaman test case Tambah rekaman -> satu case saja.
+                    Datang dari app test / sesi? ikut scope-nya.
+                    Datang dari hierarki? tidak ada yang memilikinya,
+                    jadi aplikasi menawarkan membuka sesi dulu.
+
+  Isu (retest)      Retest di isu, atau centang beberapa di daftar isu
+                    -> Retest. Run-nya membawa scope milik isu itu.`,
+  "help.flow.p3": "Perubahan konten tidak pernah terjadi diam-diam: case baru atau yang diedit, dan setiap pindah / salin / hapus / nonaktifkan, menunggu di <b>Approvals</b> sementara targetnya tetap berjalan seperti biasa.",
+  "help.flow.approval": `  case baru / diedit ---> PENDING ---> disetujui -> hidup di katalog
+                                  \\--> ditolak  -> penulis revisi, ajukan lagi
+
+  pindah / salin / hapus / nonaktifkan -> request dibuka,
+                                          TARGET TETAP BERJALAN
+                                          disetujui -> aksi dijalankan
+                                          ditolak   -> tidak terjadi apa-apa
+                                          pengaju boleh menariknya`,
+  "help.usecases.p1": "Jalur yang benar-benar ditempuh orang, dari awal sampai selesai.",
+  "help.usecases.head.want": "Anda ingin",
+  "help.usecases.head.path": "Jalurnya",
+  "help.usecases.u1": "Menguji build yang baru diserahkan engineer",
+  "help.usecases.u1p": "App tests → Baru (link + versi app/backend). QA assign case-nya → centang → Jalankan terpilih. Tiap FAIL membuka isu yang sudah terisi environment, platform dan versi build itu, ditujukan ke engineer-nya. Perbaikan datang sebagai build baru di app test yang sama; app test jadi PASSED begitu semua case yang di-assign lulus.",
+  "help.usecases.u2": "Menjalankan siklus SIT atau UAT bersama stakeholder",
+  "help.usecases.u2p": "Session tests → Baru: tanggal, stakeholder, target pass % yang disepakati, dan aplikasi yang diuji (tautkan app test untuk mengunci versinya, atau ketik manual). Assign case, jalankan, lalu Tutup dengan ringkasan dan cetak laporan sign-off. Laporan membaca versi yang terkunci, jadi build berikutnya tidak bisa mengubah angka yang sudah ditandatangani.",
+  "help.usecases.u3": "Memverifikasi banyak perbaikan sekaligus",
+  "help.usecases.u3p": "Issues → filter Status = NEED_REVIEW (tambahkan ?appTest= / ?session= dengan mengklik dari halaman itu) → centang → Retest. PASS menutup, FAIL mengembalikan, BLOCKED hanya mencatat percobaannya. Isu yang sempat dipindahkan engineer disebutkan sebagai dilewati.",
+  "help.usecases.u4": "Melaporkan temuan di production",
+  "help.usecases.u4p": "Buka test case terkait → Tambah isu → environment PRODUCTION, lalu centang Production issue. Hanya kombinasi itu yang menjalankan jam SLA. Temuan saat pengujian — di app test maupun sesi — tidak pernah membawanya.",
+  "help.usecases.u5": "Menyiapkan katalog proyek baru",
+  "help.usecases.u5p": "Proyek → Fitur → Test case, atau impor CSV (satu baris per langkah, nama kosong melanjutkan case sebelumnya; fitur yang belum ada dibuatkan). Semua masuk sebagai PENDING dan hidup setelah QA lead menyetujui — bisa borongan dari Approvals.",
+  "help.usecases.u6": "Menonaktifkan atau memindahkan konten tanpa merusak riwayat",
+  "help.usecases.u6p": "Nonaktifkan atau Pindah di proyek, fitur atau case. Itu membuka request; targetnya tetap berjalan sampai ada keputusan. Konten yang dipensiunkan menyimpan riwayatnya dan tetap bisa dibaca, tapi keluar dari daftar, coverage dan semua run baru.",
+  "help.usecases.u7": "Tahu apakah sebuah rilis sudah siap",
+  "help.usecases.u7p": "Analytics, dipersempit ke proyek, fitur atau satu sesi: pass % terhadap target yang disepakati, temuan yang masih terbuka, resolution rate, kepatuhan SLA, dan beban kerja per orang. Cetak langsung dari halamannya.",
+  "help.usecases.u8": "Mengambil apa yang menunggu Anda",
+  "help.usecases.u8p": "Assigned to me untuk isu yang jadi tanggungan Anda, Approvals untuk review yang hanya Anda yang bisa (badge-nya hanya menghitung yang benar-benar boleh Anda setujui), dan lonceng untuk notifikasi langsung — termasuk pelanggaran SLA.",
+  "help.usecases.callout": "Dua hal menentukan pekerjaan Anda muncul di mana: <b>case harus APPROVED dan sudah di-assign</b> sebelum run-nya dihitung, dan <b>run harus milik sebuah app test atau sesi</b> sebelum bisa masuk laporan.",
   "help.sec.roles": "Peran & akses",
   "help.sec.start": "Memulai",
   "help.sec.structure": "Proyek, fitur, test case",
