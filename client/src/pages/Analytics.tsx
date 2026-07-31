@@ -471,6 +471,7 @@ const ROLE_ORDER = ["QA_LEAD", "QA", "ENGINEER", "ADMIN", "SUPER_ADMIN", "VIEWER
 
 function RoleWorkloadCard({ role, rows }: { role: string; rows: any[] }) {
   const { t } = useTranslation();
+  const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const onSort = (key: string) => {
@@ -479,10 +480,13 @@ function RoleWorkloadCard({ role, rows }: { role: string; rows: any[] }) {
     setSortDir(n.dir);
   };
   const cols = WORKLOAD_COLUMNS[role] ?? WORKLOAD_COLUMNS.QA;
-  const list = sortRows(rows, sortKey as any, sortDir);
+  // Search per card: each role is its own list, so narrowing engineers has no
+  // business narrowing QA.
+  const list = sortRows(searchRows(rows, search, ["name"]), sortKey as any, sortDir);
 
   return (
     <Card title={`${role} · ${rows.length}`}>
+      <FilterBar search={search} onSearch={setSearch} />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -513,21 +517,20 @@ function RoleWorkloadCard({ role, rows }: { role: string; rows: any[] }) {
 
 function WorkloadSection({ rows }: { rows: any[] }) {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const list = searchRows(rows ?? [], search, ["name", "role"]);
   const byRole = new Map<string, any[]>();
-  for (const w of list) byRole.set(w.role, [...(byRole.get(w.role) ?? []), w]);
+  for (const w of rows ?? []) byRole.set(w.role, [...(byRole.get(w.role) ?? []), w]);
   const roles = [...byRole.keys()].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
 
   return (
     <div className="space-y-4">
-      {/* One card per role: the same search narrows them all, but each role keeps
-          its own header, columns and sort. */}
-      <div className="rounded border border-border px-5 py-4">
-        <div className="mb-3 text-sm font-semibold">{t("an.workload")}</div>
-        <FilterBar search={search} onSearch={setSearch} />
-        {roles.length === 0 && <div className="text-sm text-muted-foreground">{t("an.noDataYet")}</div>}
-      </div>
+      {/* One card per role, each with its own search, columns and sort — the jobs
+          are different, so the lists are too. */}
+      <div className="text-sm font-semibold">{t("an.workload")}</div>
+      {roles.length === 0 && (
+        <div className="rounded border border-border px-5 py-8 text-center text-sm text-muted-foreground">
+          {t("an.noDataYet")}
+        </div>
+      )}
       {roles.map((role) => (
         <RoleWorkloadCard key={role} role={role} rows={byRole.get(role)!} />
       ))}

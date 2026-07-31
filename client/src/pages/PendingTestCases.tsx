@@ -60,8 +60,12 @@ function requestRow(r: any) {
     id: r.id,
     scope: r.target as "PROJECT" | "FEATURE" | "TEST_CASE" | "APP_TEST",
     testCaseId: r.testCase?.id ?? null,
-    key: r.testCase?.key ?? (r.target === "FEATURE" ? r.feature?.id?.slice(0, 0) || "—" : "—"),
-    name: r.testCase?.name ?? r.feature?.name ?? r.project?.name ?? r.appTest?.key ?? r.label,
+    // Every level has a human key now, so the ID column is filled whatever the
+    // request is about.
+    key: r.testCase?.key ?? r.feature?.key ?? r.project?.key ?? r.appTest?.key ?? "—",
+    // An app test has no name of its own — its key *is* its name, and that is
+    // already in the ID column.
+    name: r.testCase?.name ?? r.feature?.name ?? r.project?.name ?? "—",
     type: r.kind,
     approval: "PENDING",
     rejectReason: null,
