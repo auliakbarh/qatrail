@@ -204,6 +204,7 @@ export default function Help() {
             <P>{t("help.workflow.p1")}</P>
             <Pre>{t("help.workflow.pre")}</Pre>
             <P><Trans i18nKey="help.workflow.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.workflow.bulkRetest" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="sla" title={t("help.sec.sla")}>

@@ -39,6 +39,7 @@ const LABELS: Record<string, string> = {
   issueResume: "Issue resumed",
   issueClarifyRespond: "Clarification provided",
   issueReview: "Issue reviewed",
+  bulkRetest: "Issues retested (bulk)",
   setIssueArchived: "Issue archive toggled",
   setProductionIssue: "Production issue flag toggled",
   setIssueScope: "Issue app test / session changed",

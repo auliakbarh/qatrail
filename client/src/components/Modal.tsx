@@ -6,6 +6,7 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean; // a list of rows with inputs doesn't fit the confirmation width
 }
 
 const FOCUSABLE =
@@ -13,7 +14,7 @@ const FOCUSABLE =
 
 // Centered overlay with ESC-to-close, focus trap, and restore-focus. Use for
 // confirmations; prefer the right panel for detail/edit forms (see DESIGN.md).
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, wide }: ModalProps) {
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   // Keep the latest onClose without making it an effect dep — otherwise callers
@@ -62,7 +63,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto rounded border border-border bg-background"
+        className={`relative z-10 max-h-[90vh] w-full ${wide ? "max-w-2xl" : "max-w-md"} overflow-y-auto rounded border border-border bg-background`}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 id={titleId} className="text-sm font-semibold">{title}</h2>

@@ -29,6 +29,7 @@ workflow, SLA tracking, analytics, and role-based access.
 - Hierarchy: Project → Feature → Test Case → Record Test (PASS / FAIL / BLOCKED); pass %/coverage & readiness (an open issue keeps a case out of the pass count)
 - Bulk test run: tick the assigned test cases in an app test or a testing session and record them in one panel — one timestamp for the batch, a verdict per case, and the issue form opens for each FAIL afterwards
 - Issues: Defect/Bug, full workflow (accept/reject/need-clarify/solve+postmortem/review), retest-to-close, SLA per priority (production), notifications (live)
+- Bulk retest: tick the issues waiting for review in the issue list and verify them together — one run recorded per issue (carrying that issue's own app test or session) plus the verdict it implies; rows an engineer moved in the meantime are counted as skipped, not failed
 - Session tests (SIT/UAT): one testing event per date with stakeholders, apps under test (linked app test or typed by hand, versions snapshotted), agreed target pass %, close-with-summary and a printable sign-off report
 - Recording straight on a test case first offers a testing session instead (a run outside an app test or session can't appear in any sign-off report) — a nudge, not a block; and a case opened from an app test or a session hides the catalogue actions (retire / move / edit), which belong to the project hierarchy
 - Human keys: `PRJ-/FEAT-/TC-/REC-/ISSUE-/APP-/ST-/UT-<n>`; deep links `/issues/:id`, `/session-tests/:id`, `/app-tests/:id`

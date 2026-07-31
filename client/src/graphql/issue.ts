@@ -71,7 +71,7 @@ export const ISSUES_PAGED = gql`
     issuesPaged(scope: $scope, filter: $filter, sort: $sort, dir: $dir, page: $page, pageSize: $pageSize) {
       items {
         id key title type priority status review environment platform slaStatus isProductionIssue createdAt
-        appTestId appTestKey sessionTestId sessionTestKey
+        testCaseId appTestId appTestKey sessionTestId sessionTestKey
         assignee { id name } reporter { id name }
       }
       total

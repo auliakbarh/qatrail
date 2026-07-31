@@ -452,6 +452,19 @@ export const typeDefs = /* GraphQL */ `
     note: String
     attachments: [AttachmentInput!]!
   }
+  # One row of a bulk retest. The run's scope comes from the issue itself, so it
+  # can't be passed in wrong.
+  input BulkRetestInput {
+    issueId: ID!
+    result: TestResult!
+    note: String
+    attachments: [AttachmentInput!]!
+  }
+  # Rights and eligibility differ per row, so ineligible ones are counted, not fatal.
+  type BulkRetestResult {
+    retested: Int!
+    skipped: Int!
+  }
   input PostmortemInput {
     rootCause: String!
     resolution: String!
@@ -786,6 +799,10 @@ export const typeDefs = /* GraphQL */ `
     # QA actions
     issueClarifyRespond(id: ID!, note: String): Issue!
     issueReview(id: ID!, pass: Boolean!, note: String): Issue!
+    # Retest several issues waiting for review at once: one record each (carrying
+    # the issue's own scope) plus the review it implies. Not all-or-nothing —
+    # an issue an engineer moved a second ago is skipped, not a batch failure.
+    bulkRetest(executedAt: String!, inputs: [BulkRetestInput!]!): BulkRetestResult!
     issueReopen(id: ID!, note: String): Issue!
     setIssueArchived(id: ID!, archived: Boolean!): Issue!
     setProductionIssue(id: ID!, value: Boolean!): Issue!

@@ -8,6 +8,7 @@ import { ISSUES_PAGED, BULK_ARCHIVE, BULK_ASSIGN, BULK_DELETE, ENGINEERS } from 
 import { downloadCsv } from "../lib/csv";
 import { withToast } from "../store/toast";
 import { DeleteConfirm } from "./DeleteConfirm";
+import { BulkRetestModal } from "./BulkRetestModal";
 import { cn, fmtDateTime } from "../lib/utils";
 import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
@@ -102,6 +103,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [assignId, setAssignId] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
+  const [retestOpen, setRetestOpen] = useState(false);
   const { data: engData } = useQuery(ENGINEERS);
   const [bulkArchive] = useMutation(BULK_ARCHIVE);
   const [bulkAssign] = useMutation(BULK_ASSIGN);
@@ -172,6 +174,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
             </select>
             <button disabled={!assignId} onClick={() => withToast(bulkAssign({ variables: { ids, assigneeId: assignId } }).then(afterBulk), t("bulk.assigned"), t("c.somethingWrong"))} className="rounded border border-border px-2 py-1 hover:bg-muted disabled:opacity-40">{t("bulk.assign")}</button>
           </span>
+          <button onClick={() => setRetestOpen(true)} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("retest.action")}</button>
           <button onClick={() => setConfirmDel(true)} className="rounded bg-destructive px-2 py-1 font-medium text-white hover:bg-destructive/90">{t("c.delete")}</button>
           <button onClick={clearSel} className="ml-auto underline">{t("bulk.clear")}</button>
         </div>
@@ -249,6 +252,14 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </button>
         </div>
       </div>
+      {/* Verify a batch of fixes. Only NEED_REVIEW rows can be retested; the modal
+          names the rest instead of dropping them quietly. */}
+      <BulkRetestModal
+        open={retestOpen}
+        issues={rows.filter((r: any) => selected.has(r.id))}
+        onClose={() => setRetestOpen(false)}
+        onDone={() => { setRetestOpen(false); void afterBulk(); }}
+      />
       <DeleteConfirm
         open={confirmDel}
         onClose={() => setConfirmDel(false)}

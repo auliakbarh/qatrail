@@ -1,8 +1,11 @@
+import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { canMarkProductionIssue } from "../sla.js";
+import { LIVE_TEST_CASE } from "../approval.js";
+import { assertBlockerNoted } from "./record.js";
 
 // Load the issue or throw. Small helper to keep mutations terse.
 async function getIssue(ctx: Context, id: string) {
@@ -27,8 +30,11 @@ function assertAssignee(user: any, issue: any) {
   }
 }
 // QA actions require the reporter or a QA/QA lead/admin.
+function canReviewIssue(user: any, issue: any) {
+  return issue.reporterId === user.id || user.role === "QA" || user.role === "QA_LEAD" || isAdmin(user.role);
+}
 function assertReporterOrQA(user: any, issue: any) {
-  if (issue.reporterId !== user.id && user.role !== "QA" && user.role !== "QA_LEAD" && !isAdmin(user.role)) {
+  if (!canReviewIssue(user, issue)) {
     throw new Error("Forbidden: only QA/reporter may do this");
   }
 }
@@ -60,6 +66,28 @@ async function transition(
   // Notify watchers of the issue on any transition (author excluded).
   const label = ev.toVal ? `${issue.title} → ${ev.toVal}` : issue.title;
   await notifyWatchers("ISSUE", issue.id, "WATCH", `Issue updated: ${label}`, { issueId: issue.id }, ev.byId);
+  return updated;
+}
+
+// The verdict on a retest: PASS closes the issue, FAIL hands it back to the
+// assignee. Shared by the single review and the bulk retest — `recomputeAppTest`
+// deliberately stays with the caller so a batch can run it once per app test.
+async function applyReview(ctx: Context, user: any, issue: any, pass: boolean, note?: string | null) {
+  if (pass) {
+    return transition(
+      ctx,
+      issue,
+      { status: "CLOSED", closedAt: new Date() },
+      { kind: "status", fromVal: "NEED_REVIEW", toVal: "CLOSED", byId: user.id, note: note ?? undefined },
+    );
+  }
+  const updated = await transition(
+    ctx,
+    issue,
+    { status: "REOPENED" },
+    { kind: "status", fromVal: "NEED_REVIEW", toVal: "REOPENED", byId: user.id, note: note ?? undefined },
+  );
+  await notify(issue.assigneeId, "ASSIGNED", `Issue reopened: ${issue.title}`, issue.id);
   return updated;
 }
 
@@ -225,25 +253,73 @@ export const workflowResolvers = {
       const issue = await getIssue(ctx, args.id);
       assertReporterOrQA(user, issue);
       if (issue.status !== "NEED_REVIEW") throw new Error(`Can only review from NEED_REVIEW`);
-      if (args.pass) {
-        const closed = await transition(
-          ctx,
-          issue,
-          { status: "CLOSED", closedAt: new Date() },
-          { kind: "status", fromVal: "NEED_REVIEW", toVal: "CLOSED", byId: user.id, note: args.note ?? undefined },
-        );
-        if (issue.appTestId) await recomputeAppTest(issue.appTestId);
-        return closed;
-      }
-      const updated = await transition(
-        ctx,
-        issue,
-        { status: "REOPENED" },
-        { kind: "status", fromVal: "NEED_REVIEW", toVal: "REOPENED", byId: user.id, note: args.note ?? undefined },
-      );
-      await notify(issue.assigneeId, "ASSIGNED", `Issue reopened: ${issue.title}`, issue.id);
+      const updated = await applyReview(ctx, user, issue, args.pass, args.note);
       if (issue.appTestId) await recomputeAppTest(issue.appTestId);
       return updated;
+    },
+
+    // Retest a batch of issues waiting for review. Each row writes its own
+    // RecordTest — carrying the issue's own app test / session, so a retest can
+    // never end up scope-less — and then applies the verdict: PASS closes, FAIL
+    // reopens, BLOCKED decides nothing and leaves the issue exactly as it was.
+    async bulkRetest(
+      _: unknown,
+      args: {
+        executedAt: string;
+        inputs: { issueId: string; result: "PASS" | "FAIL" | "BLOCKED"; note?: string | null; attachments: { url: string; kind: any; label?: string | null }[] }[];
+      },
+      ctx: Context,
+    ) {
+      const user = await actor(ctx);
+      const { inputs } = args;
+      if (inputs.length === 0) {
+        throw new GraphQLError("Pick at least one issue to retest.", { extensions: { code: "BAD_USER_INPUT" } });
+      }
+      // The QA's own input is checked up front, before anything is written.
+      inputs.forEach((i) => assertBlockerNoted(i.result, i.note));
+      const executedAt = new Date(args.executedAt);
+
+      let retested = 0;
+      let skipped = 0;
+      const touchedAppTests = new Set<string>();
+      for (const i of inputs) {
+        const issue = await ctx.prisma.issue.findUnique({ where: { id: i.issueId } });
+        // Everything below is somebody else's state — an engineer may have moved
+        // the issue a second ago, or the case may have gone back for review — so
+        // an unusable row is skipped, never fatal for the rest of the batch.
+        if (!issue || issue.status !== "NEED_REVIEW" || !canReviewIssue(user, issue)) {
+          skipped++;
+          continue;
+        }
+        const live = await ctx.prisma.testCase.count({ where: { id: issue.testCaseId, ...LIVE_TEST_CASE } });
+        if (live === 0) {
+          skipped++;
+          continue;
+        }
+        await ctx.prisma.recordTest.create({
+          data: {
+            testCaseId: issue.testCaseId,
+            executedById: user.id,
+            executedAt,
+            note: i.note ?? null,
+            result: i.result,
+            retestIssueId: issue.id,
+            appTestId: issue.appTestId,
+            sessionTestId: issue.sessionTestId,
+            attachments: {
+              create: i.attachments.map((a) => ({ url: a.url, kind: a.kind, label: a.label ?? null })),
+            },
+          },
+        });
+        // A blocked retest reached no verdict, so it says nothing about the issue.
+        if (i.result !== "BLOCKED") await applyReview(ctx, user, issue, i.result === "PASS", i.note);
+        // The run alone moves the app test's coverage, blocked or not.
+        if (issue.appTestId) touchedAppTests.add(issue.appTestId);
+        retested++;
+      }
+      // Once per app test, not once per issue.
+      for (const id of touchedAppTests) await recomputeAppTest(id);
+      return { retested, skipped };
     },
 
     async setIssueArchived(_: unknown, args: { id: string; archived: boolean }, ctx: Context) {
