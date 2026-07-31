@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "./db.js";
-import { assertBlockerNoted, recordResolvers } from "./resolvers/record.js";
+import { assertBlockerNoted, recordData, recordResolvers } from "./resolvers/record.js";
 import { appTestResolvers } from "./resolvers/appTest.js";
 
 describe("assertBlockerNoted", () => {
@@ -12,6 +12,18 @@ describe("assertBlockerNoted", () => {
     expect(() => assertBlockerNoted("BLOCKED", "backend down")).not.toThrow();
     expect(() => assertBlockerNoted("PASS", null)).not.toThrow();
     expect(() => assertBlockerNoted("FAIL", null)).not.toThrow();
+  });
+});
+
+describe("recordData", () => {
+  const base = { testCaseId: "tc", executedById: "u", executedAt: new Date(0), result: "PASS", attachments: [] };
+  it("refuses a run that claims both an app test and a session", () => {
+    expect(() => recordData({ ...base, appTestId: "a", sessionTestId: "s" })).toThrow(/one app test or one session/);
+  });
+  it("takes either one on its own, and neither", () => {
+    expect(recordData({ ...base, appTestId: "a" }).sessionTestId).toBeNull();
+    expect(recordData({ ...base, sessionTestId: "s" }).appTestId).toBeNull();
+    expect(recordData(base).appTestId).toBeNull();
   });
 });
 

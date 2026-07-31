@@ -174,7 +174,11 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
             </select>
             <button disabled={!assignId} onClick={() => withToast(bulkAssign({ variables: { ids, assigneeId: assignId } }).then(afterBulk), t("bulk.assigned"), t("c.somethingWrong"))} className="rounded border border-border px-2 py-1 hover:bg-muted disabled:opacity-40">{t("bulk.assign")}</button>
           </span>
-          <button onClick={() => setRetestOpen(true)} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("retest.action")}</button>
+          {/* Only issues waiting for review can be retested — no button when the
+              selection holds none, rather than a dialog that can only refuse. */}
+          {rows.some((r: any) => selected.has(r.id) && r.status === "NEED_REVIEW") && (
+            <button onClick={() => setRetestOpen(true)} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("retest.action")}</button>
+          )}
           <button onClick={() => setConfirmDel(true)} className="rounded bg-destructive px-2 py-1 font-medium text-white hover:bg-destructive/90">{t("c.delete")}</button>
           <button onClick={clearSel} className="ml-auto underline">{t("bulk.clear")}</button>
         </div>

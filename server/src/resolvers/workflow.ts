@@ -5,7 +5,7 @@ import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { canMarkProductionIssue } from "../sla.js";
 import { LIVE_TEST_CASE } from "../approval.js";
-import { assertBlockerNoted } from "./record.js";
+import { assertBlockerNoted, recordData } from "./record.js";
 
 // Load the issue or throw. Small helper to keep mutations terse.
 async function getIssue(ctx: Context, id: string) {
@@ -297,19 +297,16 @@ export const workflowResolvers = {
           continue;
         }
         await ctx.prisma.recordTest.create({
-          data: {
+          data: recordData({
+            ...i,
             testCaseId: issue.testCaseId,
             executedById: user.id,
             executedAt,
-            note: i.note ?? null,
-            result: i.result,
             retestIssueId: issue.id,
+            // The issue's own scope, never the caller's word for it.
             appTestId: issue.appTestId,
             sessionTestId: issue.sessionTestId,
-            attachments: {
-              create: i.attachments.map((a) => ({ url: a.url, kind: a.kind, label: a.label ?? null })),
-            },
-          },
+          }),
         });
         // A blocked retest reached no verdict, so it says nothing about the issue.
         if (i.result !== "BLOCKED") await applyReview(ctx, user, issue, i.result === "PASS", i.note);

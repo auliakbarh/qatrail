@@ -24,9 +24,9 @@ export function assertBlockerNoted(result: string, note?: string | null): void {
   }
 }
 
-// Create-data for one run. Shared by the single and bulk paths so the columns a
-// run is made of can't drift between them.
-function recordData(
+// Create-data for one run. Shared by every write path so the columns a run is
+// made of can't drift between them.
+export function recordData(
   r: {
     testCaseId: string;
     executedById: string;
@@ -39,6 +39,13 @@ function recordData(
     attachments: { url: string; kind: AttachKind; label?: string | null }[];
   },
 ) {
+  // One run, one context. A record in both would count toward an app test's
+  // coverage and a session's at the same time.
+  if (r.appTestId && r.sessionTestId) {
+    throw new GraphQLError("A run belongs to one app test or one session, not both.", {
+      extensions: { code: "BAD_USER_INPUT" },
+    });
+  }
   return {
     testCaseId: r.testCaseId,
     executedById: r.executedById,

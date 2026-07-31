@@ -87,10 +87,11 @@ export default function Dashboard() {
           testCaseId={testCaseId}
           featureId={featureId}
           retestIssueId={panel.initial?.retestIssueId}
-          // A retest brings its own scope from the issue; otherwise the case is
-          // being run inside whatever context the drilldown was entered from.
-          appTestId={panel.initial?.appTestId ?? originScope.appTestId}
-          sessionTestId={panel.initial?.sessionTestId ?? originScope.sessionTestId}
+          // A retest carries the issue's own scope — including none at all, which
+          // is why the origin must not fill the gap here. Any other run belongs
+          // to whatever context the drilldown was entered from.
+          appTestId={panel.initial?.appTestId ?? (panel.initial?.retestIssueId ? undefined : originScope.appTestId)}
+          sessionTestId={panel.initial?.sessionTestId ?? (panel.initial?.retestIssueId ? undefined : originScope.sessionTestId)}
         />
       )}
       {panel?.kind === "issue" && testCaseId && featureId && (
