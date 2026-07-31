@@ -30,7 +30,14 @@ export const adminResolvers = {
       await requireAdmin(ctx);
       const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
       return (
-        s ?? { maintenanceMode: false, maintenanceMessage: null, discordEnabled: false, discordWebhookUrl: null }
+        s ?? {
+          maintenanceMode: false,
+          maintenanceMessage: null,
+          discordEnabled: false,
+          discordWebhookUrl: null,
+          autoApproveNewHours: null,
+          autoApproveChangeHours: null,
+        }
       );
     },
     async slaTargets(_: unknown, __: unknown, ctx: Context) {
@@ -107,7 +114,14 @@ export const adminResolvers = {
     async updateSetting(_: unknown, args: { input: any }, ctx: Context) {
       await requireAdmin(ctx);
       const data: any = {};
-      for (const k of ["maintenanceMode", "maintenanceMessage", "discordEnabled", "discordWebhookUrl"]) {
+      for (const k of [
+        "maintenanceMode",
+        "maintenanceMessage",
+        "discordEnabled",
+        "discordWebhookUrl",
+        "autoApproveNewHours",
+        "autoApproveChangeHours",
+      ]) {
         if (args.input[k] !== undefined) data[k] = args.input[k];
       }
       return ctx.prisma.setting.upsert({

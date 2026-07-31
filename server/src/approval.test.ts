@@ -5,6 +5,8 @@ import {
   editKeepsApproval,
   isApproverRole,
   approverRolesFor,
+  autoApprovesNow,
+  autoApproveCutoff,
 } from "./approval.js";
 
 const u = (id: string, role: string) => ({ id, role });
@@ -55,6 +57,24 @@ describe("editKeepsApproval", () => {
   it("only a SUPER_ADMIN edit keeps the approval", () => {
     expect(editKeepsApproval("SUPER_ADMIN")).toBe(true);
     for (const role of ["ADMIN", "QA_LEAD", "QA"]) expect(editKeepsApproval(role)).toBe(false);
+  });
+});
+
+describe("auto-approval window", () => {
+  const now = new Date("2026-08-01T12:00:00Z");
+
+  it("0 hours means approve on the spot, null means never", () => {
+    expect(autoApprovesNow(0)).toBe(true);
+    expect(autoApprovesNow(null)).toBe(false);
+    expect(autoApprovesNow(undefined)).toBe(false);
+    expect(autoApprovesNow(24)).toBe(false);
+  });
+
+  it("only a positive window produces a sweep cut-off", () => {
+    expect(autoApproveCutoff(null, now)).toBeNull();
+    expect(autoApproveCutoff(0, now)).toBeNull();
+    expect(autoApproveCutoff(6, now)?.toISOString()).toBe("2026-08-01T06:00:00.000Z");
+    expect(autoApproveCutoff(48, now)?.toISOString()).toBe("2026-07-30T12:00:00.000Z");
   });
 });
 

@@ -66,11 +66,12 @@ async function cached(key: string, fn: () => Promise<Coverage>): Promise<Coverag
   return val;
 }
 
-// Catalogue coverage counts APPROVED cases only: one awaiting review isn't
-// agreed content yet, so adding cases can't drag a project's pass% down.
+// Catalogue coverage counts APPROVED + active cases only: one awaiting review
+// isn't agreed content yet (so adding cases can't drag a project's pass% down),
+// and a retired one is no longer part of what gets tested.
 export async function featureCoverage(featureId: string): Promise<Coverage> {
   return cached(`f:${featureId}`, async () => {
-    const tcs = await prisma.testCase.findMany({ where: { featureId, approval: "APPROVED" }, select: { id: true } });
+    const tcs = await prisma.testCase.findMany({ where: { featureId, approval: "APPROVED", active: true }, select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }
@@ -78,7 +79,7 @@ export async function featureCoverage(featureId: string): Promise<Coverage> {
 export async function projectCoverage(projectId: string): Promise<Coverage> {
   return cached(`p:${projectId}`, async () => {
     const tcs = await prisma.testCase.findMany({
-      where: { feature: { projectId }, approval: "APPROVED" },
+      where: { feature: { projectId }, approval: "APPROVED", active: true },
       select: { id: true },
     });
     return coverageForTestCases(tcs.map((t) => t.id));
@@ -87,7 +88,7 @@ export async function projectCoverage(projectId: string): Promise<Coverage> {
 
 export async function allCoverage(): Promise<Coverage> {
   return cached("all", async () => {
-    const tcs = await prisma.testCase.findMany({ where: { approval: "APPROVED" }, select: { id: true } });
+    const tcs = await prisma.testCase.findMany({ where: { approval: "APPROVED", active: true }, select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }

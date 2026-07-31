@@ -8,7 +8,6 @@ import { Field, inputCls, FormActions } from "../../components/Form";
 import {
   CREATE_TEST_CASE,
   UPDATE_TEST_CASE,
-  TEST_CASES,
   TEST_CASE,
 } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
@@ -79,7 +78,7 @@ export function TestCaseForm({
     }
   }, [editing, data, reset]);
 
-  const refetch = { refetchQueries: [{ query: TEST_CASES, variables: { featureId } }] };
+  const refetch = { refetchQueries: ["TestCases"] };
   const [createTestCase] = useMutation(CREATE_TEST_CASE, refetch);
   const [updateTestCase] = useMutation(UPDATE_TEST_CASE, refetch);
 

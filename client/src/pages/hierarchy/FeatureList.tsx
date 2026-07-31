@@ -94,7 +94,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                   </td>
                   <td className="px-3 py-2 tabular-nums">{f.testCaseCount}</td>
                   <td className="px-3 py-2">
-                    <CoverageBar percent={f.coverage.percent} min={f.minPassPercent} ready={f.ready} />
+                    <CoverageBar percent={f.coverage.percent} min={f.minPassPercent} ready={f.ready} bar={false} />
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">

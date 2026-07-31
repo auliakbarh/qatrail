@@ -2,6 +2,7 @@
 export const typeDefs = /* GraphQL */ `
   enum Role { SUPER_ADMIN ADMIN QA_LEAD QA ENGINEER VIEWER }
   enum TestCaseApproval { PENDING APPROVED REJECTED }
+  enum TestCaseRequestKind { MOVE COPY DELETE DEACTIVATE ACTIVATE }
   enum AttachKind { IMAGE VIDEO MARKDOWN JSON DOC XLS CSV PDF OTHER }
   enum FindingType { DEFECT BUG }
   enum Platform { ANDROID IOS WEB }
@@ -120,6 +121,27 @@ export const typeDefs = /* GraphQL */ `
     canApprove: Boolean!
     # Feature + project of this case, for the pending list and deep links.
     feature: Feature!
+    # Retired cases keep their history but leave the catalogue entirely.
+    active: Boolean!
+    # The open move/copy/delete/(de)activate request, if any.
+    pendingRequest: TestCaseRequest
+  }
+
+  # A change to an existing test case waiting for approval. The case keeps working
+  # until the decision lands.
+  type TestCaseRequest {
+    id: ID!
+    kind: TestCaseRequestKind!
+    state: TestCaseApproval!
+    testCase: TestCase!
+    targetFeature: Feature
+    targetName: String
+    requestedBy: User!
+    requestedAt: String!
+    reviewedBy: User
+    reviewedAt: String
+    rejectReason: String
+    canApprove: Boolean!
   }
 
   type RecordTest {
@@ -186,6 +208,12 @@ export const typeDefs = /* GraphQL */ `
     maintenanceMessage: String
     discordEnabled: Boolean!
     discordWebhookUrl: String
+    # Test case auto-approval, in hours. null = never (a human decides),
+    # 0 = approved immediately, N = approved after waiting N hours undecided.
+    # "New" covers new test cases; "Change" covers edit / move / copy / delete /
+    # activate / deactivate.
+    autoApproveNewHours: Int
+    autoApproveChangeHours: Int
   }
 
   type SlaTargetType {
@@ -211,6 +239,8 @@ export const typeDefs = /* GraphQL */ `
     maintenanceMessage: String
     discordEnabled: Boolean
     discordWebhookUrl: String
+    autoApproveNewHours: Int
+    autoApproveChangeHours: Int
   }
 
   input IssueFilter {
@@ -584,14 +614,18 @@ export const typeDefs = /* GraphQL */ `
     project(id: ID!): Project
     features(projectId: ID!): [Feature!]!
     feature(id: ID!): Feature
-    # APPROVED cases only — the reviewed catalogue.
-    testCases(featureId: ID!): [TestCase!]!
+    # APPROVED + active cases — the live catalogue. Pass includeInactive to also
+    # see retired ones (so they can be revived).
+    testCases(featureId: ID!, includeInactive: Boolean): [TestCase!]!
     # Any case regardless of approval: everyone may read, comment and watch one
     # that is still awaiting review.
     testCase(id: ID!): TestCase
     # Cases awaiting a decision: PENDING + REJECTED, oldest first.
     pendingTestCases(projectId: ID): [TestCase!]!
-    # PENDING cases the current user may actually approve — drives the nav badge.
+    # Open move/copy/delete/(de)activate requests, oldest first.
+    pendingTestCaseRequests(projectId: ID): [TestCaseRequest!]!
+    # PENDING cases + open requests the current user may actually approve —
+    # drives the nav badge.
     pendingApprovalCount: Int!
     exportTestCases(projectId: ID, featureId: ID): [TestCaseExport!]!
 
@@ -666,6 +700,12 @@ export const typeDefs = /* GraphQL */ `
     moveTestCase(id: ID!, featureId: ID!): TestCase!
     cloneTestCase(id: ID!, targetFeatureId: ID!, name: String): TestCase!
     importTestCases(projectId: ID, featureId: ID, dryRun: Boolean!, rows: [ImportTestCaseInput!]!): ImportResult!
+    # Retire / revive a case. Goes through approval like any other change, so the
+    # returned case may still be unchanged with a pendingRequest attached.
+    setTestCaseActive(id: ID!, active: Boolean!): TestCase!
+    approveTestCaseRequest(id: ID!): TestCaseRequest!
+    approveTestCaseRequests(ids: [ID!]!): BulkApproveResult!
+    rejectTestCaseRequest(id: ID!, reason: String!): TestCaseRequest!
     approveTestCase(id: ID!): TestCase!
     # Bulk approve. Not all-or-nothing: rights differ per creator, so cases the
     # actor may not approve are skipped instead of failing the batch.

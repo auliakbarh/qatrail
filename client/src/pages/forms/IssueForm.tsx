@@ -14,7 +14,6 @@ import {
   ISSUES,
   ENGINEERS,
 } from "../../graphql/issue";
-import { TEST_CASES } from "../../graphql/hierarchy";
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
 import { SESSION_TEST, SESSION_TEST_CASES } from "../../graphql/sessiontest";
 import { USER_TESTS } from "../../graphql/usertest";
@@ -54,7 +53,6 @@ interface Form {
 export function IssueForm({
   panel,
   testCaseId,
-  featureId,
   appTestId,
   sessionTestId,
   projectId: ctxProjectId,
@@ -159,7 +157,7 @@ export function IssueForm({
   const refetch = {
     refetchQueries: [
       { query: ISSUES, variables: { testCaseId } },
-      { query: TEST_CASES, variables: { featureId } },
+      "TestCases",
       ...(sessionTestId
         ? [
             { query: SESSION_TEST_CASES, variables: { sessionTestId } },

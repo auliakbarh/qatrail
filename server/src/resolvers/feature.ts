@@ -2,6 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { featureCoverage } from "../coverage.js";
 import { cloneFeatureInto } from "../clone.js";
+import { APPROVED_ONLY } from "./testcase.js";
 
 interface FeatureInput {
   name: string;
@@ -72,10 +73,10 @@ export const featureResolvers = {
     createdAt: (f: any) => f.createdAt.toISOString(),
     updatedAt: (f: any) => f.updatedAt.toISOString(),
     project: (f: any, _: unknown, ctx: Context) => ctx.prisma.project.findUnique({ where: { id: f.projectId } }),
-    // Cases awaiting review aren't part of the agreed catalogue yet, so they
-    // don't inflate the count or the coverage denominator.
+    // Cases awaiting review, or retired, aren't part of the agreed catalogue, so
+    // they don't inflate the count or the coverage denominator.
     testCaseCount: (f: any, _: unknown, ctx: Context) =>
-      ctx.prisma.testCase.count({ where: { featureId: f.id, approval: "APPROVED" } }),
+      ctx.prisma.testCase.count({ where: { featureId: f.id, ...APPROVED_ONLY } }),
     coverage: (f: any) => featureCoverage(f.id),
     async ready(f: any) {
       const cov = await featureCoverage(f.id);

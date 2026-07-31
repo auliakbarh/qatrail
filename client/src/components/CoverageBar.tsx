@@ -5,17 +5,21 @@ interface CoverageBarProps {
   percent: number;
   min: number;
   ready: boolean;
+  // Feature rows show the number + badge only — the bar is noise at that depth.
+  bar?: boolean;
 }
 
 // Compact pass% bar + ready/below badge. Bar is monochrome per DESIGN.md;
 // the badge carries the ready state.
-export function CoverageBar({ percent, min, ready }: CoverageBarProps) {
+export function CoverageBar({ percent, min, ready, bar = true }: CoverageBarProps) {
   const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 rounded-full bg-muted">
-        <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
-      </div>
+      {bar && (
+        <div className="h-1.5 w-16 rounded-full bg-muted">
+          <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+        </div>
+      )}
       <span className="tabular-nums text-xs">{percent}%</span>
       <span
         className={cn(

@@ -86,6 +86,17 @@ enum CommentTarget {
   TEST_CASE
 }
 
+// A change to an existing test case that needs approval before it happens. The
+// case keeps working until the decision lands — a request must not make content
+// disappear by itself.
+enum TestCaseRequestKind {
+  MOVE
+  COPY
+  DELETE
+  DEACTIVATE
+  ACTIVATE
+}
+
 // Kind of testing session. OTHER carries a free-text label in kindOther.
 enum SessionKind {
   SIT
@@ -134,6 +145,9 @@ model User {
   projects        Project[]  @relation("projectOwner")
   testCases       TestCase[] @relation("testCaseAuthor")
   testCasesReviewed TestCase[] @relation("testCaseReviewer")
+
+  testCaseRequests         TestCaseRequest[] @relation("testCaseRequester")
+  testCaseRequestsReviewed TestCaseRequest[] @relation("testCaseRequestReviewer")
   recordTests    RecordTest[]    @relation("testExecutor")
   reportedIssues Issue[]         @relation("reporter")
   assignedIssues Issue[]         @relation("assignee")
@@ -212,7 +226,11 @@ model TestCase {
   reviewedById String?
   reviewedBy   User?            @relation("testCaseReviewer", fields: [reviewedById], references: [id])
   rejectReason String?
+  // Retired case: keeps its history but leaves the catalogue — no coverage, no
+  // new assignment, no new run. Flipping this needs approval too.
+  active       Boolean          @default(true)
 
+  requests         TestCaseRequest[]
   steps            TestCaseStep[]
   attachments      TestCaseAttachment[]
   records          RecordTest[]
@@ -222,6 +240,29 @@ model TestCase {
 
   @@index([featureId])
   @@index([approval])
+}
+
+// A pending move/copy/delete/(de)activate on a test case. Only one may be open
+// per case (enforced in the resolver). Approving runs the action; rejecting
+// drops it. Reuses TestCaseApproval for the state — same three outcomes.
+model TestCaseRequest {
+  id              String              @id @default(cuid())
+  testCaseId      String
+  testCase        TestCase            @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  kind            TestCaseRequestKind
+  targetFeatureId String? // MOVE / COPY destination
+  targetName      String? // COPY name override
+  state           TestCaseApproval    @default(PENDING)
+  requestedById   String
+  requestedBy     User                @relation("testCaseRequester", fields: [requestedById], references: [id])
+  requestedAt     DateTime            @default(now())
+  reviewedById    String?
+  reviewedBy      User?               @relation("testCaseRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  rejectReason    String?
+
+  @@index([testCaseId])
+  @@index([state])
 }
 
 model TestCaseStep {
@@ -623,6 +664,12 @@ model Setting {
   maintenanceMessage String?
   discordWebhookUrl  String?
   discordEnabled     Boolean  @default(false)
+  // Auto-approval for test case review, in hours. null = never (a human must
+  // decide); 0 = approved on the spot; N = approved once it has waited N hours
+  // without a decision (the scheduler sweeps). New cases and changes
+  // (edit/move/copy/delete/activate/deactivate) are configured separately.
+  autoApproveNewHours    Int?
+  autoApproveChangeHours Int?
   updatedAt          DateTime @updatedAt
 }
 

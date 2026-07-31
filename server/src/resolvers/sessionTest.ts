@@ -209,6 +209,7 @@ export const sessionTestResolvers = {
           feature: { projectId: st.projectId },
           id: { notIn: assigned.map((a) => a.testCaseId) },
           approval: "APPROVED",
+          active: true,
         },
         orderBy: { number: "asc" },
       });

@@ -2,13 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Pencil, Plus, Trash2, ArrowRightLeft, Check, X, Clock } from "lucide-react";
+import { Pencil, Plus, Trash2, ArrowRightLeft, Check, X, Clock, Power } from "lucide-react";
 import {
   TEST_CASE,
   PENDING_TEST_CASES,
+  PENDING_TEST_CASE_REQUESTS,
   PENDING_APPROVAL_COUNT,
   APPROVE_TEST_CASE,
   REJECT_TEST_CASE,
+  APPROVE_TEST_CASE_REQUEST,
+  REJECT_TEST_CASE_REQUEST,
+  SET_TEST_CASE_ACTIVE,
 } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
 import { useNav, useDrill } from "../../store/nav";
@@ -120,6 +124,69 @@ function ApprovalCard({ tc }: { tc: any }) {
   );
 }
 
+// A queued move/copy/delete/(de)activate. The case still works — this says what
+// is waiting and lets an eligible approver settle it.
+function PendingRequestCard({ tc }: { tc: any }) {
+  const { t } = useTranslation();
+  const req = tc.pendingRequest;
+  const [rejecting, setRejecting] = useState(false);
+  const refetchAfter = [
+    { query: TEST_CASE, variables: { id: tc.id } },
+    "TestCases",
+    { query: PENDING_TEST_CASE_REQUESTS, variables: { projectId: null } },
+    { query: PENDING_APPROVAL_COUNT },
+  ];
+  const [approve] = useMutation(APPROVE_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
+  const [reject] = useMutation(REJECT_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
+
+  return (
+    <div className="rounded border border-[var(--warn)]/40 bg-[var(--warn)]/5 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-start gap-2 text-xs">
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>
+            <div className="font-medium">{t(`tcr.pending.${req.kind}`)}</div>
+            <div className="text-muted-foreground">
+              {t("tcr.requestedBy", { name: req.requestedBy?.name ?? "—", at: fmt(req.requestedAt) })}
+              {req.targetFeature && ` · → ${req.targetFeature.name}`}
+              {req.targetName && ` · ${req.targetName}`}
+            </div>
+          </div>
+        </div>
+        {req.canApprove && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => withToast(approve({ variables: { id: req.id } }), t("tcr.approved"), t("tcr.approveFail"))}
+              className="flex h-7 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Check className="h-3.5 w-3.5" /> {t("tca.approve")}
+            </button>
+            <button
+              onClick={() => setRejecting(true)}
+              className="flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted"
+            >
+              <X className="h-3.5 w-3.5" /> {t("tca.reject")}
+            </button>
+          </div>
+        )}
+      </div>
+      <TextPromptModal
+        open={rejecting}
+        title={t("tcr.rejectTitle", { key: tc.key })}
+        label={t("tca.rejectReason")}
+        required
+        destructive
+        confirmLabel={t("tca.reject")}
+        onClose={() => setRejecting(false)}
+        onSubmit={(reason) => {
+          setRejecting(false);
+          void withToast(reject({ variables: { id: req.id, reason } }), t("tcr.rejected"), t("tcr.rejectFail"));
+        }}
+      />
+    </div>
+  );
+}
+
 export function TestCaseDetail({ id }: { id: string }) {
   const { t } = useTranslation();
   const { openPanel } = useNav();
@@ -127,12 +194,19 @@ export function TestCaseDetail({ id }: { id: string }) {
   const manage = canManageContent(user?.role);
   const { data, loading } = useQuery(TEST_CASE, { variables: { id } });
   const [tab, setTab] = useState<"records" | "issues">("records");
+  const [setActive] = useMutation(SET_TEST_CASE_ACTIVE, {
+    refetchQueries: [{ query: TEST_CASE, variables: { id } }, "TestCases", { query: PENDING_APPROVAL_COUNT }],
+  });
 
   if (loading) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
   const tc = data?.testCase;
   if (!tc) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.notFound")}</div>;
   // Runs and findings need a reviewed case; commenting and watching never do.
   const approved = tc.approval === "APPROVED";
+  // A brand-new case has nothing to show under records/issues and can't get any
+  // yet, so the whole tab strip is dead weight. A case that was approved before
+  // (and has history) keeps it even while a re-review is pending.
+  const showActivity = approved || tc.recordCount > 0 || tc.issueCount > 0;
 
   return (
     <div className="space-y-4">
@@ -141,9 +215,32 @@ export function TestCaseDetail({ id }: { id: string }) {
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">{tc.key}</span>
             <h2 className="text-sm font-semibold">{tc.name}</h2>
+            {!tc.active && (
+              <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {t("tc.inactive")}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <WatchButton target="TEST_CASE" targetId={tc.id} />
+            <button
+              onClick={
+                manage
+                  ? () =>
+                      withToast(
+                        setActive({ variables: { id: tc.id, active: !tc.active } }),
+                        tc.active ? t("t.deactivateAsked") : t("t.activateAsked"),
+                        t("t.activeChangeFail"),
+                      )
+                  : () => denied()
+              }
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+                !manage && "opacity-40",
+              )}
+            >
+              <Power className="h-3.5 w-3.5" /> {tc.active ? t("tc.deactivate") : t("tc.activate")}
+            </button>
             <button
               onClick={manage ? () => openPanel({ kind: "movetc", mode: "create", id: tc.id }) : () => denied()}
               className={cn(
@@ -166,6 +263,7 @@ export function TestCaseDetail({ id }: { id: string }) {
         </div>
         <div className="space-y-3 px-5 py-4 text-sm">
           {!approved && <ApprovalCard tc={tc} />}
+          {tc.pendingRequest && <PendingRequestCard tc={tc} />}
           {tc.description && <p className="text-muted-foreground">{tc.description}</p>}
           {tc.precondition && (
             <p>
@@ -205,6 +303,7 @@ export function TestCaseDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {showActivity && (
       <div className="rounded border border-border">
         <div className="px-5 py-4">
           <div className="mb-3 flex items-center justify-between">
@@ -235,6 +334,7 @@ export function TestCaseDetail({ id }: { id: string }) {
           {tab === "records" ? <RecordsTab testCaseId={id} manage={manage} /> : <IssuesTab testCaseId={id} manage={manage} />}
         </div>
       </div>
+      )}
 
       {/* Discussion stays open regardless of approval — that's how a pending case
           gets clarified in the first place. */}

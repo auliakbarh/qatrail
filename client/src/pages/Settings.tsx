@@ -22,11 +22,12 @@ export default function Settings() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
-  const tabs = ["password", ...(isAdmin ? ["users", "maintenance", "sla", "discord", "audit"] : [])];
+  const tabs = ["password", ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "audit"] : [])];
   const [tab, setTab] = useState("password");
   const tabLabels: Record<string, string> = {
     password: t("set.tabPassword"),
     users: t("set.tabUsers"),
+    approval: t("set.tabApproval"),
     maintenance: t("set.tabMaintenance"),
     sla: t("set.tabSla"),
     discord: t("set.tabDiscord"),
@@ -51,6 +52,7 @@ export default function Settings() {
       </div>
       {tab === "password" && <ChangePasswordCard />}
       {tab === "users" && isAdmin && <UsersCard />}
+      {tab === "approval" && isAdmin && <ApprovalSettingCard />}
       {tab === "maintenance" && isAdmin && <SettingCard kind="maintenance" />}
       {tab === "discord" && isAdmin && <SettingCard kind="discord" />}
       {tab === "sla" && isAdmin && <SlaCard />}
@@ -246,6 +248,124 @@ function UsersCard() {
         label={del?.name ?? ""}
       />
     </div>
+  );
+}
+
+// Hours are what the server stores; the picker offers days as a convenience
+// because "3 days" is how people actually say it.
+function HoursField({
+  label,
+  help,
+  hours,
+  onChange,
+}: {
+  label: string;
+  help: string;
+  hours: number | null;
+  onChange: (h: number | null) => void;
+}) {
+  const { t } = useTranslation();
+  // null = never; 0 = immediate; otherwise show days when it divides evenly.
+  const mode = hours == null ? "NEVER" : hours === 0 ? "NOW" : "AFTER";
+  const asDays = hours != null && hours > 0 && hours % 24 === 0;
+  const [unit, setUnit] = useState<"h" | "d">(asDays ? "d" : "h");
+  const amount = hours == null || hours === 0 ? "" : String(unit === "d" ? hours / 24 : hours);
+
+  return (
+    <Field label={label}>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          className={`${inputCls} w-auto`}
+          value={mode}
+          onChange={(e) => onChange(e.target.value === "NEVER" ? null : e.target.value === "NOW" ? 0 : 24)}
+        >
+          <option value="NEVER">{t("set.autoNever")}</option>
+          <option value="NOW">{t("set.autoNow")}</option>
+          <option value="AFTER">{t("set.autoAfter")}</option>
+        </select>
+        {mode === "AFTER" && (
+          <>
+            <input
+              type="number"
+              min={1}
+              className={`${inputCls} w-20`}
+              value={amount}
+              onChange={(e) => {
+                const n = Math.max(1, Number(e.target.value) || 1);
+                onChange(unit === "d" ? n * 24 : n);
+              }}
+            />
+            <select
+              className={`${inputCls} w-auto`}
+              value={unit}
+              onChange={(e) => {
+                const u = e.target.value as "h" | "d";
+                const n = Number(amount) || 1;
+                setUnit(u);
+                onChange(u === "d" ? n * 24 : n);
+              }}
+            >
+              <option value="h">{t("set.unitHours")}</option>
+              <option value="d">{t("set.unitDays")}</option>
+            </select>
+          </>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">{help}</p>
+    </Field>
+  );
+}
+
+function ApprovalSettingCard() {
+  const { t } = useTranslation();
+  const { data } = useQuery(SETTING);
+  const [updateSetting, { loading }] = useMutation(UPDATE_SETTING, { refetchQueries: [SETTING] });
+  const s = data?.setting;
+  const [local, setLocal] = useState<any>(null);
+  const v = local ?? s ?? {};
+  const set = (patch: any) => setLocal({ ...v, ...patch });
+
+  const save = async () => {
+    const ok = await withToast(
+      updateSetting({
+        variables: {
+          input: {
+            autoApproveNewHours: v.autoApproveNewHours ?? null,
+            autoApproveChangeHours: v.autoApproveChangeHours ?? null,
+          },
+        },
+      }),
+      t("t.settingsSaved"),
+      t("t.settingsSaveFail"),
+    );
+    if (ok) setLocal(null);
+  };
+
+  return (
+    <Card title={t("set.approvalTitle")}>
+      <div className="max-w-lg space-y-4">
+        <p className="text-xs text-muted-foreground">{t("set.approvalHelp")}</p>
+        <HoursField
+          label={t("set.autoNewLabel")}
+          help={t("set.autoNewHelp")}
+          hours={v.autoApproveNewHours ?? null}
+          onChange={(h) => set({ autoApproveNewHours: h })}
+        />
+        <HoursField
+          label={t("set.autoChangeLabel")}
+          help={t("set.autoChangeHelp")}
+          hours={v.autoApproveChangeHours ?? null}
+          onChange={(h) => set({ autoApproveChangeHours: h })}
+        />
+        <button
+          onClick={save}
+          disabled={loading}
+          className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {t("c.save")}
+        </button>
+      </div>
+    </Card>
   );
 }
 

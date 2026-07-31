@@ -6,7 +6,6 @@ import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
 import { CREATE_RECORD_TEST, RECORD_TESTS, ISSUE, ISSUES } from "../../graphql/issue";
 import { ISSUE_REVIEW } from "../../graphql/workflow";
-import { TEST_CASES } from "../../graphql/hierarchy";
 import { ASSIGNED_TEST_CASES, APP_TEST } from "../../graphql/apptest";
 import { SESSION_TEST, SESSION_TEST_CASES, SESSION_TEST_RECORDS } from "../../graphql/sessiontest";
 import { useNav } from "../../store/nav";
@@ -72,7 +71,7 @@ export function RecordForm({
   const [createRecordTest] = useMutation(CREATE_RECORD_TEST, {
     refetchQueries: [
       { query: RECORD_TESTS, variables: { testCaseId } },
-      { query: TEST_CASES, variables: { featureId } },
+      "TestCases",
       ...appTestRefetch,
       ...sessionRefetch,
     ],
@@ -81,7 +80,7 @@ export function RecordForm({
     refetchQueries: [
       ...(retestIssueId ? [{ query: ISSUE, variables: { id: retestIssueId } }] : []),
       { query: ISSUES, variables: { testCaseId } },
-      { query: TEST_CASES, variables: { featureId } },
+      "TestCases",
     ],
   });
 

@@ -129,6 +129,9 @@ export default function Help() {
             <P><Trans i18nKey="help.approval.p3" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p5" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p6" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p7" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p8" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.approval.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 

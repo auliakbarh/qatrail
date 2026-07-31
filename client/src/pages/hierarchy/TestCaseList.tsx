@@ -1,8 +1,8 @@
 import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ArrowRightLeft, Copy, ChevronDown, ChevronRight } from "lucide-react";
-import { TEST_CASES, DELETE_TEST_CASE } from "../../graphql/hierarchy";
+import { Plus, FolderOpen, Pencil, Trash2, ArrowRightLeft, Copy, ChevronDown, ChevronRight, Power, Clock } from "lucide-react";
+import { TEST_CASES, DELETE_TEST_CASE, SET_TEST_CASE_ACTIVE, PENDING_APPROVAL_COUNT } from "../../graphql/hierarchy";
 import { useNav, useDrill } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
@@ -39,15 +39,21 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const { projectId, goTestCase } = useDrill();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
-  const { data, loading } = useQuery(TEST_CASES, { variables: { featureId }, fetchPolicy: "cache-and-network" });
-  const [deleteTestCase] = useMutation(DELETE_TEST_CASE, {
-    refetchQueries: [{ query: TEST_CASES, variables: { featureId } }],
+  // Retired cases come down with the rest and are filtered here, so the toggle
+  // below costs no round trip.
+  const { data, loading } = useQuery(TEST_CASES, {
+    variables: { featureId, includeInactive: true },
+    fetchPolicy: "cache-and-network",
   });
+  const refetchAfter = ["TestCases", { query: PENDING_APPROVAL_COUNT }];
+  const [deleteTestCase] = useMutation(DELETE_TEST_CASE, { refetchQueries: refetchAfter });
+  const [setActive] = useMutation(SET_TEST_CASE_ACTIVE, { refetchQueries: refetchAfter });
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [groupKey, setGroupKey] = useState("");
   const [fKind, setFKind] = useState("");
+  const [fActive, setFActive] = useState("ACTIVE");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
@@ -64,7 +70,9 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   };
   // Rows show "—" for an unset kind; group/filter treat it as its own bucket.
   const base = (data?.testCases ?? []).map((tc: any) => ({ ...tc, kindLabel: tc.kind ?? "—" }));
-  const filtered = fKind ? base.filter((tc: any) => (fKind === "—" ? !tc.kind : tc.kind === fKind)) : base;
+  const byKind = fKind ? base.filter((tc: any) => (fKind === "—" ? !tc.kind : tc.kind === fKind)) : base;
+  const filtered =
+    fActive === "" ? byKind : byKind.filter((tc: any) => (fActive === "ACTIVE" ? tc.active : !tc.active));
   const rows = sortRows(searchRows(filtered, search, ["name", "description"]), sortKey as any, sortDir);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -94,6 +102,11 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <option value="POSITIVE">{t("tc.kindPositive")}</option>
             <option value="NEGATIVE">{t("tc.kindNegative")}</option>
             <option value="—">{t("tc.kindNone")}</option>
+          </select>
+          <select value={fActive} onChange={(e) => setFActive(e.target.value)} className={selCls}>
+            <option value="ACTIVE">{t("tc.activeOnly")}</option>
+            <option value="INACTIVE">{t("tc.inactiveOnly")}</option>
+            <option value="">{t("tc.activeAll")}</option>
           </select>
         </div>
         <div className="overflow-x-auto">
@@ -142,9 +155,26 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => goTestCase(tc.id)} className="text-left font-medium hover:underline">
+                    <button
+                      onClick={() => goTestCase(tc.id)}
+                      className={cn("text-left font-medium hover:underline", !tc.active && "text-muted-foreground")}
+                    >
                       {tc.name}
                     </button>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {!tc.active && (
+                        <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {t("tc.inactive")}
+                        </span>
+                      )}
+                      {/* A change is queued: say so instead of letting the row look settled. */}
+                      {tc.pendingRequest && (
+                        <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">
+                          <Clock className="h-2.5 w-2.5" />
+                          {t(`tcr.kind.${tc.pendingRequest.kind}`)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     {tc.kind
@@ -182,6 +212,19 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </IconBtn>
+                      <IconBtn
+                        title={tc.active ? t("tc.deactivate") : t("tc.activate")}
+                        allowed={manage}
+                        onClick={() =>
+                          withToast(
+                            setActive({ variables: { id: tc.id, active: !tc.active } }),
+                            tc.active ? t("t.deactivateAsked") : t("t.activateAsked"),
+                            t("t.activeChangeFail"),
+                          )
+                        }
+                      >
+                        <Power className={cn("h-3.5 w-3.5", !tc.active && "text-muted-foreground")} />
+                      </IconBtn>
                       <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel({ id: tc.id, name: tc.name })}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </IconBtn>
@@ -199,9 +242,9 @@ export function TestCaseList({ featureId }: { featureId: string }) {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && withToast(deleteTestCase({ variables: { id: del.id } }), t("t.testCaseDeleted"), t("t.testCaseDeleteFail"))}
+        onConfirm={() => del && withToast(deleteTestCase({ variables: { id: del.id } }), t("t.deleteAsked"), t("t.testCaseDeleteFail"))}
         label={del?.name ?? ""}
-        note={t("del.noteTestCase")}
+        note={t("del.noteTestCaseApproval")}
       />
     </div>
   );

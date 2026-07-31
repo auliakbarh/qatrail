@@ -3,12 +3,12 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls } from "../../components/Form";
-import { PROJECTS, FEATURES, MOVE_TEST_CASE, TEST_CASES } from "../../graphql/hierarchy";
+import { PROJECTS, FEATURES, MOVE_TEST_CASE } from "../../graphql/hierarchy";
 import { useNav, useDrill } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
 // Move a test case to another feature — optionally in a different project.
-export function MoveTestCaseForm({ testCaseId, sourceFeatureId }: { testCaseId: string; sourceFeatureId: string }) {
+export function MoveTestCaseForm({ testCaseId }: { testCaseId: string; sourceFeatureId?: string }) {
   const { t } = useTranslation();
   const { closePanel } = useNav();
   const { goTestCase } = useDrill();
@@ -17,10 +17,7 @@ export function MoveTestCaseForm({ testCaseId, sourceFeatureId }: { testCaseId: 
   const { data: projData } = useQuery(PROJECTS);
   const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
   const [move, { loading }] = useMutation(MOVE_TEST_CASE, {
-    refetchQueries: [
-      { query: TEST_CASES, variables: { featureId: sourceFeatureId } },
-      ...(featureId ? [{ query: TEST_CASES, variables: { featureId } }] : []),
-    ],
+    refetchQueries: ["TestCases"],
   });
 
   const submit = async (e: React.FormEvent) => {

@@ -54,3 +54,19 @@ export function approverRolesFor(creatorRole: string): string[] {
   const floor = Math.max(RANK.QA_LEAD, RANK[creatorRole] ?? RANK.QA_LEAD);
   return Object.keys(RANK).filter((r) => RANK[r] >= floor);
 }
+
+// --- Auto-approval (admin setting, in hours) ---------------------------------
+// null = never auto-approve, a human must decide.
+//    0 = approved immediately, no waiting room at all.
+//    N = approved once it has waited N hours undecided (the scheduler sweeps).
+
+export function autoApprovesNow(hours?: number | null): boolean {
+  return hours === 0;
+}
+
+// Cut-off for a sweep: anything requested at or before this is overdue. Null
+// when auto-approval is off or immediate (immediate never reaches the sweep).
+export function autoApproveCutoff(hours: number | null | undefined, now: Date): Date | null {
+  if (hours == null || hours <= 0) return null;
+  return new Date(now.getTime() - hours * 3600_000);
+}

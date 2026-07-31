@@ -19,9 +19,10 @@ export const FEATURES = gql`
 `;
 
 export const TEST_CASES = gql`
-  query TestCases($featureId: ID!) {
-    testCases(featureId: $featureId) {
-      id key featureId name description kind recordCount issueCount latestResult createdAt
+  query TestCases($featureId: ID!, $includeInactive: Boolean) {
+    testCases(featureId: $featureId, includeInactive: $includeInactive) {
+      id key featureId name description kind recordCount issueCount latestResult createdAt active
+      pendingRequest { id kind }
     }
   }
 `;
@@ -33,8 +34,42 @@ export const TEST_CASE = gql`
       steps { id order step expectedResult }
       attachments { id order url kind label }
       recordCount issueCount latestResult createdAt createdBy { id name }
-      approval reviewedAt rejectReason canApprove reviewedBy { id name }
+      approval reviewedAt rejectReason canApprove active reviewedBy { id name }
+      pendingRequest { id kind canApprove requestedAt requestedBy { id name } targetFeature { id name } targetName }
     }
+  }
+`;
+
+export const PENDING_TEST_CASE_REQUESTS = gql`
+  query PendingTestCaseRequests($projectId: ID) {
+    pendingTestCaseRequests(projectId: $projectId) {
+      id kind state requestedAt canApprove
+      requestedBy { id name }
+      targetFeature { id name }
+      targetName
+      testCase { id key name active feature { id name project { id name } } }
+    }
+  }
+`;
+
+export const APPROVE_TEST_CASE_REQUEST = gql`
+  mutation ApproveTestCaseRequest($id: ID!) {
+    approveTestCaseRequest(id: $id) { id state }
+  }
+`;
+export const APPROVE_TEST_CASE_REQUESTS = gql`
+  mutation ApproveTestCaseRequests($ids: [ID!]!) {
+    approveTestCaseRequests(ids: $ids) { approved skipped }
+  }
+`;
+export const REJECT_TEST_CASE_REQUEST = gql`
+  mutation RejectTestCaseRequest($id: ID!, $reason: String!) {
+    rejectTestCaseRequest(id: $id, reason: $reason) { id state rejectReason }
+  }
+`;
+export const SET_TEST_CASE_ACTIVE = gql`
+  mutation SetTestCaseActive($id: ID!, $active: Boolean!) {
+    setTestCaseActive(id: $id, active: $active) { id active }
   }
 `;
 

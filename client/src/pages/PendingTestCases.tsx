@@ -5,10 +5,14 @@ import { useTranslation } from "react-i18next";
 import { Check, X, FolderOpen, ChevronDown, ChevronRight } from "lucide-react";
 import {
   PENDING_TEST_CASES,
+  PENDING_TEST_CASE_REQUESTS,
   PENDING_APPROVAL_COUNT,
   APPROVE_TEST_CASE,
   APPROVE_TEST_CASES,
   REJECT_TEST_CASE,
+  APPROVE_TEST_CASE_REQUEST,
+  APPROVE_TEST_CASE_REQUESTS,
+  REJECT_TEST_CASE_REQUEST,
 } from "../graphql/hierarchy";
 import { FilterBar } from "../components/FilterBar";
 import { IconBtn } from "../components/IconBtn";
@@ -19,40 +23,84 @@ import { withToast } from "../store/toast";
 import { fmtDateTime as fmt, cn } from "../lib/utils";
 import { waitedFor } from "../lib/approval";
 
-// Flatten a pending case into scalar fields so search/sort/group work on it.
-function toRow(tc: any) {
+// Two things queue up for review: cases (new or edited) and changes to an
+// existing case (move/copy/delete/(de)activate). One table, one shape.
+function caseRow(tc: any) {
   return {
-    ...tc,
+    rowKind: "CASE" as const,
+    id: tc.id,
+    testCaseId: tc.id,
+    key: tc.key,
+    name: tc.name,
+    // NEW vs EDIT can't be told apart from the row alone — both are "review the
+    // content" — so the type column just says which queue it is.
+    type: tc.approval === "REJECTED" ? "REJECTED" : "CONTENT",
+    approval: tc.approval,
+    rejectReason: tc.rejectReason,
+    canApprove: tc.canApprove,
+    waitingSince: tc.createdAt,
     creatorName: tc.createdBy?.name ?? "",
     featureName: tc.feature?.name ?? "—",
     projectName: tc.feature?.project?.name ?? "—",
-    kindLabel: tc.kind ?? "—",
+    detail: "",
+  };
+}
+
+function requestRow(r: any) {
+  const target = [r.targetFeature?.name, r.targetName].filter(Boolean).join(" · ");
+  return {
+    rowKind: "REQUEST" as const,
+    id: r.id,
+    testCaseId: r.testCase?.id,
+    key: r.testCase?.key ?? "—",
+    name: r.testCase?.name ?? "—",
+    type: r.kind,
+    approval: "PENDING",
+    rejectReason: null,
+    canApprove: r.canApprove,
+    waitingSince: r.requestedAt,
+    creatorName: r.requestedBy?.name ?? "",
+    featureName: r.testCase?.feature?.name ?? "—",
+    projectName: r.testCase?.feature?.project?.name ?? "—",
+    detail: target,
   };
 }
 
 export default function PendingTestCases() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const refetchAfter = [{ query: PENDING_TEST_CASES, variables: { projectId: null } }, { query: PENDING_APPROVAL_COUNT }];
+  const refetchAfter = [
+    { query: PENDING_TEST_CASES, variables: { projectId: null } },
+    { query: PENDING_TEST_CASE_REQUESTS, variables: { projectId: null } },
+    { query: PENDING_APPROVAL_COUNT },
+    "TestCases",
+  ];
   const { data, loading } = useQuery(PENDING_TEST_CASES, {
+    variables: { projectId: null },
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: reqData, loading: reqLoading } = useQuery(PENDING_TEST_CASE_REQUESTS, {
     variables: { projectId: null },
     fetchPolicy: "cache-and-network",
   });
   const [approve] = useMutation(APPROVE_TEST_CASE, { refetchQueries: refetchAfter });
   const [approveMany] = useMutation(APPROVE_TEST_CASES, { refetchQueries: refetchAfter });
   const [reject] = useMutation(REJECT_TEST_CASE, { refetchQueries: refetchAfter });
+  const [approveReq] = useMutation(APPROVE_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
+  const [approveReqMany] = useMutation(APPROVE_TEST_CASE_REQUESTS, { refetchQueries: refetchAfter });
+  const [rejectReq] = useMutation(REJECT_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
 
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState("createdAt");
+  const [sortKey, setSortKey] = useState("waitingSince");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [groupKey, setGroupKey] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [fApproval, setFApproval] = useState("");
+  const [fType, setFType] = useState("");
   const [fProject, setFProject] = useState("");
   const [fFeature, setFFeature] = useState("");
   const [fCreator, setFCreator] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [rejecting, setRejecting] = useState<{ id: string; key: string } | null>(null);
+  const [rejecting, setRejecting] = useState<{ id: string; key: string; rowKind: "CASE" | "REQUEST" } | null>(null);
 
   const onSort = (key: string) => {
     const n = nextSort({ key: sortKey, dir: sortDir }, key);
@@ -72,11 +120,14 @@ export default function PendingTestCases() {
       return next;
     });
 
-  const base: any[] = (data?.pendingTestCases ?? []).map(toRow);
+  const base: any[] = [
+    ...(data?.pendingTestCases ?? []).map(caseRow),
+    ...(reqData?.pendingTestCaseRequests ?? []).map(requestRow),
+  ];
   const distinct = (f: string) => [...new Set(base.map((r) => r[f]).filter(Boolean))].sort();
   const filtered = base.filter(
     (r) =>
-      (!fApproval || r.approval === fApproval) &&
+      (!fType || r.type === fType) &&
       (!fProject || r.projectName === fProject) &&
       (!fFeature || r.featureName === fFeature) &&
       (!fCreator || r.creatorName === fCreator),
@@ -90,11 +141,17 @@ export default function PendingTestCases() {
   const allPicked = approvable.length > 0 && picked.length === approvable.length;
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
+  // One button, two mutations: the selection can mix content reviews with change
+  // requests, and each has its own endpoint.
   const bulkApprove = async () => {
-    const ids = picked.map((r) => r.id);
+    const caseIds = picked.filter((r) => r.rowKind === "CASE").map((r) => r.id);
+    const reqIds = picked.filter((r) => r.rowKind === "REQUEST").map((r) => r.id);
     const res = await withToast(
-      approveMany({ variables: { ids } }),
-      t("tca.bulkDone", { n: ids.length }),
+      Promise.all([
+        caseIds.length ? approveMany({ variables: { ids: caseIds } }) : null,
+        reqIds.length ? approveReqMany({ variables: { ids: reqIds } }) : null,
+      ]),
+      t("tca.bulkDone", { n: caseIds.length + reqIds.length }),
       t("tca.bulkFail"),
     );
     setSelected(new Set());
@@ -129,14 +186,15 @@ export default function PendingTestCases() {
                 { value: "projectName", label: t("dash.project") },
                 { value: "featureName", label: t("dash.feature") },
                 { value: "creatorName", label: t("tca.createdBy") },
-                { value: "approval", label: t("c.status") },
+                { value: "type", label: t("tca.type") },
               ]}
             />
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <select value={fApproval} onChange={(e) => setFApproval(e.target.value)} className={selCls}>
-                <option value="">{t("c.status")}: {t("c.all")}</option>
-                <option value="PENDING">{t("tca.pending")}</option>
-                <option value="REJECTED">{t("tca.rejected")}</option>
+              <select value={fType} onChange={(e) => setFType(e.target.value)} className={selCls}>
+                <option value="">{t("tca.type")}: {t("c.all")}</option>
+                {["CONTENT", "REJECTED", "MOVE", "COPY", "DELETE", "DEACTIVATE", "ACTIVATE"].map((v) => (
+                  <option key={v} value={v}>{t(`tcr.kind.${v}`)}</option>
+                ))}
               </select>
               <select value={fProject} onChange={(e) => setFProject(e.target.value)} className={selCls}>
                 <option value="">{t("dash.project")}: {t("c.all")}</option>
@@ -171,16 +229,16 @@ export default function PendingTestCases() {
                     <SortableTh label={t("dash.project")} colKey="projectName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("dash.feature")} colKey="featureName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("tca.createdBy")} colKey="creatorName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("tca.waiting")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("c.status")} colKey="approval" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("tca.waiting")} colKey="waitingSince" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("tca.type")} colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && (
+                  {(loading || reqLoading) && (
                     <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
                   )}
-                  {!loading && rows.length === 0 && (
+                  {!loading && !reqLoading && rows.length === 0 && (
                     <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("tca.empty")}</td></tr>
                   )}
                   {groups.map(([label, gr]) => (
@@ -209,39 +267,55 @@ export default function PendingTestCases() {
                           </td>
                           <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
                           <td className="px-3 py-2">
-                            <button onClick={() => navigate(`/test-cases/${tc.id}`)} className="text-left font-medium hover:underline">
+                            <button
+                              onClick={() => tc.testCaseId && navigate(`/test-cases/${tc.testCaseId}`)}
+                              className="text-left font-medium hover:underline"
+                            >
                               {tc.name}
                             </button>
-                            {tc.approval === "REJECTED" && tc.rejectReason && (
-                              <div className="text-xs text-destructive">{tc.rejectReason}</div>
-                            )}
+                            {tc.rejectReason && <div className="text-xs text-destructive">{tc.rejectReason}</div>}
+                            {tc.detail && <div className="text-xs text-muted-foreground">→ {tc.detail}</div>}
                           </td>
                           <td className="px-3 py-2 text-xs">{tc.projectName}</td>
                           <td className="px-3 py-2 text-xs">{tc.featureName}</td>
                           <td className="px-3 py-2 text-xs">{tc.creatorName}</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground" title={fmt(tc.createdAt)}>
-                            {waitedFor(tc.createdAt, t)}
+                          <td className="px-3 py-2 text-xs text-muted-foreground" title={fmt(tc.waitingSince)}>
+                            {waitedFor(tc.waitingSince, t)}
                           </td>
                           <td className="px-3 py-2">
                             <span
                               className={cn(
                                 "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
-                                tc.approval === "REJECTED" ? "bg-destructive text-white" : "bg-[var(--warn)] text-white",
+                                tc.type === "REJECTED" || tc.type === "DELETE"
+                                  ? "bg-destructive text-white"
+                                  : tc.type === "CONTENT"
+                                    ? "bg-[var(--warn)] text-white"
+                                    : "border border-border text-muted-foreground",
                               )}
                             >
-                              {tc.approval === "REJECTED" ? t("tca.rejected") : t("tca.pending")}
+                              {t(`tcr.kind.${tc.type}`)}
                             </span>
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex justify-end gap-1">
-                              <IconBtn title={t("c.open")} onClick={() => navigate(`/test-cases/${tc.id}`)}>
+                              <IconBtn
+                                title={t("c.open")}
+                                allowed={!!tc.testCaseId}
+                                onClick={() => navigate(`/test-cases/${tc.testCaseId}`)}
+                              >
                                 <FolderOpen className="h-3.5 w-3.5" />
                               </IconBtn>
                               <IconBtn
                                 title={t("tca.approve")}
                                 allowed={tc.canApprove}
                                 onClick={() =>
-                                  withToast(approve({ variables: { id: tc.id } }), t("tca.approved"), t("tca.approveFail"))
+                                  withToast(
+                                    tc.rowKind === "CASE"
+                                      ? approve({ variables: { id: tc.id } })
+                                      : approveReq({ variables: { id: tc.id } }),
+                                    t("tca.approved"),
+                                    t("tca.approveFail"),
+                                  )
                                 }
                               >
                                 <Check className="h-3.5 w-3.5" />
@@ -249,7 +323,7 @@ export default function PendingTestCases() {
                               <IconBtn
                                 title={t("tca.reject")}
                                 allowed={tc.canApprove}
-                                onClick={() => setRejecting({ id: tc.id, key: tc.key })}
+                                onClick={() => setRejecting({ id: tc.id, key: tc.key, rowKind: tc.rowKind })}
                               >
                                 <X className="h-3.5 w-3.5" />
                               </IconBtn>
@@ -275,9 +349,13 @@ export default function PendingTestCases() {
         confirmLabel={t("tca.reject")}
         onClose={() => setRejecting(null)}
         onSubmit={(reason) => {
-          const id = rejecting!.id;
+          const { id, rowKind } = rejecting!;
           setRejecting(null);
-          void withToast(reject({ variables: { id, reason } }), t("tca.rejected"), t("tca.rejectFail"));
+          void withToast(
+            rowKind === "CASE" ? reject({ variables: { id, reason } }) : rejectReq({ variables: { id, reason } }),
+            t("tca.rejected"),
+            t("tca.rejectFail"),
+          );
         }}
       />
     </div>

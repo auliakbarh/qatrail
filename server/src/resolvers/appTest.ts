@@ -128,7 +128,7 @@ export const appTestResolvers = {
       const assigned = await ctx.prisma.appTestCase.findMany({ where: { appTestId: args.appTestId }, select: { testCaseId: true } });
       const assignedIds = assigned.map((a) => a.testCaseId);
       return ctx.prisma.testCase.findMany({
-        where: { feature: { projectId: at.projectId }, id: { notIn: assignedIds }, approval: "APPROVED" },
+        where: { feature: { projectId: at.projectId }, id: { notIn: assignedIds }, approval: "APPROVED", active: true },
         orderBy: { number: "asc" },
       });
     },
@@ -247,7 +247,7 @@ export const appTestResolvers = {
       const user = await requireQA(ctx);
       // Only the reviewed cases of that feature — a pending one can't be tested.
       const tcs = await ctx.prisma.testCase.findMany({
-        where: { featureId: args.featureId, approval: "APPROVED" },
+        where: { featureId: args.featureId, approval: "APPROVED", active: true },
         select: { id: true },
       });
       await ctx.prisma.appTestCase.createMany({
