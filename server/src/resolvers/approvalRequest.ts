@@ -73,7 +73,16 @@ export async function deleteNeedsApproval(ctx: Context, actorRole: string, testC
   return needsApproval(ctx, actorRole);
 }
 
-// Open a request. One open request per target: a second one would race the first.
+// Marks a request as the open one for its target while it waits. Cleared on a
+// decision so the next request can take the slot.
+const openKeyFor = (target: Target, targetId: string) => `${target}:${targetId}`;
+
+const alreadyOpen = () =>
+  new GraphQLError("This already has a change waiting for approval.", {
+    extensions: { code: "APPROVAL_REQUEST_OPEN" },
+  });
+
+// Open a request. One open request per target, enforced by openKey's unique index.
 export async function openRequest(
   ctx: Context,
   actor: { id: string; role: string },
@@ -88,27 +97,33 @@ export async function openRequest(
   } = {},
 ) {
   const label = await targetLabel(ctx, target, targetId);
+  // The early check gives a clean message; openKey's unique index is what makes
+  // it true under a double click or two tabs.
   const open = await ctx.prisma.approvalRequest.findFirst({ where: { target, targetId, state: "PENDING" } });
-  if (open) {
-    throw new GraphQLError("This already has a change waiting for approval.", {
-      extensions: { code: "APPROVAL_REQUEST_OPEN" },
+  if (open) throw alreadyOpen();
+  let req;
+  try {
+    req = await ctx.prisma.approvalRequest.create({
+      data: {
+        target,
+        targetId,
+        openKey: openKeyFor(target, targetId),
+        // Stamped once here so scoped analytics never has to resolve a polymorphic
+        // id per row.
+        projectId: await requestProjectId(ctx, { target, targetId }),
+        kind,
+        targetFeatureId: extra.featureId ?? null,
+        targetProjectId: extra.projectId ?? null,
+        targetName: extra.name ?? null,
+        assignmentMode: extra.mode ?? null,
+        requestedById: actor.id,
+      },
     });
+  } catch (e: any) {
+    // P2002 = the unique index caught a request that raced this one.
+    if (e?.code === "P2002") throw alreadyOpen();
+    throw e;
   }
-  const req = await ctx.prisma.approvalRequest.create({
-    data: {
-      target,
-      targetId,
-      // Stamped once here so scoped analytics never has to resolve a polymorphic
-      // id per row.
-      projectId: await requestProjectId(ctx, { target, targetId }),
-      kind,
-      targetFeatureId: extra.featureId ?? null,
-      targetProjectId: extra.projectId ?? null,
-      targetName: extra.name ?? null,
-      assignmentMode: extra.mode ?? null,
-      requestedById: actor.id,
-    },
-  });
   await notifyTestCaseApprovers(
     actor,
     "APPROVAL_REQUEST",
@@ -196,7 +211,7 @@ export async function approveRequest(ctx: Context, actor: { id: string; role: st
   // label has to be read while it still exists.
   const decided = await ctx.prisma.approvalRequest.update({
     where: { id: req.id },
-    data: { state: "APPROVED", reviewedById: actor.id, reviewedAt: new Date() },
+    data: { state: "APPROVED", reviewedById: actor.id, reviewedAt: new Date(), openKey: null },
   });
   await runRequest(ctx, req);
   await notify(
@@ -222,7 +237,7 @@ export async function autoApproveRequest(reqId: string, now: Date): Promise<void
   const label = await targetLabel(ctx, req.target as Target, req.targetId);
   await prisma.approvalRequest.update({
     where: { id: req.id },
-    data: { state: "APPROVED", reviewedAt: now, reviewedById: null },
+    data: { state: "APPROVED", reviewedAt: now, reviewedById: null, openKey: null },
   });
   await runRequest(ctx, req);
   await notify(
@@ -311,7 +326,7 @@ export const approvalRequestResolvers = {
       const label = await targetLabel(ctx, req.target as Target, req.targetId);
       const decided = await ctx.prisma.approvalRequest.update({
         where: { id: req.id },
-        data: { state: "REJECTED", reviewedById: user.id, reviewedAt: new Date(), rejectReason: reason },
+        data: { state: "REJECTED", reviewedById: user.id, reviewedAt: new Date(), rejectReason: reason, openKey: null },
       });
       await notify(
         req.requestedById,

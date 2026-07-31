@@ -283,6 +283,12 @@ model ApprovalRequest {
   // Project the target sat in when the request was made. Denormalised so scoped
   // analytics can count approvals without resolving a polymorphic id per row.
   projectId       String?
+  // "<target>:<targetId>" while this request is open, null once it is decided.
+  // Postgres ignores nulls in a unique index, so this is a partial unique on the
+  // pending rows — the DB, not just the resolver, enforces one open request per
+  // target. Prisma has no partial-unique syntax and a hand-written index would
+  // be dropped by the next `db push`; a nullable column survives it.
+  openKey         String?             @unique
   state           TestCaseApproval    @default(PENDING)
   requestedById   String
   requestedBy     User                @relation("approvalRequester", fields: [requestedById], references: [id])

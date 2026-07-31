@@ -412,6 +412,25 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     await prisma.project.delete({ where: { id: other.id } }).catch(() => {});
   });
 
+  it("the DB refuses a second open request even when both are asked at once", async () => {
+    const tc = await approvedCase(`${TAG}-race`);
+    // Fired together, so the resolver's own look-before-you-leap can't see the
+    // other one — only openKey's unique index can.
+    const both = await Promise.allSettled([
+      M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA")),
+      M.moveTestCase(null, { id: tc.id, featureId }, ctxFor(qaId, "QA")),
+    ]);
+    expect(both.filter((r) => r.status === "rejected")).toHaveLength(1);
+    expect(await prisma.approvalRequest.count({ where: { targetId: tc.id, state: "PENDING" } })).toBe(1);
+
+    // Deciding it frees the slot for the next one.
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === tc.id);
+    await RM.rejectApprovalRequest(null, { id: req.id, reason: "not now" }, ctxFor(leadId, "QA_LEAD"));
+    await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
+    expect(await prisma.approvalRequest.count({ where: { targetId: tc.id, state: "PENDING" } })).toBe(1);
+  });
+
   it("only the requester can withdraw their own pending request", async () => {
     const tc = await approvedCase(`${TAG}-cancel`);
     await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
