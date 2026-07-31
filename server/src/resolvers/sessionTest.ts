@@ -2,6 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { assertAllApproved } from "./testcase.js";
+import { LIVE_TEST_CASE } from "../approval.js";
 import { sessionTestCoverage } from "../coverage.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
 
@@ -206,10 +207,9 @@ export const sessionTestResolvers = {
       });
       return ctx.prisma.testCase.findMany({
         where: {
-          feature: { projectId: st.projectId },
+          ...LIVE_TEST_CASE,
+          feature: { ...LIVE_TEST_CASE.feature, projectId: st.projectId },
           id: { notIn: assigned.map((a) => a.testCaseId) },
-          approval: "APPROVED",
-          active: true,
         },
         orderBy: { number: "asc" },
       });

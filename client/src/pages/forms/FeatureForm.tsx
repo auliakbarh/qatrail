@@ -3,7 +3,7 @@ import { useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
-import { CREATE_FEATURE, UPDATE_FEATURE, FEATURES } from "../../graphql/hierarchy";
+import { CREATE_FEATURE, UPDATE_FEATURE } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -25,7 +25,7 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
       minPassPercent: init.minPassPercent ?? 0,
     },
   });
-  const refetch = { refetchQueries: [{ query: FEATURES, variables: { projectId } }] };
+  const refetch = { refetchQueries: ["Features"] };
   const [createFeature] = useMutation(CREATE_FEATURE, refetch);
   const [updateFeature] = useMutation(UPDATE_FEATURE, refetch);
 

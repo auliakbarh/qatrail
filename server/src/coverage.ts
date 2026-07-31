@@ -1,4 +1,5 @@
 import { prisma } from "./db.js";
+import { LIVE_TEST_CASE } from "./approval.js";
 
 // A test case is "passed" when its most recent RecordTest result is PASS AND it
 // has no open issue (any issue not CLOSED and not archived). An unresolved issue
@@ -71,7 +72,7 @@ async function cached(key: string, fn: () => Promise<Coverage>): Promise<Coverag
 // and a retired one is no longer part of what gets tested.
 export async function featureCoverage(featureId: string): Promise<Coverage> {
   return cached(`f:${featureId}`, async () => {
-    const tcs = await prisma.testCase.findMany({ where: { featureId, approval: "APPROVED", active: true }, select: { id: true } });
+    const tcs = await prisma.testCase.findMany({ where: { featureId, ...LIVE_TEST_CASE }, select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }
@@ -79,7 +80,7 @@ export async function featureCoverage(featureId: string): Promise<Coverage> {
 export async function projectCoverage(projectId: string): Promise<Coverage> {
   return cached(`p:${projectId}`, async () => {
     const tcs = await prisma.testCase.findMany({
-      where: { feature: { projectId }, approval: "APPROVED", active: true },
+      where: { ...LIVE_TEST_CASE, feature: { ...LIVE_TEST_CASE.feature, projectId } },
       select: { id: true },
     });
     return coverageForTestCases(tcs.map((t) => t.id));
@@ -88,7 +89,7 @@ export async function projectCoverage(projectId: string): Promise<Coverage> {
 
 export async function allCoverage(): Promise<Coverage> {
   return cached("all", async () => {
-    const tcs = await prisma.testCase.findMany({ where: { approval: "APPROVED", active: true }, select: { id: true } });
+    const tcs = await prisma.testCase.findMany({ where: LIVE_TEST_CASE, select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }

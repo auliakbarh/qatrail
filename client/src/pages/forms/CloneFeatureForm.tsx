@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls } from "../../components/Form";
-import { PROJECTS, FEATURES, CLONE_FEATURE } from "../../graphql/hierarchy";
+import { PROJECTS, CLONE_FEATURE } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -15,7 +15,7 @@ export function CloneFeatureForm({ featureId, sourceProjectId }: { featureId: st
   const [name, setName] = useState("");
   const { data: projData } = useQuery(PROJECTS);
   const [clone, { loading }] = useMutation(CLONE_FEATURE, {
-    refetchQueries: [{ query: FEATURES, variables: { projectId } }],
+    refetchQueries: ["Features"],
   });
 
   const submit = async (e: React.FormEvent) => {

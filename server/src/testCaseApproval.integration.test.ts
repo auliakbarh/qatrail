@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "./db.js";
 import { testCaseResolvers } from "./resolvers/testcase.js";
-import { testCaseRequestResolvers } from "./resolvers/testcaseRequest.js";
+import { approvalRequestResolvers } from "./resolvers/approvalRequest.js";
 import { recordResolvers } from "./resolvers/record.js";
 import { appTestResolvers } from "./resolvers/appTest.js";
 import { featureResolvers } from "./resolvers/feature.js";
+import { projectResolvers } from "./resolvers/project.js";
 import { featureCoverage } from "./coverage.js";
 
 // The approval gate against a real DB: a pending case is invisible, untestable
@@ -14,8 +15,8 @@ import { featureCoverage } from "./coverage.js";
 const enabled = process.env.RUN_DB_TESTS === "1";
 const Q = testCaseResolvers.Query;
 const M = testCaseResolvers.Mutation;
-const RQ = testCaseRequestResolvers.Query;
-const RM = testCaseRequestResolvers.Mutation;
+const RQ = approvalRequestResolvers.Query;
+const RM = approvalRequestResolvers.Mutation;
 const TAG = "itest-approval";
 
 const ctxFor = (userId: string, role: string) => ({ prisma, userId, userName: "test", role } as any);
@@ -53,7 +54,13 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
 
   afterAll(async () => {
     if (projectId) await prisma.project.delete({ where: { id: projectId } }).catch(() => {});
-    await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
+    // Requests reference the actor by FK but their target by plain id, so they
+    // outlive a deleted project and would block the user cleanup.
+    const users = await prisma.user.findMany({ where: { email: { startsWith: TAG } }, select: { id: true } });
+    const ids = users.map((u) => u.id);
+    await prisma.approvalRequest.deleteMany({ where: { requestedById: { in: ids } } });
+    await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
+    await prisma.user.deleteMany({ where: { id: { in: ids } } });
   });
 
   it("a QA's new case is PENDING, hidden from the list, and shows up as pending", async () => {
@@ -169,11 +176,11 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     expect(await M.deleteTestCase(null, { id: tc.id }, ctxFor(qaId, "QA"))).toBe(true);
     expect(await prisma.testCase.findUnique({ where: { id: tc.id } })).not.toBeNull();
 
-    const req = (await RQ.pendingTestCaseRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
-      .find((r: any) => r.testCaseId === tc.id);
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === tc.id);
     expect(req.kind).toBe("DELETE");
 
-    await RM.approveTestCaseRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
     expect(await prisma.testCase.findUnique({ where: { id: tc.id } })).toBeNull();
   });
 
@@ -186,10 +193,10 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
     expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.active).toBe(true);
 
-    const req = (await RQ.pendingTestCaseRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
-      .find((r: any) => r.testCaseId === tc.id);
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === tc.id);
     expect(req.kind).toBe("DEACTIVATE");
-    await RM.approveTestCaseRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
 
     expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.active).toBe(false);
     const listed = await Q.testCases(null, { featureId }, ctxFor(qaId, "QA"));
@@ -206,12 +213,12 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
   it("a rejected change leaves the case alone", async () => {
     const tc = await approvedCase(`${TAG}-rejchange`);
     await M.deleteTestCase(null, { id: tc.id }, ctxFor(qaId, "QA"));
-    const req = (await RQ.pendingTestCaseRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
-      .find((r: any) => r.testCaseId === tc.id);
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === tc.id);
 
-    await RM.rejectTestCaseRequest(null, { id: req.id, reason: "still in use" }, ctxFor(leadId, "QA_LEAD"));
+    await RM.rejectApprovalRequest(null, { id: req.id, reason: "still in use" }, ctxFor(leadId, "QA_LEAD"));
     expect(await prisma.testCase.findUnique({ where: { id: tc.id } })).not.toBeNull();
-    const open = await RQ.pendingTestCaseRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD"));
+    const open = await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD"));
     expect(open.map((r: any) => r.id)).not.toContain(req.id);
   });
 
@@ -230,10 +237,10 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     await M.moveTestCase(null, { id: tc.id, featureId: other.id }, ctxFor(qaId, "QA"));
     expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.featureId).toBe(featureId);
 
-    const req = (await RQ.pendingTestCaseRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
-      .find((r: any) => r.testCaseId === tc.id);
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === tc.id);
     expect(req.kind).toBe("MOVE");
-    await RM.approveTestCaseRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
     expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.featureId).toBe(other.id);
   });
 
@@ -244,12 +251,78 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     await M.cloneTestCase(null, { id: tc.id, targetFeatureId: featureId, name: `${TAG}-copy-2` }, ctxFor(qaId, "QA"));
     expect(await prisma.testCase.count({ where: { featureId } })).toBe(countBefore);
 
-    const req = (await RQ.pendingTestCaseRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
-      .find((r: any) => r.testCaseId === tc.id);
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === tc.id);
     expect(req.kind).toBe("COPY");
-    await RM.approveTestCaseRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
     const copy = await prisma.testCase.findFirst({ where: { name: `${TAG}-copy-2` } });
     // The copy inherits the source's approval — same content, already reviewed.
     expect(copy!.approval).toBe("APPROVED");
+  });
+
+  it("a pending case offers no move/copy/retire — the server refuses them", async () => {
+    const tc = await M.createTestCase(null, { featureId, input: input(`${TAG}-nochange`) }, ctxFor(qaId, "QA"));
+    for (const call of [
+      () => M.moveTestCase(null, { id: tc.id, featureId }, ctxFor(qaId, "QA")),
+      () => M.cloneTestCase(null, { id: tc.id, targetFeatureId: featureId }, ctxFor(qaId, "QA")),
+      () => M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA")),
+    ]) {
+      await expect(call()).rejects.toThrow(/waiting for approval/);
+    }
+    // Withdrawing your own unreviewed case needs nobody's blessing.
+    expect(await M.deleteTestCase(null, { id: tc.id }, ctxFor(qaId, "QA"))).toBe(true);
+    expect(await prisma.testCase.findUnique({ where: { id: tc.id } })).toBeNull();
+  });
+
+  // --- project / feature retirement -------------------------------------------
+
+  it("retiring a feature takes its cases out of the live catalogue, reviving restores them", async () => {
+    const feature = await prisma.feature.create({ data: { projectId, name: `${TAG}-retire-feat` } });
+    const tc = await M.createTestCase(null, { featureId: feature.id, input: input(`${TAG}-in-feat`) }, ctxFor(qaId, "QA"));
+    await M.approveTestCase(null, { id: tc.id }, ctxFor(leadId, "QA_LEAD"));
+    const liveBefore = await featureResolvers.Feature.testCaseCount({ id: feature.id }, null, ctxFor(qaId, "QA"));
+    expect(liveBefore).toBe(1);
+
+    await featureResolvers.Mutation.setFeatureActive(null, { id: feature.id, active: false }, ctxFor(qaId, "QA"));
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === feature.id);
+    expect(req.target).toBe("FEATURE");
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+
+    // The case row is untouched, it just stops counting as live.
+    expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.active).toBe(true);
+    expect(await featureResolvers.Feature.testCaseCount({ id: feature.id }, null, ctxFor(qaId, "QA"))).toBe(0);
+    const features = await featureResolvers.Query.features(null, { projectId }, ctxFor(qaId, "QA"));
+    expect(features.map((f: any) => f.id)).not.toContain(feature.id);
+    await expect(
+      recordResolvers.Mutation.createRecordTest(
+        null,
+        { testCaseId: tc.id, input: { executedAt: new Date().toISOString(), note: null, result: "PASS", attachments: [] } },
+        ctxFor(qaId, "QA"),
+      ),
+    ).rejects.toThrow(/inactive/);
+
+    // Reviving puts everything back exactly as it was.
+    await featureResolvers.Mutation.setFeatureActive(null, { id: feature.id, active: true }, ctxFor(qaId, "QA"));
+    const back = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === feature.id);
+    await RM.approveApprovalRequest(null, { id: back.id }, ctxFor(leadId, "QA_LEAD"));
+    expect(await featureResolvers.Feature.testCaseCount({ id: feature.id }, null, ctxFor(qaId, "QA"))).toBe(1);
+  });
+
+  it("deleting a project waits for approval and leaves it standing until then", async () => {
+    const project = await prisma.project.create({ data: { name: `${TAG}-doomed`, createdById: qaId } });
+
+    expect(await projectResolvers.Mutation.deleteProject(null, { id: project.id }, ctxFor(qaId, "QA"))).toBe(true);
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
+
+    const req = (await RQ.pendingApprovalRequests(null, { projectId: project.id }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === project.id);
+    expect(req.kind).toBe("DELETE");
+    expect(req.target).toBe("PROJECT");
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
+    // The request row itself survives as the record of the decision.
+    expect((await prisma.approvalRequest.findUnique({ where: { id: req.id } }))!.state).toBe("APPROVED");
   });
 });

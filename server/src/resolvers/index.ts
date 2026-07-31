@@ -2,7 +2,7 @@ import { authResolvers } from "./auth.js";
 import { projectResolvers } from "./project.js";
 import { featureResolvers } from "./feature.js";
 import { testCaseResolvers } from "./testcase.js";
-import { testCaseRequestResolvers } from "./testcaseRequest.js";
+import { approvalRequestResolvers } from "./approvalRequest.js";
 import { recordResolvers } from "./record.js";
 import { issueResolvers } from "./issue.js";
 import { workflowResolvers } from "./workflow.js";
@@ -23,7 +23,7 @@ export const resolvers = {
     ...projectResolvers.Query,
     ...featureResolvers.Query,
     ...testCaseResolvers.Query,
-    ...testCaseRequestResolvers.Query,
+    ...approvalRequestResolvers.Query,
     ...recordResolvers.Query,
     ...issueResolvers.Query,
     ...notificationResolvers.Query,
@@ -42,7 +42,7 @@ export const resolvers = {
     ...projectResolvers.Mutation,
     ...featureResolvers.Mutation,
     ...testCaseResolvers.Mutation,
-    ...testCaseRequestResolvers.Mutation,
+    ...approvalRequestResolvers.Mutation,
     ...recordResolvers.Mutation,
     ...issueResolvers.Mutation,
     ...workflowResolvers.Mutation,
@@ -60,7 +60,7 @@ export const resolvers = {
   Project: projectResolvers.Project,
   Feature: featureResolvers.Feature,
   TestCase: testCaseResolvers.TestCase,
-  TestCaseRequest: testCaseRequestResolvers.TestCaseRequest,
+  ApprovalRequest: approvalRequestResolvers.ApprovalRequest,
   RecordTest: recordResolvers.RecordTest,
   Issue: issueResolvers.Issue,
   Comment: commentResolvers.Comment,

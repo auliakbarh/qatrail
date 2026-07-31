@@ -86,15 +86,22 @@ enum CommentTarget {
   TEST_CASE
 }
 
-// A change to an existing test case that needs approval before it happens. The
-// case keeps working until the decision lands — a request must not make content
-// disappear by itself.
-enum TestCaseRequestKind {
+// A change to existing content that needs approval before it happens. The
+// content keeps working until the decision lands — a request must not make
+// anything disappear by itself.
+enum ApprovalRequestKind {
   MOVE
   COPY
   DELETE
   DEACTIVATE
   ACTIVATE
+}
+
+// What a request is about. Polymorphic by plain id, same as Comment/Watch.
+enum ApprovalTarget {
+  PROJECT
+  FEATURE
+  TEST_CASE
 }
 
 // Kind of testing session. OTHER carries a free-text label in kindOther.
@@ -146,8 +153,8 @@ model User {
   testCases       TestCase[] @relation("testCaseAuthor")
   testCasesReviewed TestCase[] @relation("testCaseReviewer")
 
-  testCaseRequests         TestCaseRequest[] @relation("testCaseRequester")
-  testCaseRequestsReviewed TestCaseRequest[] @relation("testCaseRequestReviewer")
+  approvalRequests         ApprovalRequest[] @relation("approvalRequester")
+  approvalRequestsReviewed ApprovalRequest[] @relation("approvalReviewer")
   recordTests    RecordTest[]    @relation("testExecutor")
   reportedIssues Issue[]         @relation("reporter")
   assignedIssues Issue[]         @relation("assignee")
@@ -177,6 +184,10 @@ model Project {
   createdBy      User     @relation("projectOwner", fields: [createdById], references: [id])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  // Retired project: everything under it stops counting as live content without
+  // a single test case row being touched, so activating it restores the exact
+  // state it had. Flipping this needs approval.
+  active         Boolean  @default(true)
 
   features     Feature[]
   appTests     AppTest[]
@@ -196,6 +207,8 @@ model Feature {
   minPassPercent Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  // Same as Project.active, one level down.
+  active         Boolean  @default(true)
 
   testCases TestCase[]
 
@@ -222,6 +235,10 @@ model TestCase {
   // reviewedAt/reviewedById carry the latest decision (approve OR reject); the
   // full history is in AuditLog. Null on legacy rows: that review never happened.
   approval     TestCaseApproval @default(APPROVED)
+  // First time this case ever went live. Never cleared, so a PENDING case with a
+  // value set is a re-review of an edit, and one without is brand new — the
+  // reviewer can tell the two apart.
+  firstApprovedAt DateTime?
   reviewedAt   DateTime?
   reviewedById String?
   reviewedBy   User?            @relation("testCaseReviewer", fields: [reviewedById], references: [id])
@@ -230,7 +247,6 @@ model TestCase {
   // new assignment, no new run. Flipping this needs approval too.
   active       Boolean          @default(true)
 
-  requests         TestCaseRequest[]
   steps            TestCaseStep[]
   attachments      TestCaseAttachment[]
   records          RecordTest[]
@@ -242,26 +258,28 @@ model TestCase {
   @@index([approval])
 }
 
-// A pending move/copy/delete/(de)activate on a test case. Only one may be open
-// per case (enforced in the resolver). Approving runs the action; rejecting
-// drops it. Reuses TestCaseApproval for the state — same three outcomes.
-model TestCaseRequest {
+// A pending move/copy/delete/(de)activate on a project, feature or test case.
+// Only one may be open per target (enforced in the resolver). Approving runs the
+// action; rejecting drops it. Reuses TestCaseApproval for the state — same three
+// outcomes. The target is a plain id (no FK, like Comment/Watch), so a resolver
+// that deletes a target cleans up its requests.
+model ApprovalRequest {
   id              String              @id @default(cuid())
-  testCaseId      String
-  testCase        TestCase            @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  kind            TestCaseRequestKind
-  targetFeatureId String? // MOVE / COPY destination
+  target          ApprovalTarget
+  targetId        String
+  kind            ApprovalRequestKind
+  targetFeatureId String? // MOVE / COPY destination (test cases only)
   targetName      String? // COPY name override
   state           TestCaseApproval    @default(PENDING)
   requestedById   String
-  requestedBy     User                @relation("testCaseRequester", fields: [requestedById], references: [id])
+  requestedBy     User                @relation("approvalRequester", fields: [requestedById], references: [id])
   requestedAt     DateTime            @default(now())
   reviewedById    String?
-  reviewedBy      User?               @relation("testCaseRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedBy      User?               @relation("approvalReviewer", fields: [reviewedById], references: [id])
   reviewedAt      DateTime?
   rejectReason    String?
 
-  @@index([testCaseId])
+  @@index([target, targetId])
   @@index([state])
 }
 

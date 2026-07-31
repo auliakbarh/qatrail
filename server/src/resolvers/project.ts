@@ -2,6 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { projectCoverage } from "../coverage.js";
 import { cloneProjectDeep } from "../clone.js";
+import { needsApproval, openRequest, assertActive } from "./approvalRequest.js";
 
 interface ProjectInput {
   name: string;
@@ -16,9 +17,14 @@ function clampPercent(n: number): number {
 
 export const projectResolvers = {
   Query: {
-    async projects(_: unknown, __: unknown, ctx: Context) {
+    // Active only by default; `includeInactive` is how a retired project is found
+    // again to ask for it back.
+    async projects(_: unknown, args: { includeInactive?: boolean | null }, ctx: Context) {
       requireAuth(ctx);
-      return ctx.prisma.project.findMany({ orderBy: { name: "asc" } });
+      return ctx.prisma.project.findMany({
+        where: args?.includeInactive ? {} : { active: true },
+        orderBy: { name: "asc" },
+      });
     },
     async project(_: unknown, args: { id: string }, ctx: Context) {
       requireAuth(ctx);
@@ -40,6 +46,7 @@ export const projectResolvers = {
     },
     async updateProject(_: unknown, args: { id: string; input: ProjectInput }, ctx: Context) {
       await requireQA(ctx);
+      await assertActive(ctx, "PROJECT", args.id);
       return ctx.prisma.project.update({
         where: { id: args.id },
         data: {
@@ -50,10 +57,30 @@ export const projectResolvers = {
         },
       });
     },
+    // Deleting a project takes down every feature, case, record and issue under
+    // it, so it goes through approval. The project keeps working until then.
     async deleteProject(_: unknown, args: { id: string }, ctx: Context) {
-      await requireQA(ctx);
+      const user = await requireQA(ctx);
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "PROJECT", args.id, "DELETE");
+        return true;
+      }
       await ctx.prisma.project.delete({ where: { id: args.id } });
+      await ctx.prisma.approvalRequest.deleteMany({ where: { target: "PROJECT", targetId: args.id } });
       return true;
+    },
+    // Retire or revive a project: nothing under it is rewritten, the live filters
+    // simply stop counting it. Needs approval like any other change.
+    async setProjectActive(_: unknown, args: { id: string; active: boolean }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const p = await ctx.prisma.project.findUnique({ where: { id: args.id } });
+      if (!p) throw new Error("Project not found");
+      if (p.active === args.active) return p;
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "PROJECT", p.id, args.active ? "ACTIVATE" : "DEACTIVATE");
+        return ctx.prisma.project.findUnique({ where: { id: p.id } });
+      }
+      return ctx.prisma.project.update({ where: { id: p.id }, data: { active: args.active } });
     },
     async cloneProject(_: unknown, args: { id: string; name?: string }, ctx: Context) {
       const user = await requireQA(ctx);
@@ -64,7 +91,9 @@ export const projectResolvers = {
     createdAt: (p: any) => p.createdAt.toISOString(),
     updatedAt: (p: any) => p.updatedAt.toISOString(),
     featureCount: (p: any, _: unknown, ctx: Context) =>
-      ctx.prisma.feature.count({ where: { projectId: p.id } }),
+      ctx.prisma.feature.count({ where: { projectId: p.id, active: true } }),
+    pendingRequest: (p: any, _: unknown, ctx: Context) =>
+      ctx.prisma.approvalRequest.findFirst({ where: { target: "PROJECT", targetId: p.id, state: "PENDING" } }),
     coverage: (p: any) => projectCoverage(p.id),
     async ready(p: any) {
       const cov = await projectCoverage(p.id);

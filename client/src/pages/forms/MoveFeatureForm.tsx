@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls } from "../../components/Form";
-import { PROJECTS, FEATURES, MOVE_FEATURE } from "../../graphql/hierarchy";
+import { PROJECTS, MOVE_FEATURE } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -15,8 +15,7 @@ export function MoveFeatureForm({ featureId, sourceProjectId }: { featureId: str
   const { data: projData } = useQuery(PROJECTS);
   const [move, { loading }] = useMutation(MOVE_FEATURE, {
     refetchQueries: [
-      { query: FEATURES, variables: { projectId: sourceProjectId } },
-      ...(projectId ? [{ query: FEATURES, variables: { projectId } }] : []),
+      "Features",
     ],
   });
 

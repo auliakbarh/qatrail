@@ -5,14 +5,14 @@ import { useTranslation } from "react-i18next";
 import { Check, X, FolderOpen, ChevronDown, ChevronRight } from "lucide-react";
 import {
   PENDING_TEST_CASES,
-  PENDING_TEST_CASE_REQUESTS,
+  PENDING_APPROVAL_REQUESTS,
   PENDING_APPROVAL_COUNT,
   APPROVE_TEST_CASE,
   APPROVE_TEST_CASES,
   REJECT_TEST_CASE,
-  APPROVE_TEST_CASE_REQUEST,
-  APPROVE_TEST_CASE_REQUESTS,
-  REJECT_TEST_CASE_REQUEST,
+  APPROVE_APPROVAL_REQUEST,
+  APPROVE_APPROVAL_REQUESTS,
+  REJECT_APPROVAL_REQUEST,
 } from "../graphql/hierarchy";
 import { FilterBar } from "../components/FilterBar";
 import { IconBtn } from "../components/IconBtn";
@@ -28,13 +28,14 @@ import { waitedFor } from "../lib/approval";
 function caseRow(tc: any) {
   return {
     rowKind: "CASE" as const,
+    scope: "TEST_CASE" as const,
     id: tc.id,
     testCaseId: tc.id,
     key: tc.key,
     name: tc.name,
-    // NEW vs EDIT can't be told apart from the row alone — both are "review the
-    // content" — so the type column just says which queue it is.
-    type: tc.approval === "REJECTED" ? "REJECTED" : "CONTENT",
+    // firstApprovedAt is never cleared, so it tells a brand-new case from a
+    // re-review of an edit.
+    type: tc.approval === "REJECTED" ? "REJECTED" : tc.firstApprovedAt ? "EDIT" : "NEW",
     approval: tc.approval,
     rejectReason: tc.rejectReason,
     canApprove: tc.canApprove,
@@ -46,22 +47,26 @@ function caseRow(tc: any) {
   };
 }
 
+// A request can be about a project, a feature or a test case — the row shows
+// which, so a "DELETE" on a whole project can never be mistaken for one case.
 function requestRow(r: any) {
   const target = [r.targetFeature?.name, r.targetName].filter(Boolean).join(" · ");
+  const feature = r.feature ?? r.testCase?.feature;
   return {
     rowKind: "REQUEST" as const,
     id: r.id,
-    testCaseId: r.testCase?.id,
-    key: r.testCase?.key ?? "—",
-    name: r.testCase?.name ?? "—",
+    scope: r.target as "PROJECT" | "FEATURE" | "TEST_CASE",
+    testCaseId: r.testCase?.id ?? null,
+    key: r.testCase?.key ?? (r.target === "FEATURE" ? r.feature?.id?.slice(0, 0) || "—" : "—"),
+    name: r.testCase?.name ?? r.feature?.name ?? r.project?.name ?? r.label,
     type: r.kind,
     approval: "PENDING",
     rejectReason: null,
     canApprove: r.canApprove,
     waitingSince: r.requestedAt,
     creatorName: r.requestedBy?.name ?? "",
-    featureName: r.testCase?.feature?.name ?? "—",
-    projectName: r.testCase?.feature?.project?.name ?? "—",
+    featureName: feature?.name ?? "—",
+    projectName: r.project?.name ?? feature?.project?.name ?? "—",
     detail: target,
   };
 }
@@ -71,7 +76,7 @@ export default function PendingTestCases() {
   const navigate = useNavigate();
   const refetchAfter = [
     { query: PENDING_TEST_CASES, variables: { projectId: null } },
-    { query: PENDING_TEST_CASE_REQUESTS, variables: { projectId: null } },
+    { query: PENDING_APPROVAL_REQUESTS, variables: { projectId: null } },
     { query: PENDING_APPROVAL_COUNT },
     "TestCases",
   ];
@@ -79,16 +84,16 @@ export default function PendingTestCases() {
     variables: { projectId: null },
     fetchPolicy: "cache-and-network",
   });
-  const { data: reqData, loading: reqLoading } = useQuery(PENDING_TEST_CASE_REQUESTS, {
+  const { data: reqData, loading: reqLoading } = useQuery(PENDING_APPROVAL_REQUESTS, {
     variables: { projectId: null },
     fetchPolicy: "cache-and-network",
   });
   const [approve] = useMutation(APPROVE_TEST_CASE, { refetchQueries: refetchAfter });
   const [approveMany] = useMutation(APPROVE_TEST_CASES, { refetchQueries: refetchAfter });
   const [reject] = useMutation(REJECT_TEST_CASE, { refetchQueries: refetchAfter });
-  const [approveReq] = useMutation(APPROVE_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
-  const [approveReqMany] = useMutation(APPROVE_TEST_CASE_REQUESTS, { refetchQueries: refetchAfter });
-  const [rejectReq] = useMutation(REJECT_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
+  const [approveReq] = useMutation(APPROVE_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
+  const [approveReqMany] = useMutation(APPROVE_APPROVAL_REQUESTS, { refetchQueries: refetchAfter });
+  const [rejectReq] = useMutation(REJECT_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("waitingSince");
@@ -122,7 +127,7 @@ export default function PendingTestCases() {
 
   const base: any[] = [
     ...(data?.pendingTestCases ?? []).map(caseRow),
-    ...(reqData?.pendingTestCaseRequests ?? []).map(requestRow),
+    ...(reqData?.pendingApprovalRequests ?? []).map(requestRow),
   ];
   const distinct = (f: string) => [...new Set(base.map((r) => r[f]).filter(Boolean))].sort();
   const filtered = base.filter(
@@ -192,7 +197,7 @@ export default function PendingTestCases() {
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <select value={fType} onChange={(e) => setFType(e.target.value)} className={selCls}>
                 <option value="">{t("tca.type")}: {t("c.all")}</option>
-                {["CONTENT", "REJECTED", "MOVE", "COPY", "DELETE", "DEACTIVATE", "ACTIVATE"].map((v) => (
+                {["NEW", "EDIT", "REJECTED", "MOVE", "COPY", "DELETE", "DEACTIVATE", "ACTIVATE"].map((v) => (
                   <option key={v} value={v}>{t(`tcr.kind.${v}`)}</option>
                 ))}
               </select>
@@ -267,12 +272,21 @@ export default function PendingTestCases() {
                           </td>
                           <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
                           <td className="px-3 py-2">
-                            <button
-                              onClick={() => tc.testCaseId && navigate(`/test-cases/${tc.testCaseId}`)}
-                              className="text-left font-medium hover:underline"
-                            >
-                              {tc.name}
-                            </button>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {/* Scope first: a DELETE on a project must never read
+                                  like a DELETE on one test case. */}
+                              {tc.scope !== "TEST_CASE" && (
+                                <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {t(`tcr.scope.${tc.scope}`)}
+                                </span>
+                              )}
+                              <button
+                                onClick={() => tc.testCaseId && navigate(`/test-cases/${tc.testCaseId}`)}
+                                className={cn("text-left font-medium", tc.testCaseId && "hover:underline")}
+                              >
+                                {tc.name}
+                              </button>
+                            </div>
                             {tc.rejectReason && <div className="text-xs text-destructive">{tc.rejectReason}</div>}
                             {tc.detail && <div className="text-xs text-muted-foreground">→ {tc.detail}</div>}
                           </td>
@@ -288,7 +302,7 @@ export default function PendingTestCases() {
                                 "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
                                 tc.type === "REJECTED" || tc.type === "DELETE"
                                   ? "bg-destructive text-white"
-                                  : tc.type === "CONTENT"
+                                  : tc.type === "NEW" || tc.type === "EDIT"
                                     ? "bg-[var(--warn)] text-white"
                                     : "border border-border text-muted-foreground",
                               )}

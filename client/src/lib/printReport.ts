@@ -1,4 +1,4 @@
-import { fmtDateTime } from "./utils";
+import { fmtDateTimeTz as fmtDateTime } from "./utils";
 
 const esc = (s: any) =>
   String(s ?? "—").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
@@ -139,3 +139,113 @@ ${s.summary ? `<h2>Summary</h2><p>${esc(s.summary)}</p>` : ""}
 }
 
 const passedVerdict = (s: any) => (s?.passPercent ?? 0) >= (s?.minPassPercent ?? 0);
+
+// Analytics snapshot as a print/PDF page: same native-print route as the other
+// two reports, so there is still no PDF library in the build.
+export function printAnalyticsReport(a: any, meta: { scope: string; range: string; printedBy: string }) {
+  const th = (cells: string[]) => `<tr>${cells.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const td = (cells: any[]) => `<tr>${cells.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`;
+  const mins = (m: number | null) => (m == null ? "—" : m < 60 ? `${m}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${(m / 1440).toFixed(1)}d`);
+  // Features grouped by project, matching the on-screen table.
+  const byProject = new Map<string, any[]>();
+  for (const k of a.keyCoverage ?? []) {
+    const name = k.projectName ?? k.projectId;
+    byProject.set(name, [...(byProject.get(name) ?? []), k]);
+  }
+
+  const html = `<!doctype html><html><head><meta charset="utf-8">
+<title>Analytics — ${esc(meta.scope)}</title>
+<style>
+  body{font:13px/1.5 system-ui,sans-serif;color:#111;max-width:900px;margin:32px auto;padding:0 16px}
+  h1{font-size:18px;margin:0 0 4px} h2{font-size:13px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.04em;color:#555}
+  h3{font-size:12px;margin:14px 0 4px}
+  .key{color:#666;font-size:12px}
+  table{border-collapse:collapse;width:100%;margin-top:8px}
+  th,td{border:1px solid #ddd;padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f7f7f7;font-weight:600}
+  .stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .stat{border:1px solid #ddd;padding:6px 10px;min-width:120px}
+  .stat b{display:block;font-size:18px}
+  @media print{body{margin:0}}
+</style></head><body>
+<div class="key">${esc(meta.range)}</div>
+<h1>Analytics — ${esc(meta.scope)}</h1>
+
+<h2>Summary</h2>
+<div class="stats">
+  <div class="stat"><b>${esc(a.totalFindings)}</b>Findings</div>
+  <div class="stat"><b>${esc(a.totalDefects)}</b>Defects</div>
+  <div class="stat"><b>${esc(a.totalBugs)}</b>Bugs</div>
+  <div class="stat"><b>${esc(a.resolutionRate)}%</b>Resolved</div>
+  <div class="stat"><b>${esc(mins(a.avgResolveMins))}</b>Avg resolve</div>
+  <div class="stat"><b>${a.slaCompliance == null ? "—" : esc(a.slaCompliance) + "%"}</b>SLA</div>
+  <div class="stat"><b>${esc(a.confidence?.percent)}%</b>Confidence (${esc(a.confidence?.passed)}/${esc(a.confidence?.total)})</div>
+</div>
+
+<h2>Issue status</h2>
+<table><thead>${th(["Status", "Count"])}</thead><tbody>
+${(a.statusBreakdown ?? []).map((s: any) => td([s.status, s.count])).join("") || td(["—", "—"])}
+</tbody></table>
+
+<h2>SLA</h2>
+<table><thead>${th(["Met", "At risk", "Breached"])}</thead><tbody>
+${td([a.slaBreakdown?.met, a.slaBreakdown?.atRisk, a.slaBreakdown?.breached])}
+</tbody></table>
+
+<h2>Created vs resolved</h2>
+<table><thead>${th(["Period", "Created", "Resolved"])}</thead><tbody>
+${(a.createdVsResolved ?? []).map((m: any) => td([m.period, m.created, m.resolved])).join("") || td(["—", "—", "—"])}
+</tbody></table>
+
+<h2>Key coverage</h2>
+${
+  byProject.size === 0
+    ? "<p>—</p>"
+    : [...byProject]
+        .map(
+          ([project, rows]) => `<h3>${esc(project)}</h3>
+<table><thead>${th(["Feature", "Pass %", "Min %", "Passed", "Ready"])}</thead><tbody>
+${rows.map((k: any) => td([k.name, `${k.percent}%`, `${k.min}%`, `${k.passed}/${k.total}`, k.ready ? "Yes" : "No"])).join("")}
+</tbody></table>`,
+        )
+        .join("")
+}
+
+<h2>Work by person</h2>
+${
+  (() => {
+    // Same split as the screen: each role only gets the columns that mean
+    // something for it, so no table is mostly blank.
+    const cols: Record<string, [string, string][]> = {
+      QA_LEAD: [["approvals", "Approvals"], ["testCasesCreated", "Test cases"], ["recordsRun", "Runs"], ["issuesReported", "Reported"]],
+      QA: [["testCasesCreated", "Test cases"], ["recordsRun", "Runs"], ["issuesReported", "Reported"]],
+      ENGINEER: [["appTestsSubmitted", "App tests"], ["issuesAssigned", "Assigned"], ["issuesResolved", "Resolved"], ["avgResolveMins", "Avg resolve"]],
+      ADMIN: [["approvals", "Approvals"], ["testCasesCreated", "Test cases"], ["recordsRun", "Runs"], ["issuesReported", "Reported"], ["issuesResolved", "Resolved"]],
+    };
+    cols.SUPER_ADMIN = cols.ADMIN;
+    cols.VIEWER = [];
+    const order = ["QA_LEAD", "QA", "ENGINEER", "ADMIN", "SUPER_ADMIN", "VIEWER"];
+    const byRole = new Map<string, any[]>();
+    for (const w of a.workload ?? []) byRole.set(w.role, [...(byRole.get(w.role) ?? []), w]);
+    const roles = [...byRole.keys()].sort((x, y) => order.indexOf(x) - order.indexOf(y));
+    if (!roles.length) return "<p>—</p>";
+    return roles
+      .map((role) => {
+        const c = cols[role] ?? cols.QA;
+        return `<h3>${esc(role)}</h3>
+<table><thead>${th(["Person", ...c.map(([, label]) => label)])}</thead><tbody>
+${byRole
+  .get(role)!
+  .map((w: any) => td([w.name, ...c.map(([key]) => (key === "avgResolveMins" ? mins(w[key]) : w[key]))]))
+  .join("")}
+</tbody></table>`;
+      })
+      .join("");
+  })()
+}
+
+<p class="key" style="margin-top:20px">Printed by ${esc(meta.printedBy)} · ${esc(fmtDateTime(new Date().toISOString()))}</p>
+</body></html>`;
+
+  print(html);
+}

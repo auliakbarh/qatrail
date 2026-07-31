@@ -3,6 +3,7 @@ import { requireAuth, requireQA } from "../context.js";
 import { featureCoverage } from "../coverage.js";
 import { cloneFeatureInto } from "../clone.js";
 import { APPROVED_ONLY } from "./testcase.js";
+import { needsApproval, openRequest, assertActive } from "./approvalRequest.js";
 
 interface FeatureInput {
   name: string;
@@ -16,10 +17,10 @@ function clampPercent(n: number): number {
 
 export const featureResolvers = {
   Query: {
-    async features(_: unknown, args: { projectId: string }, ctx: Context) {
+    async features(_: unknown, args: { projectId: string; includeInactive?: boolean | null }, ctx: Context) {
       requireAuth(ctx);
       return ctx.prisma.feature.findMany({
-        where: { projectId: args.projectId },
+        where: { projectId: args.projectId, ...(args.includeInactive ? {} : { active: true }) },
         orderBy: { name: "asc" },
       });
     },
@@ -42,6 +43,8 @@ export const featureResolvers = {
     },
     async updateFeature(_: unknown, args: { id: string; input: FeatureInput }, ctx: Context) {
       await requireQA(ctx);
+      // Retired content is read-only until it is activated again.
+      await assertActive(ctx, "FEATURE", args.id);
       return ctx.prisma.feature.update({
         where: { id: args.id },
         data: {
@@ -51,10 +54,28 @@ export const featureResolvers = {
         },
       });
     },
+    // Same as a project: deleting takes the test cases and their history with it,
+    // so it waits for approval. The feature keeps working until then.
     async deleteFeature(_: unknown, args: { id: string }, ctx: Context) {
-      await requireQA(ctx);
+      const user = await requireQA(ctx);
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "FEATURE", args.id, "DELETE");
+        return true;
+      }
       await ctx.prisma.feature.delete({ where: { id: args.id } });
+      await ctx.prisma.approvalRequest.deleteMany({ where: { target: "FEATURE", targetId: args.id } });
       return true;
+    },
+    async setFeatureActive(_: unknown, args: { id: string; active: boolean }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const f = await ctx.prisma.feature.findUnique({ where: { id: args.id } });
+      if (!f) throw new Error("Feature not found");
+      if (f.active === args.active) return f;
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "FEATURE", f.id, args.active ? "ACTIVATE" : "DEACTIVATE");
+        return ctx.prisma.feature.findUnique({ where: { id: f.id } });
+      }
+      return ctx.prisma.feature.update({ where: { id: f.id }, data: { active: args.active } });
     },
     async cloneFeature(_: unknown, args: { id: string; targetProjectId: string; name?: string }, ctx: Context) {
       const user = await requireQA(ctx);
@@ -73,6 +94,8 @@ export const featureResolvers = {
     createdAt: (f: any) => f.createdAt.toISOString(),
     updatedAt: (f: any) => f.updatedAt.toISOString(),
     project: (f: any, _: unknown, ctx: Context) => ctx.prisma.project.findUnique({ where: { id: f.projectId } }),
+    pendingRequest: (f: any, _: unknown, ctx: Context) =>
+      ctx.prisma.approvalRequest.findFirst({ where: { target: "FEATURE", targetId: f.id, state: "PENDING" } }),
     // Cases awaiting review, or retired, aren't part of the agreed catalogue, so
     // they don't inflate the count or the coverage denominator.
     testCaseCount: (f: any, _: unknown, ctx: Context) =>

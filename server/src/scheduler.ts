@@ -3,7 +3,7 @@ import { logger } from "./logger.js";
 import { notify } from "./notify.js";
 import { slaTargets, classifyResolve, respondBreached } from "./sla.js";
 import { autoApproveCutoff } from "./approval.js";
-import { autoApproveRequest } from "./resolvers/testcaseRequest.js";
+import { autoApproveRequest } from "./resolvers/approvalRequest.js";
 
 const log = logger.child({ mod: "scheduler" });
 
@@ -53,10 +53,15 @@ async function sweepAutoApprovals() {
         where: { approval: "PENDING", updatedAt: { lte: newCut } },
         data: { approval: "APPROVED", reviewedAt: now, reviewedById: null },
       });
+      // Set once, never overwritten — hence the second pass.
+      await prisma.testCase.updateMany({
+        where: { approval: "APPROVED", firstApprovedAt: null },
+        data: { firstApprovedAt: now },
+      });
       if (cases.count) log.info({ count: cases.count }, "auto-approved test cases");
     }
     if (changeCut) {
-      const due = await prisma.testCaseRequest.findMany({
+      const due = await prisma.approvalRequest.findMany({
         where: { state: "PENDING", requestedAt: { lte: changeCut } },
         select: { id: true },
       });

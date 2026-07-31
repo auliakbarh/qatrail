@@ -14,6 +14,7 @@ export const ANALYTICS = gql`
       slaBreakdown { met atRisk breached }
       createdVsResolved { period created resolved }
       keyCoverage { featureId projectId name percent passed total min ready }
+      workload { userId name role testCasesCreated recordsRun issuesReported approvals appTestsSubmitted issuesAssigned issuesResolved avgResolveMins }
     }
   }
 `;

@@ -1,8 +1,8 @@
 import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, Copy } from "lucide-react";
-import { PROJECTS, DELETE_PROJECT, CLONE_PROJECT } from "../../graphql/hierarchy";
+import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, Copy, Power, Clock } from "lucide-react";
+import { PROJECTS, DELETE_PROJECT, CLONE_PROJECT, SET_PROJECT_ACTIVE, PENDING_APPROVAL_COUNT } from "../../graphql/hierarchy";
 import { useNav, useDrill } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
 import { CoverageBar } from "../../components/CoverageBar";
@@ -14,6 +14,7 @@ import { searchRows, sortRows, groupRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
+import { cn } from "../../lib/utils";
 
 export function ProjectList() {
   const { t } = useTranslation();
@@ -21,9 +22,16 @@ export function ProjectList() {
   const { goProject } = useDrill();
   const { user } = useAuth();
   const manage = canManageContent(user?.role);
-  const { data, loading } = useQuery(PROJECTS, { fetchPolicy: "cache-and-network" });
-  const [deleteProject] = useMutation(DELETE_PROJECT, { refetchQueries: [PROJECTS] });
-  const [cloneProject] = useMutation(CLONE_PROJECT, { refetchQueries: [PROJECTS] });
+  // Retired projects come down with the rest and are filtered here, so the
+  // status picker costs no round trip.
+  const { data, loading } = useQuery(PROJECTS, {
+    variables: { includeInactive: true },
+    fetchPolicy: "cache-and-network",
+  });
+  const refetchAfter = ["Projects", { query: PENDING_APPROVAL_COUNT }];
+  const [deleteProject] = useMutation(DELETE_PROJECT, { refetchQueries: refetchAfter });
+  const [cloneProject] = useMutation(CLONE_PROJECT, { refetchQueries: refetchAfter });
+  const [setActive] = useMutation(SET_PROJECT_ACTIVE, { refetchQueries: refetchAfter });
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -36,17 +44,18 @@ export function ProjectList() {
       return next;
     });
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
+  const [fActive, setFActive] = useState("");
 
   const onSort = (key: string) => {
     const n = nextSort({ key: sortKey, dir: sortDir }, key);
     setSortKey(n.key);
     setSortDir(n.dir);
   };
-  const rows = sortRows(
-    searchRows(data?.projects ?? [], search, ["name", "squad", "description"]),
-    sortKey as any,
-    sortDir,
-  );
+  // Retired projects stay visible — grouped, not hidden — with editing locked.
+  const visible = (data?.projects ?? [])
+    .map((p: any) => ({ ...p, activeLabel: p.active ? t("tc.active") : t("tc.inactive") }))
+    .filter((p: any) => (fActive === "" ? true : fActive === "ACTIVE" ? p.active : !p.active));
+  const rows = sortRows(searchRows(visible, search, ["name", "squad", "description"]), sortKey as any, sortDir);
   // When grouping, split into labelled buckets; otherwise one unlabelled bucket.
   const groups: [string, any[]][] = groupKey
     ? Object.entries(groupRows(rows, groupKey as any))
@@ -67,8 +76,22 @@ export function ProjectList() {
             onSearch={setSearch}
             groupKey={groupKey}
             onGroupKey={setGroupKey}
-            groupOptions={[{ value: "squad", label: "squad" }]}
+            groupOptions={[
+              { value: "squad", label: "squad" },
+              { value: "activeLabel", label: t("tc.groupActive") },
+            ]}
           />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <select
+              value={fActive}
+              onChange={(e) => setFActive(e.target.value)}
+              className="h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="ACTIVE">{t("tc.activeOnly")}</option>
+              <option value="INACTIVE">{t("tc.inactiveOnly")}</option>
+              <option value="">{t("tc.activeAll")}</option>
+            </select>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -112,9 +135,25 @@ export function ProjectList() {
                   <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                     <td className="px-3 py-2">
-                      <button onClick={() => goProject(p.id)} className="text-left font-medium hover:underline">
+                      <button
+                        onClick={() => goProject(p.id)}
+                        className={cn("text-left font-medium hover:underline", !p.active && "text-muted-foreground")}
+                      >
                         {p.name}
                       </button>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {!p.active && (
+                          <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {t("tc.inactive")}
+                          </span>
+                        )}
+                        {p.pendingRequest && (
+                          <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">
+                            <Clock className="h-2.5 w-2.5" />
+                            {t(`tcr.kind.${p.pendingRequest.kind}`)}
+                          </span>
+                        )}
+                      </div>
                       {p.description && (
                         <div className="text-xs text-muted-foreground">{p.description}</div>
                       )}
@@ -122,7 +161,7 @@ export function ProjectList() {
                     <td className="px-3 py-2 text-muted-foreground">{p.squad ?? "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{p.featureCount}</td>
                     <td className="px-3 py-2">
-                      <CoverageBar percent={p.coverage.percent} min={p.minPassPercent} ready={p.ready} />
+                      <CoverageBar percent={p.coverage.percent} min={p.minPassPercent} ready={p.ready} bar={false} />
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">
@@ -131,17 +170,30 @@ export function ProjectList() {
                         </IconBtn>
                         <IconBtn
                           title={t("clone.action")}
-                          allowed={manage}
+                          allowed={manage && p.active}
                           onClick={() => withToast(cloneProject({ variables: { id: p.id } }), t("clone.done"), t("clone.fail"))}
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </IconBtn>
                         <IconBtn
                           title={t("c.edit")}
-                          allowed={manage}
+                          allowed={manage && p.active}
                           onClick={() => openPanel({ kind: "project", mode: "edit", id: p.id, initial: p })}
                         >
                           <Pencil className="h-3.5 w-3.5" />
+                        </IconBtn>
+                        <IconBtn
+                          title={p.active ? t("tc.deactivate") : t("tc.activate")}
+                          allowed={manage}
+                          onClick={() =>
+                            withToast(
+                              setActive({ variables: { id: p.id, active: !p.active } }),
+                              p.active ? t("t.deactivateAsked") : t("t.activateAsked"),
+                              t("t.activeChangeFail"),
+                            )
+                          }
+                        >
+                          <Power className={cn("h-3.5 w-3.5", !p.active && "text-muted-foreground")} />
                         </IconBtn>
                         <IconBtn title={t("c.delete")} allowed={manage} onClick={() => setDel({ id: p.id, name: p.name })}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -161,9 +213,9 @@ export function ProjectList() {
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && withToast(deleteProject({ variables: { id: del.id } }), t("t.projectDeleted"), t("t.projectDeleteFail"))}
+        onConfirm={() => del && withToast(deleteProject({ variables: { id: del.id } }), t("t.deleteAsked"), t("t.projectDeleteFail"))}
         label={del?.name ?? ""}
-        note={t("del.noteProject")}
+        note={t("del.noteProjectApproval")}
       />
     </div>
   );

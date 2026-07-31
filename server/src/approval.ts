@@ -12,6 +12,18 @@
 // The creator's rank comes from their *current* role — a demoted creator's old
 // case becomes easier to approve. Accepted: no role snapshot column.
 
+// The live catalogue, as a Prisma where-fragment: reviewed (APPROVED), not
+// retired, and under a feature and project that are themselves live. Retiring a
+// project therefore takes everything under it out of the lists, the counts,
+// coverage and every new run without rewriting a single test case row — so
+// reviving it restores exactly the state it had. Lives here (not in a resolver)
+// so coverage.ts can share it without importing upwards.
+export const LIVE_TEST_CASE = {
+  approval: "APPROVED",
+  active: true,
+  feature: { active: true, project: { active: true } },
+} as const;
+
 export const RANK: Record<string, number> = {
   VIEWER: 0,
   ENGINEER: 0,

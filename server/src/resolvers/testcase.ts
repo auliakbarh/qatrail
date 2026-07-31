@@ -2,9 +2,15 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA, requireApprover } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
-import { approvalOnCreate, canApproveTestCase, editKeepsApproval, isApproverRole, autoApprovesNow } from "../approval.js";
+import { approvalOnCreate, canApproveTestCase, editKeepsApproval, isApproverRole, autoApprovesNow, LIVE_TEST_CASE } from "../approval.js";
 import { notify, notifyTestCaseApprovers } from "../notify.js";
-import { needsApproval, openRequest, changeAutoApproveHours } from "./testcaseRequest.js";
+import {
+  needsApproval,
+  deleteNeedsApproval,
+  assertReviewedForChange,
+  openRequest,
+  changeAutoApproveHours,
+} from "./approvalRequest.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -83,9 +89,9 @@ function attachData(atts: AttachmentInput[]) {
   return atts.map((a, i) => ({ order: i + 1, url: a.url, kind: a.kind, label: a.label ?? null }));
 }
 
-// The live catalogue: reviewed (APPROVED) and not retired (active). Anything
-// else is out of the lists, the counts, coverage, and every new run.
-export const APPROVED_ONLY = { approval: "APPROVED", active: true } as const;
+// Re-exported under the name the resolvers already use; the definition lives in
+// approval.ts so coverage.ts can share it.
+export const APPROVED_ONLY = LIVE_TEST_CASE;
 
 // Approval a new/edited case lands in, honouring the admin's auto-approve
 // setting: 0 hours means nothing waits for a human. A positive window still
@@ -105,22 +111,23 @@ async function resolveApproval(
 export async function assertApproved(ctx: Context, testCaseId: string, what: string): Promise<void> {
   const tc = await ctx.prisma.testCase.findUnique({
     where: { id: testCaseId },
-    select: { approval: true, active: true },
+    select: { approval: true, active: true, feature: { select: { active: true, project: { select: { active: true } } } } },
   });
   if (!tc) throw new Error("Test case not found");
-  if (!tc.active) throw retired(what);
+  // A retired project or feature retires everything under it.
+  if (!tc.active || !tc.feature.active || !tc.feature.project.active) throw retired(what);
   if (tc.approval !== "APPROVED") throw notApproved(what);
 }
 
 // Same for a batch (assigning several cases at once).
 export async function assertAllApproved(ctx: Context, testCaseIds: string[], what = "be assigned"): Promise<void> {
   if (!testCaseIds.length) return;
-  const [unreviewed, retiredCount] = await Promise.all([
+  const [unreviewed, live] = await Promise.all([
     ctx.prisma.testCase.count({ where: { id: { in: testCaseIds }, approval: { not: "APPROVED" } } }),
-    ctx.prisma.testCase.count({ where: { id: { in: testCaseIds }, active: false } }),
+    ctx.prisma.testCase.count({ where: { id: { in: testCaseIds }, ...LIVE_TEST_CASE } }),
   ]);
-  if (retiredCount > 0) throw retired(what);
   if (unreviewed > 0) throw notApproved(what);
+  if (live < testCaseIds.length) throw retired(what);
 }
 
 function notApproved(what: string) {
@@ -141,6 +148,8 @@ export const testCaseResolvers = {
     // case again to ask for it back.
     async testCases(_: unknown, args: { featureId: string; includeInactive?: boolean | null }, ctx: Context) {
       requireAuth(ctx);
+      // The feature is being viewed, so its own retirement doesn't hide its
+      // cases here — only the case's own state does.
       return ctx.prisma.testCase.findMany({
         where: {
           featureId: args.featureId,
@@ -176,7 +185,7 @@ export const testCaseResolvers = {
           where: { approval: "PENDING" },
           select: { createdById: true, createdBy: { select: { role: true } } },
         }),
-        ctx.prisma.testCaseRequest.findMany({
+        ctx.prisma.approvalRequest.findMany({
           where: { state: "PENDING" },
           select: { requestedById: true, requestedBy: { select: { role: true } } },
         }),
@@ -197,7 +206,7 @@ export const testCaseResolvers = {
       if (!args.projectId && !args.featureId) throw new Error("projectId or featureId required");
       const where = args.featureId
         ? { featureId: args.featureId, ...APPROVED_ONLY }
-        : { feature: { projectId: args.projectId }, ...APPROVED_ONLY };
+        : { ...APPROVED_ONLY, feature: { ...APPROVED_ONLY.feature, projectId: args.projectId } };
       const tcs = await ctx.prisma.testCase.findMany({
         where,
         include: { feature: { select: { name: true } }, steps: { orderBy: { order: "asc" } } },
@@ -233,7 +242,11 @@ export const testCaseResolvers = {
           // it stays null when the admin's auto-approve setting did it, so the UI
           // can say "auto-approved" instead of naming an innocent.
           ...(approval === "APPROVED"
-            ? { reviewedAt: new Date(), reviewedById: user.role === "SUPER_ADMIN" ? user.id : null }
+            ? {
+                reviewedAt: new Date(),
+                firstApprovedAt: new Date(),
+                reviewedById: user.role === "SUPER_ADMIN" ? user.id : null,
+              }
             : {}),
           steps: { create: stepData(input.steps) },
           attachments: { create: attachData(input.attachments) },
@@ -249,6 +262,9 @@ export const testCaseResolvers = {
       const { input } = args;
       const before = await ctx.prisma.testCase.findUnique({ where: { id: args.id } });
       if (!before) throw new Error("Test case not found");
+      // A retired case is read-only: it stays visible with its history, but
+      // nothing edits it until someone asks for it back.
+      if (!before.active) throw retired("be edited");
       // An edit sends the case back for review — otherwise the gate is trivially
       // bypassed: get a small case approved, then rewrite it. This holds even
       // when the case already has records or sits in an open app test: changed
@@ -290,9 +306,16 @@ export const testCaseResolvers = {
       if (!tc) throw new Error("Test case not found");
       if (tc.approval === "APPROVED") return tc;
       if (!canApproveTestCase(user, tc.createdBy)) throw forbidden();
+      const now = new Date();
       const updated = await ctx.prisma.testCase.update({
         where: { id: tc.id },
-        data: { approval: "APPROVED", reviewedAt: new Date(), reviewedById: user.id, rejectReason: null },
+        data: {
+          approval: "APPROVED",
+          reviewedAt: now,
+          reviewedById: user.id,
+          rejectReason: null,
+          firstApprovedAt: tc.firstApprovedAt ?? now,
+        },
       });
       await notify(tc.createdById, "TEST_CASE_APPROVED", `Test case approved: TC-${tc.number} — ${tc.name}`, null, null, null, null, tc.id);
       return updated;
@@ -307,9 +330,16 @@ export const testCaseResolvers = {
       });
       const allowed = rows.filter((tc) => canApproveTestCase(user, tc.createdBy));
       if (allowed.length) {
+        const now = new Date();
         await ctx.prisma.testCase.updateMany({
           where: { id: { in: allowed.map((t) => t.id) } },
-          data: { approval: "APPROVED", reviewedAt: new Date(), reviewedById: user.id, rejectReason: null },
+          data: { approval: "APPROVED", reviewedAt: now, reviewedById: user.id, rejectReason: null },
+        });
+        // firstApprovedAt is set once and never overwritten, so it can't ride
+        // along in the updateMany above.
+        await ctx.prisma.testCase.updateMany({
+          where: { id: { in: allowed.map((t) => t.id) }, firstApprovedAt: null },
+          data: { firstApprovedAt: now },
         });
       }
       // One notification per creator, not per case — a 50-case approval must not
@@ -362,12 +392,13 @@ export const testCaseResolvers = {
       );
       return updated;
     },
-    // Deleting takes a decision too — the case (and its history) stays until
-    // then. Returns true either way: the request was accepted.
+    // Deleting an approved case takes a decision — it (and its history) stays
+    // until then. A case still in review is the author's to withdraw, so that
+    // deletes right away. Returns true either way: the request was accepted.
     async deleteTestCase(_: unknown, args: { id: string }, ctx: Context) {
       const user = await requireQA(ctx);
-      if (await needsApproval(ctx, user.role)) {
-        await openRequest(ctx, user, args.id, "DELETE");
+      if (await deleteNeedsApproval(ctx, user.role, args.id)) {
+        await openRequest(ctx, user, "TEST_CASE", args.id, "DELETE");
         return true;
       }
       await ctx.prisma.testCase.delete({ where: { id: args.id } });
@@ -380,8 +411,9 @@ export const testCaseResolvers = {
       const user = await requireQA(ctx);
       const target = await ctx.prisma.feature.findUnique({ where: { id: args.featureId } });
       if (!target) throw new Error("Target feature not found");
+      await assertReviewedForChange(ctx, args.id, "moved");
       if (await needsApproval(ctx, user.role)) {
-        await openRequest(ctx, user, args.id, "MOVE", { featureId: target.id });
+        await openRequest(ctx, user, "TEST_CASE", args.id, "MOVE", { featureId: target.id });
         return ctx.prisma.testCase.findUnique({ where: { id: args.id } });
       }
       return ctx.prisma.testCase.update({ where: { id: args.id }, data: { featureId: args.featureId } });
@@ -390,9 +422,10 @@ export const testCaseResolvers = {
       const user = await requireQA(ctx);
       const target = await ctx.prisma.feature.findUnique({ where: { id: args.targetFeatureId } });
       if (!target) throw new Error("Target feature not found");
+      await assertReviewedForChange(ctx, args.id, "copied");
       const name = args.name?.trim() || undefined;
       if (await needsApproval(ctx, user.role)) {
-        await openRequest(ctx, user, args.id, "COPY", { featureId: target.id, name });
+        await openRequest(ctx, user, "TEST_CASE", args.id, "COPY", { featureId: target.id, name });
         // No copy exists yet — hand back the source so the client has something
         // to refetch.
         return ctx.prisma.testCase.findUnique({ where: { id: args.id } });
@@ -406,8 +439,9 @@ export const testCaseResolvers = {
       const tc = await ctx.prisma.testCase.findUnique({ where: { id: args.id } });
       if (!tc) throw new Error("Test case not found");
       if (tc.active === args.active) return tc;
+      await assertReviewedForChange(ctx, args.id, args.active ? "activated" : "retired");
       if (await needsApproval(ctx, user.role)) {
-        await openRequest(ctx, user, tc.id, args.active ? "ACTIVATE" : "DEACTIVATE");
+        await openRequest(ctx, user, "TEST_CASE", tc.id, args.active ? "ACTIVATE" : "DEACTIVATE");
         return ctx.prisma.testCase.findUnique({ where: { id: tc.id } });
       }
       return ctx.prisma.testCase.update({ where: { id: tc.id }, data: { active: args.active } });
@@ -468,7 +502,11 @@ export const testCaseResolvers = {
               createdById: user.id,
               approval,
               ...(approval === "APPROVED"
-                ? { reviewedAt: new Date(), reviewedById: user.role === "SUPER_ADMIN" ? user.id : null }
+                ? {
+                    reviewedAt: new Date(),
+                    firstApprovedAt: new Date(),
+                    reviewedById: user.role === "SUPER_ADMIN" ? user.id : null,
+                  }
                 : {}),
               steps: { create: stepData((r.steps ?? []).filter((s) => (s.step ?? "").trim())) },
             },
@@ -494,11 +532,12 @@ export const testCaseResolvers = {
     updatedAt: (t: any) => t.updatedAt.toISOString(),
     createdBy: (t: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: t.createdById } }),
     reviewedAt: (t: any) => t.reviewedAt?.toISOString() ?? null,
+    firstApprovedAt: (t: any) => t.firstApprovedAt?.toISOString() ?? null,
     reviewedBy: (t: any, _: unknown, ctx: Context) =>
       t.reviewedById ? ctx.prisma.user.findUnique({ where: { id: t.reviewedById } }) : null,
     feature: (t: any, _: unknown, ctx: Context) => ctx.prisma.feature.findUnique({ where: { id: t.featureId } }),
     pendingRequest: (t: any, _: unknown, ctx: Context) =>
-      ctx.prisma.testCaseRequest.findFirst({ where: { testCaseId: t.id, state: "PENDING" } }),
+      ctx.prisma.approvalRequest.findFirst({ where: { target: "TEST_CASE", targetId: t.id, state: "PENDING" } }),
     async canApprove(t: any, _: unknown, ctx: Context) {
       if (!ctx.userId || !isApproverRole(ctx.role) || t.approval === "APPROVED") return false;
       const creator = await ctx.prisma.user.findUnique({ where: { id: t.createdById }, select: { id: true, role: true } });

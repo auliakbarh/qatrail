@@ -29,6 +29,7 @@ export async function cloneTestCaseInto(
       // at the copies, and PENDING copies would hand an app test cases nobody
       // may run.
       approval: src.approval,
+      firstApprovedAt: src.firstApprovedAt,
       reviewedAt: src.reviewedAt,
       reviewedById: src.reviewedById,
       rejectReason: src.rejectReason,

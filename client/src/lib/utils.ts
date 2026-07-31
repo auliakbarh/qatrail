@@ -11,6 +11,10 @@ const locale = () => (i18n.language === "id" ? "id-ID" : "en-US");
 
 export const fmtDateTime = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleString(locale()) : "—";
+// Printed reports leave the app and get read elsewhere, so their timestamps say
+// which clock they are on.
+export const fmtDateTimeTz = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleString(locale(), { timeZoneName: "short" }) : "—";
 export const fmtDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString(locale()) : "—";
 export const fmtNum = (n: number) => n.toLocaleString(locale());

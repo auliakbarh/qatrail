@@ -22,6 +22,141 @@ function monthKey(d: Date): string {
 const CACHE_MS = 30_000;
 const cache = new Map<string, { at: number; val: any }>();
 
+// Who did what in this scope and window: one row per person who shows up at all.
+// Counts come from grouped queries — no per-user round trips — and the row keeps
+// every column so one table can serve QA, QA lead and engineer work alike.
+async function workloadRows(
+  ctx: Context,
+  s: {
+    projectId?: string | null;
+    featureId?: string | null;
+    sessionTestId?: string | null;
+    from?: string | null;
+    to?: string | null;
+  },
+) {
+  const range =
+    s.from || s.to
+      ? {
+          ...(s.from ? { gte: new Date(s.from) } : {}),
+          ...(s.to ? { lte: new Date(s.to.length === 10 ? `${s.to}T23:59:59.999Z` : s.to) } : {}),
+        }
+      : undefined;
+  // Test case / record scope. A session narrows runs to that session; test cases
+  // themselves have no session, so they stay at project scope.
+  const caseScope = s.featureId
+    ? { featureId: s.featureId }
+    : s.projectId
+      ? { feature: { projectId: s.projectId } }
+      : {};
+  const recordScope = s.sessionTestId ? { sessionTestId: s.sessionTestId } : { testCase: caseScope };
+
+  const [cases, records, reported, assigned, resolvedIssues, reviews, requestReviews, appTests] = await Promise.all([
+    ctx.prisma.testCase.groupBy({
+      by: ["createdById"],
+      where: { ...caseScope, ...(range ? { createdAt: range } : {}) },
+      _count: { _all: true },
+    }),
+    ctx.prisma.recordTest.groupBy({
+      by: ["executedById"],
+      where: { ...recordScope, ...(range ? { executedAt: range } : {}) },
+      _count: { _all: true },
+    }),
+    ctx.prisma.issue.groupBy({
+      by: ["reporterId"],
+      where: { ...issueWhere(s.projectId, s.featureId, s.sessionTestId), ...(range ? { createdAt: range } : {}) },
+      _count: { _all: true },
+    }),
+    ctx.prisma.issue.groupBy({
+      by: ["assigneeId"],
+      where: { ...issueWhere(s.projectId, s.featureId, s.sessionTestId), ...(range ? { createdAt: range } : {}) },
+      _count: { _all: true },
+    }),
+    // Resolve time is the engineer's number, so it's measured per assignee.
+    ctx.prisma.issue.findMany({
+      where: {
+        ...issueWhere(s.projectId, s.featureId, s.sessionTestId),
+        resolvedAt: { not: null, ...(range ?? {}) },
+      },
+      select: { assigneeId: true, createdAt: true, resolvedAt: true },
+    }),
+    ctx.prisma.testCase.groupBy({
+      by: ["reviewedById"],
+      where: { ...caseScope, reviewedById: { not: null }, ...(range ? { reviewedAt: range } : {}) },
+      _count: { _all: true },
+    }),
+    ctx.prisma.approvalRequest.groupBy({
+      by: ["reviewedById"],
+      where: { reviewedById: { not: null }, state: { not: "PENDING" }, ...(range ? { reviewedAt: range } : {}) },
+      _count: { _all: true },
+    }),
+    ctx.prisma.appTest.groupBy({
+      by: ["createdById"],
+      where: { ...(s.projectId ? { projectId: s.projectId } : {}), ...(range ? { createdAt: range } : {}) },
+      _count: { _all: true },
+    }),
+  ]);
+
+  type Row = {
+    userId: string;
+    name: string;
+    role: string;
+    testCasesCreated: number;
+    recordsRun: number;
+    issuesReported: number;
+    approvals: number;
+    appTestsSubmitted: number;
+    issuesAssigned: number;
+    issuesResolved: number;
+    avgResolveMins: number | null;
+  };
+  const rows = new Map<string, Row>();
+  const row = (id: string): Row => {
+    let r = rows.get(id);
+    if (!r) {
+      r = {
+        userId: id, name: "", role: "",
+        testCasesCreated: 0, recordsRun: 0, issuesReported: 0, approvals: 0,
+        appTestsSubmitted: 0, issuesAssigned: 0, issuesResolved: 0, avgResolveMins: null,
+      };
+      rows.set(id, r);
+    }
+    return r;
+  };
+  for (const g of cases) row(g.createdById).testCasesCreated = g._count._all;
+  for (const g of records) row(g.executedById).recordsRun = g._count._all;
+  for (const g of reported) row(g.reporterId).issuesReported = g._count._all;
+  for (const g of assigned) row(g.assigneeId).issuesAssigned = g._count._all;
+  for (const g of reviews) if (g.reviewedById) row(g.reviewedById).approvals += g._count._all;
+  for (const g of requestReviews) if (g.reviewedById) row(g.reviewedById).approvals += g._count._all;
+  for (const g of appTests) row(g.createdById).appTestsSubmitted = g._count._all;
+
+  const resolveMins = new Map<string, number[]>();
+  for (const i of resolvedIssues) {
+    const mins = (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 60000;
+    resolveMins.set(i.assigneeId, [...(resolveMins.get(i.assigneeId) ?? []), mins]);
+  }
+  for (const [id, mins] of resolveMins) {
+    const r = row(id);
+    r.issuesResolved = mins.length;
+    r.avgResolveMins = Math.round(mins.reduce((a, b) => a + b, 0) / mins.length);
+  }
+
+  const users = await ctx.prisma.user.findMany({
+    where: { id: { in: [...rows.keys()] } },
+    select: { id: true, name: true, role: true },
+  });
+  for (const u of users) {
+    const r = rows.get(u.id)!;
+    r.name = u.name;
+    r.role = u.role;
+  }
+  // Deleted users would come back nameless; drop them rather than show a blank row.
+  return [...rows.values()]
+    .filter((r) => r.name)
+    .sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name));
+}
+
 export const analyticsResolvers = {
   Query: {
     async analytics(
@@ -171,6 +306,14 @@ export const analyticsResolvers = {
         }),
       );
 
+      const workload = await workloadRows(ctx, {
+        projectId: args.projectId ?? sessionProjectId,
+        featureId: args.featureId,
+        sessionTestId: args.sessionTestId,
+        from: args.from,
+        to: args.to,
+      });
+
       const result = {
         totalFindings: total,
         totalDefects,
@@ -183,6 +326,7 @@ export const analyticsResolvers = {
         slaBreakdown: { met, atRisk, breached },
         createdVsResolved,
         keyCoverage,
+        workload,
       };
       cache.set(cacheKey, { at: Date.now(), val: result });
       return result;

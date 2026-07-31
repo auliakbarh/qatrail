@@ -53,7 +53,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [groupKey, setGroupKey] = useState("");
   const [fKind, setFKind] = useState("");
-  const [fActive, setFActive] = useState("ACTIVE");
+  const [fActive, setFActive] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
@@ -69,7 +69,13 @@ export function TestCaseList({ featureId }: { featureId: string }) {
     setSortDir(n.dir);
   };
   // Rows show "—" for an unset kind; group/filter treat it as its own bucket.
-  const base = (data?.testCases ?? []).map((tc: any) => ({ ...tc, kindLabel: tc.kind ?? "—" }));
+  // Retired cases stay visible — grouped, not hidden — but every editing action
+  // is locked on them.
+  const base = (data?.testCases ?? []).map((tc: any) => ({
+    ...tc,
+    kindLabel: tc.kind ?? "—",
+    activeLabel: tc.active ? t("tc.active") : t("tc.inactive"),
+  }));
   const byKind = fKind ? base.filter((tc: any) => (fKind === "—" ? !tc.kind : tc.kind === fKind)) : base;
   const filtered =
     fActive === "" ? byKind : byKind.filter((tc: any) => (fActive === "ACTIVE" ? tc.active : !tc.active));
@@ -94,7 +100,10 @@ export function TestCaseList({ featureId }: { featureId: string }) {
           onSearch={setSearch}
           groupKey={groupKey}
           onGroupKey={setGroupKey}
-          groupOptions={[{ value: "kindLabel", label: t("tc.kind") }]}
+          groupOptions={[
+            { value: "kindLabel", label: t("tc.kind") },
+            { value: "activeLabel", label: t("tc.groupActive") },
+          ]}
         />
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <select value={fKind} onChange={(e) => setFKind(e.target.value)} className={selCls}>
@@ -193,21 +202,21 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                       </IconBtn>
                       <IconBtn
                         title={t("move.title")}
-                        allowed={manage}
+                        allowed={manage && tc.active}
                         onClick={() => openPanel({ kind: "movetc", mode: "create", id: tc.id })}
                       >
                         <ArrowRightLeft className="h-3.5 w-3.5" />
                       </IconBtn>
                       <IconBtn
                         title={t("clone.action")}
-                        allowed={manage}
+                        allowed={manage && tc.active}
                         onClick={() => openPanel({ kind: "clonetc", mode: "create", id: tc.id })}
                       >
                         <Copy className="h-3.5 w-3.5" />
                       </IconBtn>
                       <IconBtn
                         title={t("c.edit")}
-                        allowed={manage}
+                        allowed={manage && tc.active}
                         onClick={() => openPanel({ kind: "testcase", mode: "edit", id: tc.id })}
                       >
                         <Pencil className="h-3.5 w-3.5" />

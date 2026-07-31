@@ -3,7 +3,7 @@ import { useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
-import { CREATE_PROJECT, UPDATE_PROJECT, PROJECTS } from "../../graphql/hierarchy";
+import { CREATE_PROJECT, UPDATE_PROJECT } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
@@ -27,8 +27,8 @@ export function ProjectForm({ panel }: { panel: PanelState }) {
       minPassPercent: init.minPassPercent ?? 0,
     },
   });
-  const [createProject] = useMutation(CREATE_PROJECT, { refetchQueries: [PROJECTS] });
-  const [updateProject] = useMutation(UPDATE_PROJECT, { refetchQueries: [PROJECTS] });
+  const [createProject] = useMutation(CREATE_PROJECT, { refetchQueries: ["Projects"] });
+  const [updateProject] = useMutation(UPDATE_PROJECT, { refetchQueries: ["Projects"] });
 
   const onSubmit = async (v: Form) => {
     const input = {

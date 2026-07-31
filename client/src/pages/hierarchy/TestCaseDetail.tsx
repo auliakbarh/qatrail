@@ -6,12 +6,12 @@ import { Pencil, Plus, Trash2, ArrowRightLeft, Check, X, Clock, Power } from "lu
 import {
   TEST_CASE,
   PENDING_TEST_CASES,
-  PENDING_TEST_CASE_REQUESTS,
+  PENDING_APPROVAL_REQUESTS,
   PENDING_APPROVAL_COUNT,
   APPROVE_TEST_CASE,
   REJECT_TEST_CASE,
-  APPROVE_TEST_CASE_REQUEST,
-  REJECT_TEST_CASE_REQUEST,
+  APPROVE_APPROVAL_REQUEST,
+  REJECT_APPROVAL_REQUEST,
   SET_TEST_CASE_ACTIVE,
 } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
@@ -81,6 +81,9 @@ function ApprovalCard({ tc }: { tc: any }) {
           <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <div>
             <div className="font-medium">{rejected ? t("tca.bannerRejected") : t("tca.bannerPending")}</div>
+            {/* Say what is under review: a brand-new case, or an edit to one that
+                was already live. firstApprovedAt survives the reset, so it knows. */}
+            <div>{tc.firstApprovedAt ? t("tca.forEdit") : t("tca.forNew")}</div>
             <div className="text-muted-foreground">
               {rejected
                 ? t("tca.rejectedBy", { name: tc.reviewedBy?.name ?? "—", at: fmt(tc.reviewedAt) })
@@ -133,11 +136,11 @@ function PendingRequestCard({ tc }: { tc: any }) {
   const refetchAfter = [
     { query: TEST_CASE, variables: { id: tc.id } },
     "TestCases",
-    { query: PENDING_TEST_CASE_REQUESTS, variables: { projectId: null } },
+    { query: PENDING_APPROVAL_REQUESTS, variables: { projectId: null } },
     { query: PENDING_APPROVAL_COUNT },
   ];
-  const [approve] = useMutation(APPROVE_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
-  const [reject] = useMutation(REJECT_TEST_CASE_REQUEST, { refetchQueries: refetchAfter });
+  const [approve] = useMutation(APPROVE_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
+  const [reject] = useMutation(REJECT_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
 
   return (
     <div className="rounded border border-[var(--warn)]/40 bg-[var(--warn)]/5 px-4 py-3">
@@ -203,6 +206,9 @@ export function TestCaseDetail({ id }: { id: string }) {
   if (!tc) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.notFound")}</div>;
   // Runs and findings need a reviewed case; commenting and watching never do.
   const approved = tc.approval === "APPROVED";
+  // Retired content is read-only: still readable, with its history, but nothing
+  // edits it or runs against it until an activation is approved.
+  const editable = approved && tc.active;
   // A brand-new case has nothing to show under records/issues and can't get any
   // yet, so the whole tab strip is dead weight. A case that was approved before
   // (and has history) keeps it even while a re-review is pending.
@@ -223,38 +229,45 @@ export function TestCaseDetail({ id }: { id: string }) {
           </div>
           <div className="flex items-center gap-2">
             <WatchButton target="TEST_CASE" targetId={tc.id} />
+            {/* Retiring and moving only mean something for a case that is in the
+                catalogue. While it's still in review, edit and delete are the
+                only sensible actions. */}
+            {approved && (
+              <>
+                <button
+                  onClick={
+                    manage
+                      ? () =>
+                          withToast(
+                            setActive({ variables: { id: tc.id, active: !tc.active } }),
+                            tc.active ? t("t.deactivateAsked") : t("t.activateAsked"),
+                            t("t.activeChangeFail"),
+                          )
+                      : () => denied()
+                  }
+                  className={cn(
+                    "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+                    !manage && "opacity-40",
+                  )}
+                >
+                  <Power className="h-3.5 w-3.5" /> {tc.active ? t("tc.deactivate") : t("tc.activate")}
+                </button>
+                <button
+                  onClick={manage ? () => openPanel({ kind: "movetc", mode: "create", id: tc.id }) : () => denied()}
+                  className={cn(
+                    "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
+                    !manage && "opacity-40",
+                  )}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" /> {t("move.action")}
+                </button>
+              </>
+            )}
             <button
-              onClick={
-                manage
-                  ? () =>
-                      withToast(
-                        setActive({ variables: { id: tc.id, active: !tc.active } }),
-                        tc.active ? t("t.deactivateAsked") : t("t.activateAsked"),
-                        t("t.activeChangeFail"),
-                      )
-                  : () => denied()
-              }
+              onClick={manage && tc.active ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
               className={cn(
                 "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
-                !manage && "opacity-40",
-              )}
-            >
-              <Power className="h-3.5 w-3.5" /> {tc.active ? t("tc.deactivate") : t("tc.activate")}
-            </button>
-            <button
-              onClick={manage ? () => openPanel({ kind: "movetc", mode: "create", id: tc.id }) : () => denied()}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
-                !manage && "opacity-40",
-              )}
-            >
-              <ArrowRightLeft className="h-3.5 w-3.5" /> {t("move.action")}
-            </button>
-            <button
-              onClick={manage ? () => openPanel({ kind: "testcase", mode: "edit", id: tc.id }) : () => denied()}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted",
-                !manage && "opacity-40",
+                (!manage || !tc.active) && "opacity-40",
               )}
             >
               <Pencil className="h-3.5 w-3.5" /> {t("c.edit")}
@@ -262,6 +275,14 @@ export function TestCaseDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="space-y-3 px-5 py-4 text-sm">
+          {/* Where this case lives — the drilldown breadcrumb is gone when you
+              arrive from the pending list or a notification. */}
+          <p className="text-xs text-muted-foreground">
+            {t("tc.inProjectFeature", {
+              project: tc.feature?.project?.name ?? "—",
+              feature: tc.feature?.name ?? "—",
+            })}
+          </p>
           {!approved && <ApprovalCard tc={tc} />}
           {tc.pendingRequest && <PendingRequestCard tc={tc} />}
           {tc.description && <p className="text-muted-foreground">{tc.description}</p>}
@@ -324,7 +345,7 @@ export function TestCaseDetail({ id }: { id: string }) {
             <HeaderButton
               // An unreviewed case can't be run or reported against — the server
               // refuses it, so don't offer the form.
-              allowed={manage && approved}
+              allowed={manage && editable}
               icon={Plus}
               onClick={() => openPanel({ kind: tab === "records" ? "record" : "issue", mode: "create" })}
             >

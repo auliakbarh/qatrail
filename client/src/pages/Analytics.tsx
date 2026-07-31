@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,10 +6,13 @@ import { drillPath } from "../store/nav";
 import { ANALYTICS } from "../graphql/analytics";
 import { SESSION_TESTS } from "../graphql/sessiontest";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
+import { Printer, ChevronDown, ChevronRight } from "lucide-react";
 import { FilterBar } from "../components/FilterBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { DateRangePicker } from "../components/DateRangePicker";
 import { searchRows, sortRows } from "../lib/list";
+import { printAnalyticsReport } from "../lib/printReport";
+import { useAuth } from "../store/auth";
 
 function fmtMins(m: number | null): string {
   if (m == null) return "—";
@@ -41,6 +44,7 @@ function Card({ title, action, children }: { title: string; action?: any; childr
 
 export default function Analytics() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [projectId, setProjectId] = useState<string>("");
   const [featureId, setFeatureId] = useState<string>("");
   const [sessionTestId, setSessionTestId] = useState<string>("");
@@ -61,6 +65,28 @@ export default function Analytics() {
   });
 
   const a = data?.analytics;
+  const projectName = (id: string) =>
+    (projData?.projects ?? []).find((p: any) => p.id === id)?.name ?? "—";
+  // Print/PDF uses the same numbers already on screen; project names come from
+  // the picker's data, so the report needs no extra query.
+  const exportPdf = () => {
+    if (!a) return;
+    const scope = sessionTestId
+      ? (sessData?.sessionTests ?? []).find((s2: any) => s2.id === sessionTestId)?.key ?? t("an.scopeAll")
+      : featureId
+        ? (featData?.features ?? []).find((f: any) => f.id === featureId)?.name ?? t("an.scopeAll")
+        : projectId
+          ? projectName(projectId)
+          : t("an.scopeAll");
+    printAnalyticsReport(
+      { ...a, keyCoverage: (a.keyCoverage ?? []).map((k: any) => ({ ...k, projectName: projectName(k.projectId) })) },
+      {
+        scope,
+        range: from || to ? `${from ?? "…"} → ${to ?? "…"}` : t("an.rangeAll"),
+        printedBy: user?.name ?? "—",
+      },
+    );
+  };
   const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
   const maxCvR = Math.max(1, ...(a?.createdVsResolved ?? []).flatMap((p: any) => [p.created, p.resolved]));
@@ -129,8 +155,15 @@ export default function Analytics() {
             ))}
           </select>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <DateRangePicker from={from} to={to} onChange={(f, tt) => { setFrom(f); setTo(tt); }} />
+          <button
+            onClick={exportPdf}
+            disabled={!a}
+            className="flex h-8 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted disabled:opacity-50"
+          >
+            <Printer className="h-3.5 w-3.5" /> {t("an.exportPdf")}
+          </button>
         </div>
       </div>
 
@@ -226,7 +259,11 @@ export default function Analytics() {
                 <div className="h-2 rounded-full bg-primary" style={{ width: `${a.confidence.percent}%` }} />
               </div>
             </div>
-            <KeyCoverageTable rows={a.keyCoverage} />
+            <KeyCoverageTable rows={a.keyCoverage} projectName={projectName} />
+          </Card>
+
+          <Card title={t("an.workload")}>
+            <WorkloadTable rows={a.workload} />
           </Card>
         </>
       )}
@@ -305,7 +342,7 @@ function StatusPie({ breakdown }: { breakdown: { status: string; count: number }
   );
 }
 
-function KeyCoverageTable({ rows }: { rows: any[] }) {
+function KeyCoverageTable({ rows, projectName }: { rows: any[]; projectName: (id: string) => string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const openFeature = (r: any) => {
@@ -314,12 +351,26 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const onSort = (key: string) => {
     const n = nextSort({ key: sortKey, dir: sortDir }, key);
     setSortKey(n.key);
     setSortDir(n.dir);
   };
+  const toggle = (label: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
   const list = sortRows(searchRows(rows ?? [], search, ["name"]), sortKey as any, sortDir);
+  // Features always belong to a project, so they read as groups — and at "all
+  // projects" scope a flat list of feature names is ambiguous without it.
+  const groups = new Map<string, any[]>();
+  for (const k of list) {
+    const label = projectName(k.projectId);
+    groups.set(label, [...(groups.get(label) ?? []), k]);
+  }
 
   return (
     <div>
@@ -342,8 +393,18 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
                 <td colSpan={6} className="py-8 text-center text-muted-foreground">{t("an.noFeatures")}</td>
               </tr>
             )}
-            {list.map((k: any, idx: number) => (
-              <tr key={k.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+            {[...groups].map(([label, gr]) => (
+              <Fragment key={label}>
+                <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggle(label)}>
+                  <td colSpan={6} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {label} · {gr.length}
+                    </span>
+                  </td>
+                </tr>
+                {!collapsed.has(label) && gr.map((k: any, idx: number) => (
+              <tr key={k.featureId} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                 <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                 <td className="px-3 py-2">
                   <button onClick={() => openFeature(k)} className="font-medium hover:underline">
@@ -365,6 +426,8 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
                   </span>
                 </td>
               </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -373,6 +436,104 @@ function KeyCoverageTable({ rows }: { rows: any[] }) {
   );
 }
 
+// Work by person, split per role: what QA does, what a QA lead does and what an
+// engineer does are different jobs, so one shared row of columns would be mostly
+// blank. Each role gets its own table with only the columns that mean something
+// for it.
+const WORKLOAD_COLUMNS: Record<string, { key: string; label: string; mins?: boolean }[]> = {
+  QA: [
+    { key: "testCasesCreated", label: "an.wTestCases" },
+    { key: "recordsRun", label: "an.wRuns" },
+    { key: "issuesReported", label: "an.wReported" },
+  ],
+  QA_LEAD: [
+    { key: "approvals", label: "an.wApprovals" },
+    { key: "testCasesCreated", label: "an.wTestCases" },
+    { key: "recordsRun", label: "an.wRuns" },
+    { key: "issuesReported", label: "an.wReported" },
+  ],
+  ENGINEER: [
+    { key: "appTestsSubmitted", label: "an.wAppTests" },
+    { key: "issuesAssigned", label: "an.wAssigned" },
+    { key: "issuesResolved", label: "an.wResolved" },
+    { key: "avgResolveMins", label: "an.wAvgResolve", mins: true },
+  ],
+  ADMIN: [
+    { key: "approvals", label: "an.wApprovals" },
+    { key: "testCasesCreated", label: "an.wTestCases" },
+    { key: "recordsRun", label: "an.wRuns" },
+    { key: "issuesReported", label: "an.wReported" },
+    { key: "issuesResolved", label: "an.wResolved" },
+  ],
+};
+WORKLOAD_COLUMNS.SUPER_ADMIN = WORKLOAD_COLUMNS.ADMIN;
+WORKLOAD_COLUMNS.VIEWER = [];
+// Role order matches the sidebar's sense of seniority, not the alphabet.
+const ROLE_ORDER = ["QA_LEAD", "QA", "ENGINEER", "ADMIN", "SUPER_ADMIN", "VIEWER"];
+
+function RoleWorkloadTable({ role, rows }: { role: string; rows: any[] }) {
+  const { t } = useTranslation();
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const onSort = (key: string) => {
+    const n = nextSort({ key: sortKey, dir: sortDir }, key);
+    setSortKey(n.key);
+    setSortDir(n.dir);
+  };
+  const cols = WORKLOAD_COLUMNS[role] ?? WORKLOAD_COLUMNS.QA;
+  const list = sortRows(rows, sortKey as any, sortDir);
+
+  return (
+    <div className="mb-4 last:mb-0">
+      <div className="mb-1.5 text-xs font-semibold text-muted-foreground">{role} · {rows.length}</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <SortableTh label={t("an.wPerson")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              {cols.map((c) => (
+                <SortableTh key={c.key} label={t(c.label)} colKey={c.key} sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((w: any) => (
+              <tr key={w.userId} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                <td className="px-3 py-2 font-medium">{w.name}</td>
+                {cols.map((c) => (
+                  <td key={c.key} className="px-3 py-2 tabular-nums">
+                    {c.mins ? fmtMins(w[c.key]) : w[c.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function WorkloadTable({ rows }: { rows: any[] }) {
+  const { t } = useTranslation();
+  const [search, setSearch] = useState("");
+  const list = searchRows(rows ?? [], search, ["name", "role"]);
+  const byRole = new Map<string, any[]>();
+  for (const w of list) byRole.set(w.role, [...(byRole.get(w.role) ?? []), w]);
+  const roles = [...byRole.keys()].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
+
+  return (
+    <div>
+      <FilterBar search={search} onSearch={setSearch} />
+      {roles.length === 0 && <div className="py-8 text-center text-sm text-muted-foreground">{t("an.noDataYet")}</div>}
+      {roles.map((role) => (
+        <RoleWorkloadTable key={role} role={role} rows={byRole.get(role)!} />
+      ))}
+    </div>
+  );
+}
+
+// Distinct color per issue status (semantic, separate from the mono accent).
 function TipRow({ color, label, n, total }: { color: string; label: string; n: number; total: number }) {
   return (
     <div className="flex items-center gap-1.5">

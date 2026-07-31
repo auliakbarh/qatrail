@@ -2,7 +2,8 @@
 export const typeDefs = /* GraphQL */ `
   enum Role { SUPER_ADMIN ADMIN QA_LEAD QA ENGINEER VIEWER }
   enum TestCaseApproval { PENDING APPROVED REJECTED }
-  enum TestCaseRequestKind { MOVE COPY DELETE DEACTIVATE ACTIVATE }
+  enum ApprovalRequestKind { MOVE COPY DELETE DEACTIVATE ACTIVATE }
+  enum ApprovalTarget { PROJECT FEATURE TEST_CASE }
   enum AttachKind { IMAGE VIDEO MARKDOWN JSON DOC XLS CSV PDF OTHER }
   enum FindingType { DEFECT BUG }
   enum Platform { ANDROID IOS WEB }
@@ -60,6 +61,10 @@ export const typeDefs = /* GraphQL */ `
     ready: Boolean!
     createdAt: String!
     updatedAt: String!
+    # Retiring a project takes everything under it out of the live catalogue
+    # without touching a single row below it.
+    active: Boolean!
+    pendingRequest: ApprovalRequest
   }
 
   type Feature {
@@ -75,6 +80,8 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
     updatedAt: String!
     project: Project!
+    active: Boolean!
+    pendingRequest: ApprovalRequest
   }
 
   type TestCaseStep {
@@ -115,6 +122,9 @@ export const typeDefs = /* GraphQL */ `
     # Latest decision. Null on rows created before approval existed — the UI
     # shows a legacy label there instead of an approver.
     reviewedAt: String
+    # First time it ever went live. A PENDING case with this set is a re-review of
+    # an edit; without it, the case is brand new.
+    firstApprovedAt: String
     reviewedBy: User
     rejectReason: String
     # True when the current viewer may approve/reject this very case.
@@ -124,16 +134,21 @@ export const typeDefs = /* GraphQL */ `
     # Retired cases keep their history but leave the catalogue entirely.
     active: Boolean!
     # The open move/copy/delete/(de)activate request, if any.
-    pendingRequest: TestCaseRequest
+    pendingRequest: ApprovalRequest
   }
 
-  # A change to an existing test case waiting for approval. The case keeps working
-  # until the decision lands.
-  type TestCaseRequest {
+  # A change to existing content waiting for approval. The target keeps working
+  # until the decision lands. Exactly one of project/feature/testCase is set,
+  # matching the target field; label is the human name of whichever it is.
+  type ApprovalRequest {
     id: ID!
-    kind: TestCaseRequestKind!
+    target: ApprovalTarget!
+    kind: ApprovalRequestKind!
     state: TestCaseApproval!
-    testCase: TestCase!
+    label: String!
+    project: Project
+    feature: Feature
+    testCase: TestCase
     targetFeature: Feature
     targetName: String
     requestedBy: User!
@@ -263,6 +278,23 @@ export const typeDefs = /* GraphQL */ `
   type MonthPoint { period: String!, created: Int!, resolved: Int! }
   type KeyCoverage { featureId: ID!, projectId: ID!, name: String!, percent: Int!, passed: Int!, total: Int!, min: Int!, ready: Boolean! }
 
+  # One person's work in the selected scope + date range. Every column is filled
+  # for everyone; which ones matter depends on the role (QA runs tests, a QA lead
+  # approves, an engineer resolves).
+  type WorkloadRow {
+    userId: ID!
+    name: String!
+    role: Role!
+    testCasesCreated: Int!
+    recordsRun: Int!
+    issuesReported: Int!
+    approvals: Int!
+    appTestsSubmitted: Int!
+    issuesAssigned: Int!
+    issuesResolved: Int!
+    avgResolveMins: Int
+  }
+
   type Analytics {
     totalFindings: Int!
     totalDefects: Int!
@@ -275,6 +307,7 @@ export const typeDefs = /* GraphQL */ `
     slaBreakdown: SlaBreakdown!
     createdVsResolved: [MonthPoint!]!
     keyCoverage: [KeyCoverage!]!
+    workload: [WorkloadRow!]!
   }
 
   type Issue {
@@ -610,9 +643,9 @@ export const typeDefs = /* GraphQL */ `
     engineers: [User!]!
     mentionableUsers: [User!]!
 
-    projects: [Project!]!
+    projects(includeInactive: Boolean): [Project!]!
     project(id: ID!): Project
-    features(projectId: ID!): [Feature!]!
+    features(projectId: ID!, includeInactive: Boolean): [Feature!]!
     feature(id: ID!): Feature
     # APPROVED + active cases — the live catalogue. Pass includeInactive to also
     # see retired ones (so they can be revived).
@@ -623,7 +656,7 @@ export const typeDefs = /* GraphQL */ `
     # Cases awaiting a decision: PENDING + REJECTED, oldest first.
     pendingTestCases(projectId: ID): [TestCase!]!
     # Open move/copy/delete/(de)activate requests, oldest first.
-    pendingTestCaseRequests(projectId: ID): [TestCaseRequest!]!
+    pendingApprovalRequests(projectId: ID): [ApprovalRequest!]!
     # PENDING cases + open requests the current user may actually approve —
     # drives the nav badge.
     pendingApprovalCount: Int!
@@ -685,12 +718,15 @@ export const typeDefs = /* GraphQL */ `
 
     createProject(input: ProjectInput!): Project!
     updateProject(id: ID!, input: ProjectInput!): Project!
+    # Goes through approval: the project keeps working until the decision lands.
     deleteProject(id: ID!): Boolean!
+    setProjectActive(id: ID!, active: Boolean!): Project!
     cloneProject(id: ID!, name: String): Project!
 
     createFeature(projectId: ID!, input: FeatureInput!): Feature!
     updateFeature(id: ID!, input: FeatureInput!): Feature!
     deleteFeature(id: ID!): Boolean!
+    setFeatureActive(id: ID!, active: Boolean!): Feature!
     cloneFeature(id: ID!, targetProjectId: ID!, name: String): Feature!
     moveFeature(id: ID!, projectId: ID!): Feature!
 
@@ -703,9 +739,9 @@ export const typeDefs = /* GraphQL */ `
     # Retire / revive a case. Goes through approval like any other change, so the
     # returned case may still be unchanged with a pendingRequest attached.
     setTestCaseActive(id: ID!, active: Boolean!): TestCase!
-    approveTestCaseRequest(id: ID!): TestCaseRequest!
-    approveTestCaseRequests(ids: [ID!]!): BulkApproveResult!
-    rejectTestCaseRequest(id: ID!, reason: String!): TestCaseRequest!
+    approveApprovalRequest(id: ID!): ApprovalRequest!
+    approveApprovalRequests(ids: [ID!]!): BulkApproveResult!
+    rejectApprovalRequest(id: ID!, reason: String!): ApprovalRequest!
     approveTestCase(id: ID!): TestCase!
     # Bulk approve. Not all-or-nothing: rights differ per creator, so cases the
     # actor may not approve are skipped instead of failing the batch.

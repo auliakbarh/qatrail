@@ -3,6 +3,7 @@ import type { Context } from "../context.js";
 import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
 import { assertAllApproved } from "./testcase.js";
+import { LIVE_TEST_CASE } from "../approval.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
@@ -128,7 +129,7 @@ export const appTestResolvers = {
       const assigned = await ctx.prisma.appTestCase.findMany({ where: { appTestId: args.appTestId }, select: { testCaseId: true } });
       const assignedIds = assigned.map((a) => a.testCaseId);
       return ctx.prisma.testCase.findMany({
-        where: { feature: { projectId: at.projectId }, id: { notIn: assignedIds }, approval: "APPROVED", active: true },
+        where: { ...LIVE_TEST_CASE, feature: { ...LIVE_TEST_CASE.feature, projectId: at.projectId }, id: { notIn: assignedIds } },
         orderBy: { number: "asc" },
       });
     },
@@ -247,7 +248,7 @@ export const appTestResolvers = {
       const user = await requireQA(ctx);
       // Only the reviewed cases of that feature — a pending one can't be tested.
       const tcs = await ctx.prisma.testCase.findMany({
-        where: { featureId: args.featureId, approval: "APPROVED", active: true },
+        where: { featureId: args.featureId, ...LIVE_TEST_CASE },
         select: { id: true },
       });
       await ctx.prisma.appTestCase.createMany({

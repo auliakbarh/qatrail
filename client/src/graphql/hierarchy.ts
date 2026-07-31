@@ -3,17 +3,19 @@ import { gql } from "@apollo/client";
 const COVERAGE = `coverage { total passed percent } ready`;
 
 export const PROJECTS = gql`
-  query Projects {
-    projects {
+  query Projects($includeInactive: Boolean) {
+    projects(includeInactive: $includeInactive) {
       id name description squad minPassPercent featureCount ${COVERAGE} createdAt updatedAt
+      active pendingRequest { id kind }
     }
   }
 `;
 
 export const FEATURES = gql`
-  query Features($projectId: ID!) {
-    features(projectId: $projectId) {
+  query Features($projectId: ID!, $includeInactive: Boolean) {
+    features(projectId: $projectId, includeInactive: $includeInactive) {
       id key projectId name description minPassPercent testCaseCount ${COVERAGE} createdAt updatedAt
+      active pendingRequest { id kind }
     }
   }
 `;
@@ -34,37 +36,50 @@ export const TEST_CASE = gql`
       steps { id order step expectedResult }
       attachments { id order url kind label }
       recordCount issueCount latestResult createdAt createdBy { id name }
-      approval reviewedAt rejectReason canApprove active reviewedBy { id name }
+      approval reviewedAt firstApprovedAt rejectReason canApprove active reviewedBy { id name }
       pendingRequest { id kind canApprove requestedAt requestedBy { id name } targetFeature { id name } targetName }
+      feature { id name project { id name } }
     }
   }
 `;
 
-export const PENDING_TEST_CASE_REQUESTS = gql`
-  query PendingTestCaseRequests($projectId: ID) {
-    pendingTestCaseRequests(projectId: $projectId) {
-      id kind state requestedAt canApprove
+export const PENDING_APPROVAL_REQUESTS = gql`
+  query PendingApprovalRequests($projectId: ID) {
+    pendingApprovalRequests(projectId: $projectId) {
+      id target kind state requestedAt canApprove label
       requestedBy { id name }
       targetFeature { id name }
       targetName
+      project { id name }
+      feature { id name project { id name } }
       testCase { id key name active feature { id name project { id name } } }
     }
   }
 `;
 
-export const APPROVE_TEST_CASE_REQUEST = gql`
-  mutation ApproveTestCaseRequest($id: ID!) {
-    approveTestCaseRequest(id: $id) { id state }
+export const APPROVE_APPROVAL_REQUEST = gql`
+  mutation ApproveApprovalRequest($id: ID!) {
+    approveApprovalRequest(id: $id) { id state }
   }
 `;
-export const APPROVE_TEST_CASE_REQUESTS = gql`
-  mutation ApproveTestCaseRequests($ids: [ID!]!) {
-    approveTestCaseRequests(ids: $ids) { approved skipped }
+export const APPROVE_APPROVAL_REQUESTS = gql`
+  mutation ApproveApprovalRequests($ids: [ID!]!) {
+    approveApprovalRequests(ids: $ids) { approved skipped }
   }
 `;
-export const REJECT_TEST_CASE_REQUEST = gql`
-  mutation RejectTestCaseRequest($id: ID!, $reason: String!) {
-    rejectTestCaseRequest(id: $id, reason: $reason) { id state rejectReason }
+export const REJECT_APPROVAL_REQUEST = gql`
+  mutation RejectApprovalRequest($id: ID!, $reason: String!) {
+    rejectApprovalRequest(id: $id, reason: $reason) { id state rejectReason }
+  }
+`;
+export const SET_PROJECT_ACTIVE = gql`
+  mutation SetProjectActive($id: ID!, $active: Boolean!) {
+    setProjectActive(id: $id, active: $active) { id active }
+  }
+`;
+export const SET_FEATURE_ACTIVE = gql`
+  mutation SetFeatureActive($id: ID!, $active: Boolean!) {
+    setFeatureActive(id: $id, active: $active) { id active }
   }
 `;
 export const SET_TEST_CASE_ACTIVE = gql`
@@ -78,7 +93,7 @@ export const SET_TEST_CASE_ACTIVE = gql`
 export const PENDING_TEST_CASES = gql`
   query PendingTestCases($projectId: ID) {
     pendingTestCases(projectId: $projectId) {
-      id key name kind approval rejectReason reviewedAt createdAt canApprove
+      id key name kind approval rejectReason reviewedAt firstApprovedAt createdAt canApprove
       createdBy { id name }
       reviewedBy { id name }
       feature { id name project { id name } }

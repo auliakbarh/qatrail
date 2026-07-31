@@ -3,7 +3,7 @@ import { useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { UploadCloud } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
-import { IMPORT_TEST_CASES, FEATURES } from "../../graphql/hierarchy";
+import { IMPORT_TEST_CASES } from "../../graphql/hierarchy";
 import { parseImport, type Scope, type ImportTestCase } from "../../lib/testCaseCsv";
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
@@ -25,8 +25,8 @@ export function ImportTestCasesForm({ scope, projectId, featureId }: { scope: Sc
   const [preview, setPreview] = useState<Preview | null>(null);
 
   const refetch = scope === "project"
-    ? [{ query: FEATURES, variables: { projectId } }]
-    : ["TestCases", { query: FEATURES, variables: { projectId } }];
+    ? ["Features"]
+    : ["TestCases", "Features"];
   const [runImport, { loading }] = useMutation(IMPORT_TEST_CASES, { refetchQueries: refetch });
 
   const vars = (dryRun: boolean, r: ImportTestCase[]) => ({
