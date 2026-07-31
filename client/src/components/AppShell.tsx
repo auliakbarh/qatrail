@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@apollo/client";
-import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox, Smartphone, KeyRound, CalendarCheck, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, BarChart3, Settings, HelpCircle, LogOut, Sun, Moon, ListChecks, Inbox, Smartphone, KeyRound, CalendarCheck, ClipboardCheck, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { SidebarTree } from "./SidebarTree";
 import { useAuth } from "../store/auth";
 import { HEALTH } from "../graphql";
+import { PENDING_APPROVAL_COUNT } from "../graphql/hierarchy";
 import { UI_VERSION, THEME_KEY } from "../config";
 import { cn } from "../lib/utils";
 import { useTranslation } from "react-i18next";
@@ -23,6 +24,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { data } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const apiVersion: string | undefined = data?.health?.apiVersion;
+  // Test cases waiting on *this* user's review — 0 for everyone without approve
+  // rights, so the badge only ever appears when it's actionable.
+  const { data: pending } = useQuery(PENDING_APPROVAL_COUNT, { fetchPolicy: "cache-and-network" });
+  const pendingCount: number = pending?.pendingApprovalCount ?? 0;
 
   // Sidebar collapse: minimized to an icon rail; hovering reveals it temporarily.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("qar_sidebar") === "1");
@@ -40,6 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const ROLE_SHORT: Record<string, string> = {
     SUPER_ADMIN: "SA",
     ADMIN: "A",
+    QA_LEAD: "QL",
     QA: "QA",
     ENGINEER: "EN",
     VIEWER: "V",
@@ -88,13 +94,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             { to: "/session-tests", label: t("nav.sessionTests"), Icon: CalendarCheck, end: false, tree: false },
             { to: "/user-tests", label: t("nav.userTests"), Icon: KeyRound, end: false, tree: false },
             { to: "/issues", label: t("nav.allIssues"), Icon: ListChecks, end: true, tree: false },
+            { to: "/pending-test-cases", label: t("nav.pendingTestCases"), Icon: ClipboardCheck, end: true, tree: false, badge: pendingCount },
             ...(user?.role === "ENGINEER"
               ? [{ to: "/assigned", label: t("nav.assigned"), Icon: Inbox, end: true, tree: false }]
               : []),
             { to: "/analytics", label: t("nav.analytics"), Icon: BarChart3, end: false, tree: false },
             { to: "/settings", label: t("nav.settings"), Icon: Settings, end: false, tree: false },
             { to: "/help", label: t("nav.help"), Icon: HelpCircle, end: false, tree: false },
-          ].map(({ to, label, Icon, end, tree }) => (
+          ].map(({ to, label, Icon, end, tree, badge }) => (
             <div key={to}>
               <NavLink
                 to={to}
@@ -111,8 +118,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )
                 }
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <span className="relative shrink-0">
+                  <Icon className="h-4 w-4" />
+                  {/* Only what this user may act on is counted, so a badge always means "your turn". */}
+                  {!!badge && !expanded && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-medium text-white">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </span>
                 {expanded && label}
+                {expanded && !!badge && (
+                  <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-white">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
               </NavLink>
               {tree && expanded && <SidebarTree />}
             </div>

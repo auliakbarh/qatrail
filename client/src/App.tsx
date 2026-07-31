@@ -19,6 +19,8 @@ const SessionTests = lazy(() => import("./pages/SessionTests"));
 const SessionTestDetail = lazy(() => import("./pages/SessionTestDetail"));
 const UserTestDetail = lazy(() => import("./pages/UserTestDetail"));
 const IssuePage = lazy(() => import("./pages/IssuePage"));
+const TestCasePage = lazy(() => import("./pages/TestCasePage"));
+const PendingTestCases = lazy(() => import("./pages/PendingTestCases"));
 const AllIssues = lazy(() => import("./pages/AllIssues"));
 const AssignedToMe = lazy(() => import("./pages/AssignedToMe"));
 const Analytics = lazy(() => import("./pages/Analytics"));
@@ -93,6 +95,9 @@ export default function App() {
         <Route path="/issues" element={<AllIssues />} />
         <Route path="/assigned" element={<AssignedToMe />} />
         <Route path="/issues/:id" element={<IssuePage />} />
+        <Route path="/pending-test-cases" element={<PendingTestCases />} />
+        {/* Resolves the drilldown chain, then redirects — see TestCasePage. */}
+        <Route path="/test-cases/:id" element={<TestCasePage />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/help" element={<Help />} />

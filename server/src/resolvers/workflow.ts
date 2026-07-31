@@ -26,9 +26,9 @@ function assertAssignee(user: any, issue: any) {
     throw new Error("Forbidden: only the assigned engineer may do this");
   }
 }
-// QA actions require the reporter or a QA/admin.
+// QA actions require the reporter or a QA/QA lead/admin.
 function assertReporterOrQA(user: any, issue: any) {
-  if (issue.reporterId !== user.id && user.role !== "QA" && !isAdmin(user.role)) {
+  if (issue.reporterId !== user.id && user.role !== "QA" && user.role !== "QA_LEAD" && !isAdmin(user.role)) {
     throw new Error("Forbidden: only QA/reporter may do this");
   }
 }

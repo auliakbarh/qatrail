@@ -1,7 +1,7 @@
 import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 
-type Target = "ISSUE" | "APP_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST" | "TEST_CASE";
 
 export const watchResolvers = {
   Query: {

@@ -8,7 +8,7 @@ import { withToast, denied } from "../store/toast";
 import { canAct } from "../lib/perm";
 import { Modal } from "./Modal";
 
-type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST" | "TEST_CASE";
 type MUser = { id: string; name: string };
 
 const inputCls = "w-full rounded border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";

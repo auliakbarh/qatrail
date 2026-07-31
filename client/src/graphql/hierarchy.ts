@@ -33,7 +33,43 @@ export const TEST_CASE = gql`
       steps { id order step expectedResult }
       attachments { id order url kind label }
       recordCount issueCount latestResult createdAt createdBy { id name }
+      approval reviewedAt rejectReason canApprove reviewedBy { id name }
     }
+  }
+`;
+
+// PENDING + REJECTED, oldest first. Carries feature/project so the list can
+// group, filter and link without a second round trip.
+export const PENDING_TEST_CASES = gql`
+  query PendingTestCases($projectId: ID) {
+    pendingTestCases(projectId: $projectId) {
+      id key name kind approval rejectReason reviewedAt createdAt canApprove
+      createdBy { id name }
+      reviewedBy { id name }
+      feature { id name project { id name } }
+    }
+  }
+`;
+
+export const PENDING_APPROVAL_COUNT = gql`
+  query PendingApprovalCount {
+    pendingApprovalCount
+  }
+`;
+
+export const APPROVE_TEST_CASE = gql`
+  mutation ApproveTestCase($id: ID!) {
+    approveTestCase(id: $id) { id approval }
+  }
+`;
+export const APPROVE_TEST_CASES = gql`
+  mutation ApproveTestCases($ids: [ID!]!) {
+    approveTestCases(ids: $ids) { approved skipped }
+  }
+`;
+export const REJECT_TEST_CASE = gql`
+  mutation RejectTestCase($id: ID!, $reason: String!) {
+    rejectTestCase(id: $id, reason: $reason) { id approval rejectReason }
   }
 `;
 

@@ -1,6 +1,7 @@
 import { prisma } from "./db.js";
 import { logger } from "./logger.js";
 import { publishNotification } from "./pubsub.js";
+import { approverRolesFor } from "./approval.js";
 
 const log = logger.child({ mod: "notify" });
 
@@ -15,6 +16,7 @@ export async function notify(
   appTestId?: string | null,
   userTestId?: string | null,
   sessionTestId?: string | null,
+  testCaseId?: string | null,
 ): Promise<void> {
   try {
     const n = await prisma.notification.create({
@@ -26,6 +28,7 @@ export async function notify(
         appTestId: appTestId ?? null,
         userTestId: userTestId ?? null,
         sessionTestId: sessionTestId ?? null,
+        testCaseId: testCaseId ?? null,
       },
     });
     publishNotification(userId, {
@@ -36,6 +39,7 @@ export async function notify(
       appTestId: n.appTestId,
       userTestId: n.userTestId,
       sessionTestId: n.sessionTestId,
+      testCaseId: n.testCaseId,
       read: n.read,
       createdAt: n.createdAt.toISOString(),
     });
@@ -49,6 +53,7 @@ export interface NotifyRefs {
   appTestId?: string | null;
   userTestId?: string | null;
   sessionTestId?: string | null;
+  testCaseId?: string | null;
 }
 
 // Fan a notification out to everyone watching a target (issue/app test/user test/session).
@@ -65,7 +70,7 @@ export async function notifyWatchers(
     ws
       .filter((w) => w.userId !== exceptUserId)
       .map((w) =>
-        notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null, refs.sessionTestId ?? null),
+        notify(w.userId, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null, refs.sessionTestId ?? null, refs.testCaseId ?? null),
       ),
   );
 }
@@ -80,13 +85,34 @@ export async function notifyQaAdmins(
   sessionTestId?: string,
 ): Promise<void> {
   const users = await prisma.user.findMany({
-    where: { active: true, role: { in: ["QA", "ADMIN", "SUPER_ADMIN"] } },
+    where: { active: true, role: { in: ["QA", "QA_LEAD", "ADMIN", "SUPER_ADMIN"] } },
     select: { id: true },
   });
   await Promise.all(
     users
       .filter((u) => u.id !== exceptUserId)
       .map((u) => notify(u.id, kind, message, null, appTestId, null, sessionTestId)),
+  );
+}
+
+// Fan a "needs approval" notification out to everyone who could approve a test
+// case from this creator (approval.ts decides the floor), minus the creator.
+export async function notifyTestCaseApprovers(
+  creator: { id: string; role: string },
+  kind: string,
+  message: string,
+  // Null for a bulk import: one notification stands for many cases, so it has
+  // no single case to deep-link to.
+  testCaseId: string | null,
+): Promise<void> {
+  const users = await prisma.user.findMany({
+    where: { active: true, role: { in: approverRolesFor(creator.role) as any } },
+    select: { id: true },
+  });
+  await Promise.all(
+    users
+      .filter((u) => u.id !== creator.id)
+      .map((u) => notify(u.id, kind, message, null, null, null, null, testCaseId)),
   );
 }
 
@@ -102,7 +128,7 @@ export async function notifyAll(
     users
       .filter((u) => u.id !== exceptUserId)
       .map((u) =>
-        notify(u.id, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null, refs.sessionTestId ?? null),
+        notify(u.id, kind, message, refs.issueId ?? null, refs.appTestId ?? null, refs.userTestId ?? null, refs.sessionTestId ?? null, refs.testCaseId ?? null),
       ),
   );
 }

@@ -1,6 +1,7 @@
 import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
+import { assertAllApproved } from "./testcase.js";
 import { sessionTestCoverage } from "../coverage.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
 
@@ -204,7 +205,11 @@ export const sessionTestResolvers = {
         select: { testCaseId: true },
       });
       return ctx.prisma.testCase.findMany({
-        where: { feature: { projectId: st.projectId }, id: { notIn: assigned.map((a) => a.testCaseId) } },
+        where: {
+          feature: { projectId: st.projectId },
+          id: { notIn: assigned.map((a) => a.testCaseId) },
+          approval: "APPROVED",
+        },
         orderBy: { number: "asc" },
       });
     },
@@ -303,6 +308,7 @@ export const sessionTestResolvers = {
     ) {
       const user = await requireQA(ctx);
       const st = await getOwned(ctx, args.sessionTestId, user);
+      await assertAllApproved(ctx, args.testCaseIds);
       const apps = args.appIds.length
         ? await ctx.prisma.sessionTestApp.findMany({
             where: { id: { in: args.appIds }, sessionTestId: st.id },

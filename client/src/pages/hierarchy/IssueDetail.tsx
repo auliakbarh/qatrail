@@ -73,7 +73,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const isAssignee = user?.id === i.assignee.id;
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const canEngineer = isAssignee || isAdmin;
-  const canQA = user?.id === i.reporter.id || user?.role === "QA" || isAdmin;
+  const canQA = user?.id === i.reporter.id || user?.role === "QA" || user?.role === "QA_LEAD" || isAdmin;
 
   // Buttons stay clickable regardless of role; unauthorized clicks toast instead
   // of acting. Keeps the UI discoverable while the server stays the real gate.

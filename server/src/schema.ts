@@ -1,6 +1,7 @@
 // GraphQL type definitions. M0: auth+health. M1: hierarchy. M2: records+issues.
 export const typeDefs = /* GraphQL */ `
-  enum Role { SUPER_ADMIN ADMIN QA ENGINEER VIEWER }
+  enum Role { SUPER_ADMIN ADMIN QA_LEAD QA ENGINEER VIEWER }
+  enum TestCaseApproval { PENDING APPROVED REJECTED }
   enum AttachKind { IMAGE VIDEO MARKDOWN JSON DOC XLS CSV PDF OTHER }
   enum FindingType { DEFECT BUG }
   enum Platform { ANDROID IOS WEB }
@@ -10,7 +11,7 @@ export const typeDefs = /* GraphQL */ `
   enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
   enum TestResult { PASS FAIL BLOCKED }
   enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
-  enum CommentTarget { ISSUE APP_TEST USER_TEST SESSION_TEST }
+  enum CommentTarget { ISSUE APP_TEST USER_TEST SESSION_TEST TEST_CASE }
   enum TestCaseKind { POSITIVE NEGATIVE }
   enum SessionKind { SIT UAT OTHER }
   enum SessionTestStatus { OPEN IN_TESTING PASSED CLOSED }
@@ -72,6 +73,7 @@ export const typeDefs = /* GraphQL */ `
     ready: Boolean!
     createdAt: String!
     updatedAt: String!
+    project: Project!
   }
 
   type TestCaseStep {
@@ -106,6 +108,18 @@ export const typeDefs = /* GraphQL */ `
     createdBy: User!
     createdAt: String!
     updatedAt: String!
+    # Approval gate. Only APPROVED cases appear in the project lists, count
+    # toward coverage, or accept assignments/records/issues.
+    approval: TestCaseApproval!
+    # Latest decision. Null on rows created before approval existed — the UI
+    # shows a legacy label there instead of an approver.
+    reviewedAt: String
+    reviewedBy: User
+    rejectReason: String
+    # True when the current viewer may approve/reject this very case.
+    canApprove: Boolean!
+    # Feature + project of this case, for the pending list and deep links.
+    feature: Feature!
   }
 
   type RecordTest {
@@ -162,6 +176,7 @@ export const typeDefs = /* GraphQL */ `
     appTestId: ID
     userTestId: ID
     sessionTestId: ID
+    testCaseId: ID
     read: Boolean!
     createdAt: String!
   }
@@ -332,6 +347,10 @@ export const typeDefs = /* GraphQL */ `
     stepCount: Int!
     newFeatures: [String!]!
     errors: [ImportRowError!]!
+  }
+  type BulkApproveResult {
+    approved: Int!
+    skipped: Int!
   }
   type TestCaseExportStep {
     step: String!
@@ -565,8 +584,15 @@ export const typeDefs = /* GraphQL */ `
     project(id: ID!): Project
     features(projectId: ID!): [Feature!]!
     feature(id: ID!): Feature
+    # APPROVED cases only — the reviewed catalogue.
     testCases(featureId: ID!): [TestCase!]!
+    # Any case regardless of approval: everyone may read, comment and watch one
+    # that is still awaiting review.
     testCase(id: ID!): TestCase
+    # Cases awaiting a decision: PENDING + REJECTED, oldest first.
+    pendingTestCases(projectId: ID): [TestCase!]!
+    # PENDING cases the current user may actually approve — drives the nav badge.
+    pendingApprovalCount: Int!
     exportTestCases(projectId: ID, featureId: ID): [TestCaseExport!]!
 
     recordTests(testCaseId: ID!): [RecordTest!]!
@@ -640,6 +666,11 @@ export const typeDefs = /* GraphQL */ `
     moveTestCase(id: ID!, featureId: ID!): TestCase!
     cloneTestCase(id: ID!, targetFeatureId: ID!, name: String): TestCase!
     importTestCases(projectId: ID, featureId: ID, dryRun: Boolean!, rows: [ImportTestCaseInput!]!): ImportResult!
+    approveTestCase(id: ID!): TestCase!
+    # Bulk approve. Not all-or-nothing: rights differ per creator, so cases the
+    # actor may not approve are skipped instead of failing the batch.
+    approveTestCases(ids: [ID!]!): BulkApproveResult!
+    rejectTestCase(id: ID!, reason: String!): TestCase!
 
     createRecordTest(testCaseId: ID!, input: RecordTestInput!): RecordTest!
     deleteRecordTest(id: ID!): Boolean!

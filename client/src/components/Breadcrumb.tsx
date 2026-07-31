@@ -15,7 +15,7 @@ interface Crumb {
 }
 
 // Where the drilldown was entered from, so the trail reads the way the user got
-// here: `?from=app-test:<id>` | `session:<id>` | `assigned` | `issues`.
+// here: `?from=app-test:<id>` | `session:<id>` | `assigned` | `issues` | `pending`.
 function parseFrom(from: string): { kind: string; id: string } {
   const [kind, id = ""] = from.split(":");
   return { kind, id };
@@ -29,7 +29,8 @@ export function Breadcrumb() {
   const panel = useNav((s) => s.panel);
   const { kind: origin, id: originId } = parseFrom(params.get("from") ?? "");
 
-  const hierarchy = origin !== "app-test" && origin !== "session" && origin !== "assigned" && origin !== "issues";
+  const hierarchy =
+    origin !== "app-test" && origin !== "session" && origin !== "assigned" && origin !== "issues" && origin !== "pending";
 
   // Names/keys per level. Each query is skipped unless its level is in play, and
   // the pages themselves have usually already primed the cache.
@@ -51,6 +52,8 @@ export function Breadcrumb() {
     crumbs.push({ label: t("nav.assigned"), onClick: () => navigate("/assigned") });
   } else if (origin === "issues") {
     crumbs.push({ label: t("nav.allIssues"), onClick: () => navigate("/issues") });
+  } else if (origin === "pending") {
+    crumbs.push({ label: t("nav.pendingTestCases"), onClick: () => navigate("/pending-test-cases") });
   } else {
     crumbs.push({ label: t("dash.projects"), onClick: () => goProject(null) });
     if (projectId) {

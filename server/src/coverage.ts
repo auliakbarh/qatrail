@@ -66,29 +66,37 @@ async function cached(key: string, fn: () => Promise<Coverage>): Promise<Coverag
   return val;
 }
 
+// Catalogue coverage counts APPROVED cases only: one awaiting review isn't
+// agreed content yet, so adding cases can't drag a project's pass% down.
 export async function featureCoverage(featureId: string): Promise<Coverage> {
   return cached(`f:${featureId}`, async () => {
-    const tcs = await prisma.testCase.findMany({ where: { featureId }, select: { id: true } });
+    const tcs = await prisma.testCase.findMany({ where: { featureId, approval: "APPROVED" }, select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }
 
 export async function projectCoverage(projectId: string): Promise<Coverage> {
   return cached(`p:${projectId}`, async () => {
-    const tcs = await prisma.testCase.findMany({ where: { feature: { projectId } }, select: { id: true } });
+    const tcs = await prisma.testCase.findMany({
+      where: { feature: { projectId }, approval: "APPROVED" },
+      select: { id: true },
+    });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }
 
 export async function allCoverage(): Promise<Coverage> {
   return cached("all", async () => {
-    const tcs = await prisma.testCase.findMany({ select: { id: true } });
+    const tcs = await prisma.testCase.findMany({ where: { approval: "APPROVED" }, select: { id: true } });
     return coverageForTestCases(tcs.map((t) => t.id));
   });
 }
 
 // Coverage over the cases assigned to an app test, scoped to that app test's
 // own records/issues. Not cached — recomputed on demand (also drives status).
+// Deliberately NOT filtered on approval: an assignment was reviewed when it was
+// made, and dropping it here would silently move a signed-off app test's
+// progress. Only new assignments/records/issues are gated.
 export async function appTestCoverage(appTestId: string): Promise<Coverage> {
   const rows = await prisma.appTestCase.findMany({ where: { appTestId }, select: { testCaseId: true } });
   return coverageForTestCases(rows.map((r) => r.testCaseId), { appTestId });
@@ -96,6 +104,7 @@ export async function appTestCoverage(appTestId: string): Promise<Coverage> {
 
 // Same idea for a testing session: only the session's own runs/findings count,
 // so a case passed in an earlier cycle still has to be re-run in this one.
+// Unfiltered on approval for the same reason as appTestCoverage.
 export async function sessionTestCoverage(sessionTestId: string): Promise<Coverage> {
   const rows = await prisma.sessionTestCase.findMany({ where: { sessionTestId }, select: { testCaseId: true } });
   return coverageForTestCases(rows.map((r) => r.testCaseId), { sessionTestId });

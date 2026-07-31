@@ -6,7 +6,7 @@ import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
 import { denied } from "../store/toast";
 
-type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST" | "TEST_CASE";
 
 // Toggle watching an issue/app test to receive its activity notifications.
 export function WatchButton({ target, targetId }: { target: Target; targetId: string }) {

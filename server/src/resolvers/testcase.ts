@@ -1,6 +1,9 @@
+import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
-import { requireAuth, requireQA } from "../context.js";
+import { requireAuth, requireQA, requireApprover } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
+import { approvalOnCreate, canApproveTestCase, editKeepsApproval, isApproverRole } from "../approval.js";
+import { notify, notifyTestCaseApprovers } from "../notify.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -66,6 +69,12 @@ export function validateImport(
   return { ok: errors.length === 0, testCaseCount: rows.length, stepCount, newFeatures: [...newFeatures.values()], errors };
 }
 
+function forbidden() {
+  return new GraphQLError("You may not review this test case — it needs an approver of the creator's level or higher, and never its own author.", {
+    extensions: { code: "FORBIDDEN" },
+  });
+}
+
 function stepData(steps: StepInput[]) {
   return steps.map((s, i) => ({ order: i + 1, step: s.step, expectedResult: s.expectedResult ?? null }));
 }
@@ -73,14 +82,66 @@ function attachData(atts: AttachmentInput[]) {
   return atts.map((a, i) => ({ order: i + 1, url: a.url, kind: a.kind, label: a.label ?? null }));
 }
 
+// The reviewed catalogue: anything not APPROVED is content nobody agreed to yet.
+export const APPROVED_ONLY = { approval: "APPROVED" } as const;
+
+// One place for "this case is not testable yet".
+export async function assertApproved(ctx: Context, testCaseId: string, what: string): Promise<void> {
+  const tc = await ctx.prisma.testCase.findUnique({ where: { id: testCaseId }, select: { approval: true } });
+  if (!tc) throw new Error("Test case not found");
+  if (tc.approval !== "APPROVED") throw notApproved(what);
+}
+
+// Same for a batch (assigning several cases at once).
+export async function assertAllApproved(ctx: Context, testCaseIds: string[], what = "be assigned"): Promise<void> {
+  if (!testCaseIds.length) return;
+  const bad = await ctx.prisma.testCase.count({
+    where: { id: { in: testCaseIds }, approval: { not: "APPROVED" } },
+  });
+  if (bad > 0) throw notApproved(what);
+}
+
+function notApproved(what: string) {
+  return new GraphQLError(`This test case is still waiting for approval, so it can't ${what}.`, {
+    extensions: { code: "TEST_CASE_NOT_APPROVED" },
+  });
+}
+
 export const testCaseResolvers = {
   Query: {
     async testCases(_: unknown, args: { featureId: string }, ctx: Context) {
       requireAuth(ctx);
       return ctx.prisma.testCase.findMany({
-        where: { featureId: args.featureId },
+        where: { featureId: args.featureId, ...APPROVED_ONLY },
         orderBy: { createdAt: "asc" },
       });
+    },
+    // Awaiting a decision: PENDING needs an approver, REJECTED needs its creator.
+    // Oldest first — the longest wait is the most urgent.
+    async pendingTestCases(_: unknown, args: { projectId?: string | null }, ctx: Context) {
+      requireAuth(ctx);
+      return ctx.prisma.testCase.findMany({
+        where: {
+          approval: { in: ["PENDING", "REJECTED"] },
+          ...(args.projectId ? { feature: { projectId: args.projectId } } : {}),
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    },
+    // Nav badge: PENDING cases this user may actually approve, so a plain QA
+    // sees no number instead of one they can't act on. REJECTED is excluded —
+    // that ball is in the creator's court.
+    // ponytail: counts in JS after one select; pending sets are small. Move to a
+    // grouped count if this ever spans thousands of rows.
+    async pendingApprovalCount(_: unknown, __: unknown, ctx: Context) {
+      const userId = requireAuth(ctx);
+      if (!isApproverRole(ctx.role)) return 0;
+      const rows = await ctx.prisma.testCase.findMany({
+        where: { approval: "PENDING" },
+        select: { createdById: true, createdBy: { select: { role: true } } },
+      });
+      const me = { id: userId, role: ctx.role! };
+      return rows.filter((r) => canApproveTestCase(me, { id: r.createdById, role: r.createdBy.role })).length;
     },
     async testCase(_: unknown, args: { id: string }, ctx: Context) {
       requireAuth(ctx);
@@ -91,7 +152,9 @@ export const testCaseResolvers = {
     async exportTestCases(_: unknown, args: { projectId?: string; featureId?: string }, ctx: Context) {
       requireAuth(ctx);
       if (!args.projectId && !args.featureId) throw new Error("projectId or featureId required");
-      const where = args.featureId ? { featureId: args.featureId } : { feature: { projectId: args.projectId } };
+      const where = args.featureId
+        ? { featureId: args.featureId, ...APPROVED_ONLY }
+        : { feature: { projectId: args.projectId }, ...APPROVED_ONLY };
       const tcs = await ctx.prisma.testCase.findMany({
         where,
         include: { feature: { select: { name: true } }, steps: { orderBy: { order: "asc" } } },
@@ -112,7 +175,8 @@ export const testCaseResolvers = {
     async createTestCase(_: unknown, args: { featureId: string; input: TestCaseInput }, ctx: Context) {
       const user = await requireQA(ctx);
       const { input } = args;
-      return ctx.prisma.testCase.create({
+      const approval = approvalOnCreate(user.role);
+      const tc = await ctx.prisma.testCase.create({
         data: {
           featureId: args.featureId,
           name: input.name.trim(),
@@ -121,16 +185,30 @@ export const testCaseResolvers = {
           note: input.note ?? null,
           kind: input.kind ?? null,
           createdById: user.id,
+          approval,
+          // A super admin's own case needs no review, so record the decision now.
+          ...(approval === "APPROVED" ? { reviewedAt: new Date(), reviewedById: user.id } : {}),
           steps: { create: stepData(input.steps) },
           attachments: { create: attachData(input.attachments) },
         },
       });
+      if (approval === "PENDING") {
+        await notifyTestCaseApprovers(user, "TEST_CASE_PENDING", `New test case to approve: TC-${tc.number} — ${tc.name}`, tc.id);
+      }
+      return tc;
     },
     async updateTestCase(_: unknown, args: { id: string; input: TestCaseInput }, ctx: Context) {
-      await requireQA(ctx);
+      const user = await requireQA(ctx);
       const { input } = args;
+      const before = await ctx.prisma.testCase.findUnique({ where: { id: args.id } });
+      if (!before) throw new Error("Test case not found");
+      // An edit sends the case back for review — otherwise the gate is trivially
+      // bypassed: get a small case approved, then rewrite it. This holds even
+      // when the case already has records or sits in an open app test: changed
+      // content nobody reviewed must not keep driving runs.
+      const reset = !editKeepsApproval(user.role);
       // Replace steps + attachments wholesale — simplest correct update.
-      return ctx.prisma.testCase.update({
+      const tc = await ctx.prisma.testCase.update({
         where: { id: args.id },
         data: {
           name: input.name.trim(),
@@ -138,10 +216,103 @@ export const testCaseResolvers = {
           precondition: input.precondition ?? null,
           note: input.note ?? null,
           kind: input.kind ?? null,
+          ...(reset ? { approval: "PENDING", reviewedAt: null, reviewedById: null, rejectReason: null } : {}),
           steps: { deleteMany: {}, create: stepData(input.steps) },
           attachments: { deleteMany: {}, create: attachData(input.attachments) },
         },
       });
+      // Only shout when the edit actually re-opened the review.
+      if (reset && before.approval !== "PENDING") {
+        const author = await ctx.prisma.user.findUnique({ where: { id: tc.createdById }, select: { id: true, role: true } });
+        await notifyTestCaseApprovers(
+          author ?? user,
+          "TEST_CASE_PENDING",
+          `Edited, needs approval again: TC-${tc.number} — ${tc.name}`,
+          tc.id,
+        );
+      }
+      return tc;
+    },
+    async approveTestCase(_: unknown, args: { id: string }, ctx: Context) {
+      const user = await requireApprover(ctx);
+      const tc = await ctx.prisma.testCase.findUnique({
+        where: { id: args.id },
+        include: { createdBy: { select: { id: true, role: true } } },
+      });
+      if (!tc) throw new Error("Test case not found");
+      if (tc.approval === "APPROVED") return tc;
+      if (!canApproveTestCase(user, tc.createdBy)) throw forbidden();
+      const updated = await ctx.prisma.testCase.update({
+        where: { id: tc.id },
+        data: { approval: "APPROVED", reviewedAt: new Date(), reviewedById: user.id, rejectReason: null },
+      });
+      await notify(tc.createdById, "TEST_CASE_APPROVED", `Test case approved: TC-${tc.number} — ${tc.name}`, null, null, null, null, tc.id);
+      return updated;
+    },
+    // Skips what this actor may not approve rather than failing the batch — the
+    // rights depend on each case's creator.
+    async approveTestCases(_: unknown, args: { ids: string[] }, ctx: Context) {
+      const user = await requireApprover(ctx);
+      const rows = await ctx.prisma.testCase.findMany({
+        where: { id: { in: args.ids }, approval: { in: ["PENDING", "REJECTED"] } },
+        include: { createdBy: { select: { id: true, role: true } } },
+      });
+      const allowed = rows.filter((tc) => canApproveTestCase(user, tc.createdBy));
+      if (allowed.length) {
+        await ctx.prisma.testCase.updateMany({
+          where: { id: { in: allowed.map((t) => t.id) } },
+          data: { approval: "APPROVED", reviewedAt: new Date(), reviewedById: user.id, rejectReason: null },
+        });
+      }
+      // One notification per creator, not per case — a 50-case approval must not
+      // fire 50 bells at the same person.
+      const byCreator = new Map<string, typeof allowed>();
+      for (const tc of allowed) byCreator.set(tc.createdById, [...(byCreator.get(tc.createdById) ?? []), tc]);
+      await Promise.all(
+        [...byCreator].map(([creatorId, cases]) =>
+          notify(
+            creatorId,
+            "TEST_CASE_APPROVED",
+            cases.length === 1
+              ? `Test case approved: TC-${cases[0].number} — ${cases[0].name}`
+              : `${cases.length} test cases approved (${cases.map((c) => `TC-${c.number}`).join(", ")})`,
+            null,
+            null,
+            null,
+            null,
+            cases.length === 1 ? cases[0].id : null,
+          ),
+        ),
+      );
+      return { approved: allowed.length, skipped: args.ids.length - allowed.length };
+    },
+    async rejectTestCase(_: unknown, args: { id: string; reason: string }, ctx: Context) {
+      const user = await requireApprover(ctx);
+      const reason = args.reason.trim();
+      if (!reason) {
+        throw new GraphQLError("Say why the test case is rejected.", { extensions: { code: "BAD_USER_INPUT" } });
+      }
+      const tc = await ctx.prisma.testCase.findUnique({
+        where: { id: args.id },
+        include: { createdBy: { select: { id: true, role: true } } },
+      });
+      if (!tc) throw new Error("Test case not found");
+      if (!canApproveTestCase(user, tc.createdBy)) throw forbidden();
+      const updated = await ctx.prisma.testCase.update({
+        where: { id: tc.id },
+        data: { approval: "REJECTED", reviewedAt: new Date(), reviewedById: user.id, rejectReason: reason },
+      });
+      await notify(
+        tc.createdById,
+        "TEST_CASE_REJECTED",
+        `Test case rejected: TC-${tc.number} — ${reason}`,
+        null,
+        null,
+        null,
+        null,
+        tc.id,
+      );
+      return updated;
     },
     async deleteTestCase(_: unknown, args: { id: string }, ctx: Context) {
       await requireQA(ctx);
@@ -194,6 +365,7 @@ export const testCaseResolvers = {
       const result = validateImport(rows, { projectScope: !!projectId, existingFeatures: existingNames });
       if (!result.ok || dryRun) return result;
 
+      const approval = approvalOnCreate(user.role);
       // Commit — one transaction so a mid-way failure rolls back everything.
       await ctx.prisma.$transaction(async (tx) => {
         // Create missing features first, then resolve every row's feature id.
@@ -215,11 +387,23 @@ export const testCaseResolvers = {
               note: r.note ?? null,
               kind: normalizeKind(r.kind) as "POSITIVE" | "NEGATIVE" | null,
               createdById: user.id,
+              approval,
+              ...(approval === "APPROVED" ? { reviewedAt: new Date(), reviewedById: user.id } : {}),
               steps: { create: stepData((r.steps ?? []).filter((s) => (s.step ?? "").trim())) },
             },
           });
         }
       });
+      // One notification for the whole import — a 200-row file must not ring 200
+      // bells per approver.
+      if (approval === "PENDING" && rows.length) {
+        await notifyTestCaseApprovers(
+          user,
+          "TEST_CASE_PENDING",
+          `${rows.length} imported test case${rows.length > 1 ? "s" : ""} to approve`,
+          null,
+        );
+      }
       return result;
     },
   },
@@ -228,6 +412,15 @@ export const testCaseResolvers = {
     createdAt: (t: any) => t.createdAt.toISOString(),
     updatedAt: (t: any) => t.updatedAt.toISOString(),
     createdBy: (t: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: t.createdById } }),
+    reviewedAt: (t: any) => t.reviewedAt?.toISOString() ?? null,
+    reviewedBy: (t: any, _: unknown, ctx: Context) =>
+      t.reviewedById ? ctx.prisma.user.findUnique({ where: { id: t.reviewedById } }) : null,
+    feature: (t: any, _: unknown, ctx: Context) => ctx.prisma.feature.findUnique({ where: { id: t.featureId } }),
+    async canApprove(t: any, _: unknown, ctx: Context) {
+      if (!ctx.userId || !isApproverRole(ctx.role) || t.approval === "APPROVED") return false;
+      const creator = await ctx.prisma.user.findUnique({ where: { id: t.createdById }, select: { id: true, role: true } });
+      return !!creator && canApproveTestCase({ id: ctx.userId, role: ctx.role! }, creator);
+    },
     steps: (t: any, _: unknown, ctx: Context) =>
       ctx.prisma.testCaseStep.findMany({ where: { testCaseId: t.id }, orderBy: { order: "asc" } }),
     attachments: (t: any, _: unknown, ctx: Context) =>

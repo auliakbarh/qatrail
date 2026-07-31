@@ -9,6 +9,7 @@ const SECTION_IDS = [
   "start",
   "structure",
   "navigation",
+  "approval",
   "import",
   "records",
   "issues",
@@ -79,6 +80,7 @@ export default function Help() {
               rows={[
                 ["SUPER_ADMIN", t("help.roles.superadmin")],
                 ["ADMIN", t("help.roles.admin")],
+                ["QA_LEAD", t("help.roles.qalead")],
                 ["QA", t("help.roles.qa")],
                 ["ENGINEER", t("help.roles.engineer")],
                 ["VIEWER", t("help.roles.viewer")],
@@ -110,6 +112,24 @@ export default function Help() {
             <P><Trans i18nKey="help.nav.p1" components={{ b: <B />, code: <Code /> }} /></P>
             <P><Trans i18nKey="help.nav.p2" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.nav.p3" components={{ b: <B />, code: <Code /> }} /></P>
+          </Doc>
+
+          <Doc id="approval" title={t("help.sec.approval")}>
+            <P><Trans i18nKey="help.approval.p1" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p2" components={{ b: <B /> }} /></P>
+            <Table
+              head={[t("help.approval.head.creator"), t("help.approval.head.approver")]}
+              rows={[
+                ["QA", t("help.approval.r1")],
+                ["QA_LEAD", t("help.approval.r2")],
+                ["ADMIN", t("help.approval.r3")],
+                ["SUPER_ADMIN", t("help.approval.r4")],
+              ]}
+            />
+            <P><Trans i18nKey="help.approval.p3" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p4" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p5" components={{ b: <B /> }} /></P>
+            <Callout><Trans i18nKey="help.approval.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
           <Doc id="import" title={t("help.sec.import")}>

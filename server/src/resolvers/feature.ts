@@ -71,8 +71,11 @@ export const featureResolvers = {
     key: (f: any) => `FEAT-${f.number}`,
     createdAt: (f: any) => f.createdAt.toISOString(),
     updatedAt: (f: any) => f.updatedAt.toISOString(),
+    project: (f: any, _: unknown, ctx: Context) => ctx.prisma.project.findUnique({ where: { id: f.projectId } }),
+    // Cases awaiting review aren't part of the agreed catalogue yet, so they
+    // don't inflate the count or the coverage denominator.
     testCaseCount: (f: any, _: unknown, ctx: Context) =>
-      ctx.prisma.testCase.count({ where: { featureId: f.id } }),
+      ctx.prisma.testCase.count({ where: { featureId: f.id, approval: "APPROVED" } }),
     coverage: (f: any) => featureCoverage(f.id),
     async ready(f: any) {
       const cov = await featureCoverage(f.id);

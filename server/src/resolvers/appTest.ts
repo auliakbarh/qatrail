@@ -2,6 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
+import { assertAllApproved } from "./testcase.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
@@ -127,7 +128,7 @@ export const appTestResolvers = {
       const assigned = await ctx.prisma.appTestCase.findMany({ where: { appTestId: args.appTestId }, select: { testCaseId: true } });
       const assignedIds = assigned.map((a) => a.testCaseId);
       return ctx.prisma.testCase.findMany({
-        where: { feature: { projectId: at.projectId }, id: { notIn: assignedIds } },
+        where: { feature: { projectId: at.projectId }, id: { notIn: assignedIds }, approval: "APPROVED" },
         orderBy: { number: "asc" },
       });
     },
@@ -234,6 +235,7 @@ export const appTestResolvers = {
     },
     async assignTestCases(_: unknown, args: { appTestId: string; testCaseIds: string[] }, ctx: Context) {
       const user = await requireQA(ctx);
+      await assertAllApproved(ctx, args.testCaseIds);
       await ctx.prisma.appTestCase.createMany({
         data: args.testCaseIds.map((testCaseId) => ({ appTestId: args.appTestId, testCaseId, assignedById: user.id })),
         skipDuplicates: true,
@@ -243,7 +245,11 @@ export const appTestResolvers = {
     },
     async assignFeatureTestCases(_: unknown, args: { appTestId: string; featureId: string }, ctx: Context) {
       const user = await requireQA(ctx);
-      const tcs = await ctx.prisma.testCase.findMany({ where: { featureId: args.featureId }, select: { id: true } });
+      // Only the reviewed cases of that feature — a pending one can't be tested.
+      const tcs = await ctx.prisma.testCase.findMany({
+        where: { featureId: args.featureId, approval: "APPROVED" },
+        select: { id: true },
+      });
       await ctx.prisma.appTestCase.createMany({
         data: tcs.map((t) => ({ appTestId: args.appTestId, testCaseId: t.id, assignedById: user.id })),
         skipDuplicates: true,

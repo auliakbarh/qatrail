@@ -4,6 +4,7 @@ import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
+import { assertApproved } from "./testcase.js";
 import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
 import { cachedSlaTargets, classifyResolve, slaApplies, canMarkProductionIssue, resolveProductionFlag } from "../sla.js";
 
@@ -150,6 +151,7 @@ export const issueResolvers = {
       const user = await requireQA(ctx);
       const { input } = args;
       validate(input);
+      await assertApproved(ctx, input.testCaseId, "raise findings");
       const issue = await ctx.prisma.issue.create({
         data: {
           ...scalarData(input, {

@@ -2,7 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth } from "../context.js";
 import { notify } from "../notify.js";
 
-type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST";
+type Target = "ISSUE" | "APP_TEST" | "USER_TEST" | "SESSION_TEST" | "TEST_CASE";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -50,6 +50,12 @@ async function recipients(ctx: Context, target: Target, targetId: string, author
   } else if (target === "SESSION_TEST") {
     const st = await ctx.prisma.sessionTest.findUnique({ where: { id: targetId }, select: { createdById: true } });
     if (st) set.add(st.createdById);
+  } else if (target === "TEST_CASE") {
+    const tc = await ctx.prisma.testCase.findUnique({ where: { id: targetId }, select: { createdById: true, reviewedById: true } });
+    if (tc) {
+      set.add(tc.createdById);
+      if (tc.reviewedById) set.add(tc.reviewedById);
+    }
   } else {
     const ut = await ctx.prisma.userTest.findUnique({ where: { id: targetId }, select: { createdById: true } });
     if (ut) set.add(ut.createdById);
@@ -76,6 +82,11 @@ async function assertTargetExists(ctx: Context, target: Target, targetId: string
     const s = await ctx.prisma.sessionTest.findUnique({ where: { id: targetId }, select: { number: true } });
     if (!s) throw new Error("Session test not found");
     return `ST-${s.number}`;
+  }
+  if (target === "TEST_CASE") {
+    const tc = await ctx.prisma.testCase.findUnique({ where: { id: targetId }, select: { number: true } });
+    if (!tc) throw new Error("Test case not found");
+    return `TC-${tc.number}`;
   }
   const u = await ctx.prisma.userTest.findUnique({ where: { id: targetId }, select: { number: true } });
   if (!u) throw new Error("User test not found");
@@ -107,9 +118,10 @@ export const commentResolvers = {
       const appTestId = args.target === "APP_TEST" ? args.targetId : null;
       const userTestId = args.target === "USER_TEST" ? args.targetId : null;
       const sessionTestId = args.target === "SESSION_TEST" ? args.targetId : null;
+      const testCaseId = args.target === "TEST_CASE" ? args.targetId : null;
       await Promise.all([
-        ...to.map((uid) => notify(uid, "COMMENT", `New comment on: ${label}`, issueId, appTestId, userTestId, sessionTestId)),
-        ...mentioned.map((uid) => notify(uid, "MENTION", `You were mentioned on: ${label}`, issueId, appTestId, userTestId, sessionTestId)),
+        ...to.map((uid) => notify(uid, "COMMENT", `New comment on: ${label}`, issueId, appTestId, userTestId, sessionTestId, testCaseId)),
+        ...mentioned.map((uid) => notify(uid, "MENTION", `You were mentioned on: ${label}`, issueId, appTestId, userTestId, sessionTestId, testCaseId)),
       ]);
       return comment;
     },
@@ -130,7 +142,7 @@ export const commentResolvers = {
         const ref = (t: Target) => (target === t ? c.targetId : null);
         await Promise.all(
           added.map((uid) =>
-            notify(uid, "MENTION", `You were mentioned on: ${label}`, ref("ISSUE"), ref("APP_TEST"), ref("USER_TEST"), ref("SESSION_TEST")),
+            notify(uid, "MENTION", `You were mentioned on: ${label}`, ref("ISSUE"), ref("APP_TEST"), ref("USER_TEST"), ref("SESSION_TEST"), ref("TEST_CASE")),
           ),
         );
       }

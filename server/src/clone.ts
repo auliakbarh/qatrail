@@ -23,6 +23,15 @@ export async function cloneTestCaseInto(
       note: src.note,
       kind: src.kind,
       createdById,
+      // A copy inherits the source's review state: identical content that was
+      // already approved needs no second round. It also keeps
+      // moveAppTestProject(CLONE) usable — that re-points assignments straight
+      // at the copies, and PENDING copies would hand an app test cases nobody
+      // may run.
+      approval: src.approval,
+      reviewedAt: src.reviewedAt,
+      reviewedById: src.reviewedById,
+      rejectReason: src.rejectReason,
       steps: {
         create: [...src.steps]
           .sort((a, b) => a.order - b.order)

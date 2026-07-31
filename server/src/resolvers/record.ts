@@ -2,6 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { recomputeAppTest } from "../appTestStatus.js";
+import { assertApproved } from "./testcase.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -29,6 +30,9 @@ export const recordResolvers = {
     async createRecordTest(_: unknown, args: { testCaseId: string; input: RecordTestInput }, ctx: Context) {
       const user = await requireQA(ctx);
       const { input } = args;
+      // Every run — first attempt or retest — lands here, so this one check
+      // closes the whole path.
+      await assertApproved(ctx, args.testCaseId, "be tested yet");
       // A blocked run has no verdict, so the blocker itself is the only useful
       // information — refuse to store one silently.
       if (input.result === "BLOCKED" && !input.note?.trim()) {

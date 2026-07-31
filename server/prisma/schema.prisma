@@ -11,9 +11,18 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   ADMIN
+  QA_LEAD
   QA
   ENGINEER
   VIEWER
+}
+
+// Review state of a test case. A case only counts as testable content once it is
+// APPROVED (see approval.ts for who may approve what).
+enum TestCaseApproval {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AuthProvider {
@@ -74,6 +83,7 @@ enum CommentTarget {
   APP_TEST
   USER_TEST
   SESSION_TEST
+  TEST_CASE
 }
 
 // Kind of testing session. OTHER carries a free-text label in kindOther.
@@ -121,8 +131,9 @@ model User {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  projects       Project[]       @relation("projectOwner")
-  testCases      TestCase[]      @relation("testCaseAuthor")
+  projects        Project[]  @relation("projectOwner")
+  testCases       TestCase[] @relation("testCaseAuthor")
+  testCasesReviewed TestCase[] @relation("testCaseReviewer")
   recordTests    RecordTest[]    @relation("testExecutor")
   reportedIssues Issue[]         @relation("reporter")
   assignedIssues Issue[]         @relation("assignee")
@@ -192,6 +203,16 @@ model TestCase {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  // Approval gate. Defaults to APPROVED so rows that predate the feature stay
+  // visible without a backfill — the create paths write PENDING explicitly.
+  // reviewedAt/reviewedById carry the latest decision (approve OR reject); the
+  // full history is in AuditLog. Null on legacy rows: that review never happened.
+  approval     TestCaseApproval @default(APPROVED)
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?            @relation("testCaseReviewer", fields: [reviewedById], references: [id])
+  rejectReason String?
+
   steps            TestCaseStep[]
   attachments      TestCaseAttachment[]
   records          RecordTest[]
@@ -200,6 +221,7 @@ model TestCase {
   sessionTestCases SessionTestCase[]
 
   @@index([featureId])
+  @@index([approval])
 }
 
 model TestCaseStep {
@@ -578,6 +600,7 @@ model Notification {
   appTestId     String?
   userTestId    String?
   sessionTestId String?
+  testCaseId    String?
   read          Boolean  @default(false)
   createdAt     DateTime @default(now())
 

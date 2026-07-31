@@ -15,7 +15,7 @@ export const SET_ISSUE_SCOPE = gql`mutation($id: ID!,$appTestId:ID,$sessionTestI
 
 export const NOTIFICATIONS = gql`
   query Notifications {
-    notifications { id kind message issueId appTestId userTestId sessionTestId read createdAt }
+    notifications { id kind message issueId appTestId userTestId sessionTestId testCaseId read createdAt }
     unreadCount
   }
 `;
@@ -23,6 +23,6 @@ export const MARK_NOTIFICATION_READ = gql`mutation($id: ID!){ markNotificationRe
 export const MARK_ALL_READ = gql`mutation{ markAllNotificationsRead }`;
 export const NOTIFICATION_ADDED = gql`
   subscription {
-    notificationAdded { id kind message issueId appTestId userTestId sessionTestId read createdAt }
+    notificationAdded { id kind message issueId appTestId userTestId sessionTestId testCaseId read createdAt }
   }
 `;

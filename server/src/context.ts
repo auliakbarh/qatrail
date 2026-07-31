@@ -1,6 +1,7 @@
 import { GraphQLError } from "graphql";
 import { prisma } from "./db.js";
 import { verifyToken } from "./auth.js";
+import { isApproverRole } from "./approval.js";
 
 export interface Context {
   prisma: typeof prisma;
@@ -59,13 +60,22 @@ export async function requireSuperAdmin(ctx: Context) {
   return user!;
 }
 
-// QA content editors: QA, ADMIN, SUPER_ADMIN may manage projects/features/test cases.
+// QA content editors: QA, QA_LEAD, ADMIN, SUPER_ADMIN may manage projects/features/test cases.
 export async function requireQA(ctx: Context) {
   const userId = requireAuth(ctx);
   const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
-  if (user?.role !== "QA" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN") {
+  if (user?.role !== "QA" && user?.role !== "QA_LEAD" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN") {
     throw new Error("Forbidden: QA only");
   }
+  return user!;
+}
+
+// Test case review: QA_LEAD and up. Whether this approver may approve *this*
+// case still depends on the creator — see canApproveTestCase in approval.ts.
+export async function requireApprover(ctx: Context) {
+  const userId = requireAuth(ctx);
+  const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
+  if (!isApproverRole(user?.role)) throw new Error("Forbidden: QA lead only");
   return user!;
 }
 
