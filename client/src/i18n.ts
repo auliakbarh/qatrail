@@ -186,7 +186,7 @@ const en = {
   "dash.ready": "Ready",
   "dash.below": "Below",
   "dash.notRun": "Not run",
-  "dash.issueBreadcrumb": "Issue",
+  "dash.recordBreadcrumb": "Record",
   // lists
   "list.features": "Features",
   "list.testCases": "Test cases",
@@ -1096,7 +1096,7 @@ const id: typeof en = {
   "dash.ready": "Siap",
   "dash.below": "Kurang",
   "dash.notRun": "Belum dites",
-  "dash.issueBreadcrumb": "Isu",
+  "dash.recordBreadcrumb": "Rekaman",
   "list.features": "Fitur",
   "list.testCases": "Test case",
   "coverage.min": "min {{min}}%",

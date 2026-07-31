@@ -6,7 +6,7 @@ import { PROJECTS, FEATURES, TEST_CASE } from "../graphql/hierarchy";
 import { ISSUE } from "../graphql/issue";
 import { APP_TEST } from "../graphql/apptest";
 import { SESSION_TEST } from "../graphql/sessiontest";
-import { useDrill } from "../store/nav";
+import { useDrill, useNav } from "../store/nav";
 import { cn } from "../lib/utils";
 
 interface Crumb {
@@ -26,6 +26,7 @@ export function Breadcrumb() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { projectId, featureId, testCaseId, issueId, goProject, goFeature, goTestCase } = useDrill();
+  const panel = useNav((s) => s.panel);
   const { kind: origin, id: originId } = parseFrom(params.get("from") ?? "");
 
   const hierarchy = origin !== "app-test" && origin !== "session" && origin !== "assigned" && origin !== "issues";
@@ -68,6 +69,8 @@ export function Breadcrumb() {
     crumbs.push({ label: tcData?.testCase?.key ?? "…", onClick: () => goTestCase(testCaseId) });
   }
   if (issueId) crumbs.push({ label: issueData?.issue?.key ?? "…" });
+  // A record has no page of its own — it only exists as an open panel.
+  if (panel?.kind === "record") crumbs.push({ label: t("dash.recordBreadcrumb") });
 
   // The last crumb is where we are: never clickable.
   const last = crumbs.length - 1;
