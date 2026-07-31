@@ -1,6 +1,6 @@
 import { useQuery } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { useNav, useDrill } from "../store/nav";
+import { useNav, useDrill, scopeFromOrigin } from "../store/nav";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { FEATURES } from "../graphql/hierarchy";
 import { ProjectList } from "./hierarchy/ProjectList";
@@ -26,7 +26,9 @@ import { TestCaseViewPanel } from "./forms/TestCaseViewPanel";
 export default function Dashboard() {
   const { t } = useTranslation();
   const { panel } = useNav();
-  const { projectId, featureId, testCaseId, issueId, goFeature } = useDrill();
+  const { projectId, featureId, testCaseId, issueId, goFeature, from } = useDrill();
+  // Entered from an app test / session: runs and findings filed here belong to it.
+  const originScope = scopeFromOrigin(from);
 
   // Same variables as FeatureList so both read one cache entry: with different
   // variables this one goes stale and a freshly created feature reads as deleted.
@@ -85,12 +87,20 @@ export default function Dashboard() {
           testCaseId={testCaseId}
           featureId={featureId}
           retestIssueId={panel.initial?.retestIssueId}
-          appTestId={panel.initial?.appTestId}
-          sessionTestId={panel.initial?.sessionTestId}
+          // A retest brings its own scope from the issue; otherwise the case is
+          // being run inside whatever context the drilldown was entered from.
+          appTestId={panel.initial?.appTestId ?? originScope.appTestId}
+          sessionTestId={panel.initial?.sessionTestId ?? originScope.sessionTestId}
         />
       )}
       {panel?.kind === "issue" && testCaseId && featureId && (
-        <IssueForm panel={panel} testCaseId={testCaseId} featureId={featureId} />
+        <IssueForm
+          panel={panel}
+          testCaseId={testCaseId}
+          featureId={featureId}
+          appTestId={panel.initial?.appTestId ?? originScope.appTestId}
+          sessionTestId={panel.initial?.sessionTestId ?? originScope.sessionTestId}
+        />
       )}
       {panel?.kind === "postmortem" && panel.id && testCaseId && (
         <PostmortemForm issueId={panel.id} testCaseId={testCaseId} />

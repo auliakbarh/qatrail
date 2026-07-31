@@ -254,12 +254,14 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
       </div>
       {/* Verify a batch of fixes. Only NEED_REVIEW rows can be retested; the modal
           names the rest instead of dropping them quietly. */}
+      {retestOpen && (
       <BulkRetestModal
-        open={retestOpen}
+        open
         issues={rows.filter((r: any) => selected.has(r.id))}
         onClose={() => setRetestOpen(false)}
         onDone={() => { setRetestOpen(false); void afterBulk(); }}
       />
+      )}
       <DeleteConfirm
         open={confirmDel}
         onClose={() => setConfirmDel(false)}

@@ -32,7 +32,9 @@ export const SESSION_TEST_CASES = gql`
     sessionTestCases(sessionTestId: $sessionTestId) {
       id status issueCount assignedAt doneTestAt featureId featureName
       testCase { id key name }
-      apps { id name appTestKey }
+      # environment/platform/versions feed the issue prefill when a case relates
+      # to exactly one app (lib/issuePrefill.ts).
+      apps { id name appTestKey environment platform versionFe versionBe }
       assignedBy { id name }
     }
   }

@@ -243,9 +243,9 @@ export default function AppTestDetail() {
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-sm font-semibold">{t("at.assignedTestCases")} ({rows0.length})</h3>
             <div className="flex items-center gap-2">
-              {selected.size > 0 && (
+              {bulkCases.length > 0 && (
                 <HeaderButton allowed={manage} icon={PlayCircle} onClick={() => openPanel({ kind: "bulkrecord", mode: "create" })}>
-                  {t("bulkrun.run", { n: selected.size })}
+                  {t("bulkrun.run", { n: bulkCases.length })}
                 </HeaderButton>
               )}
               <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "assigntc", mode: "create" })}>
@@ -399,6 +399,9 @@ export default function AppTestDetail() {
       )}
       {panel?.kind === "issue" && panel.initial?.testCaseId && (
         <IssueForm
+          // One form per failure: the queue swaps `initial` in place, and
+          // react-hook-form only reads defaultValues on mount.
+          key={panel.initial?.recordTestId ?? panel.initial.testCaseId}
           panel={panel}
           testCaseId={panel.initial.testCaseId}
           featureId={panel.initial.featureId}

@@ -23,6 +23,16 @@ export const useNav = create<NavState>((set) => ({
   closePanel: () => set({ panel: null }),
 }));
 
+// `?from=` also says which testing context the case is being looked at in, so a
+// run or finding filed from the drilldown lands in that app test / session
+// instead of belonging to nothing.
+export function scopeFromOrigin(from?: string | null): { appTestId?: string; sessionTestId?: string } {
+  const [kind, id] = (from ?? "").split(":");
+  if (kind === "app-test" && id) return { appTestId: id };
+  if (kind === "session" && id) return { sessionTestId: id };
+  return {};
+}
+
 export interface DrillIds {
   projectId?: string | null;
   featureId?: string | null;
