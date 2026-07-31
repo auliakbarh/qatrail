@@ -87,9 +87,9 @@ export function ProjectList() {
               onChange={(e) => setFActive(e.target.value)}
               className="h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="ACTIVE">{t("tc.activeOnly")}</option>
-              <option value="INACTIVE">{t("tc.inactiveOnly")}</option>
-              <option value="">{t("tc.activeAll")}</option>
+              <option value="">{t("c.status")}: {t("c.all")}</option>
+              <option value="ACTIVE">{t("tc.active")}</option>
+              <option value="INACTIVE">{t("tc.inactive")}</option>
             </select>
           </div>
           <div className="overflow-x-auto">

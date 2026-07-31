@@ -3,7 +3,7 @@ import { requireAuth, requireQA } from "../context.js";
 import { featureCoverage } from "../coverage.js";
 import { cloneFeatureInto } from "../clone.js";
 import { APPROVED_ONLY } from "./testcase.js";
-import { needsApproval, openRequest, assertActive } from "./approvalRequest.js";
+import { needsApproval, openRequest, assertActive, dropRequestsUnder } from "./approvalRequest.js";
 
 interface FeatureInput {
   name: string;
@@ -32,6 +32,7 @@ export const featureResolvers = {
   Mutation: {
     async createFeature(_: unknown, args: { projectId: string; input: FeatureInput }, ctx: Context) {
       await requireQA(ctx);
+      await assertActive(ctx, "PROJECT", args.projectId);
       return ctx.prisma.feature.create({
         data: {
           projectId: args.projectId,
@@ -62,8 +63,8 @@ export const featureResolvers = {
         await openRequest(ctx, user, "FEATURE", args.id, "DELETE");
         return true;
       }
+      await dropRequestsUnder(ctx, "FEATURE", args.id);
       await ctx.prisma.feature.delete({ where: { id: args.id } });
-      await ctx.prisma.approvalRequest.deleteMany({ where: { target: "FEATURE", targetId: args.id } });
       return true;
     },
     async setFeatureActive(_: unknown, args: { id: string; active: boolean }, ctx: Context) {
@@ -84,6 +85,7 @@ export const featureResolvers = {
       await assertActive(ctx, "FEATURE", args.id);
       const target = await ctx.prisma.project.findUnique({ where: { id: args.targetProjectId } });
       if (!target) throw new Error("Target project not found");
+      await assertActive(ctx, "PROJECT", target.id);
       const name = args.name?.trim() || undefined;
       if (await needsApproval(ctx, user.role)) {
         await openRequest(ctx, user, "FEATURE", args.id, "COPY", { projectId: target.id, name });
@@ -100,6 +102,7 @@ export const featureResolvers = {
       await assertActive(ctx, "FEATURE", args.id);
       const target = await ctx.prisma.project.findUnique({ where: { id: args.projectId } });
       if (!target) throw new Error("Target project not found");
+      await assertActive(ctx, "PROJECT", target.id);
       if (await needsApproval(ctx, user.role)) {
         await openRequest(ctx, user, "FEATURE", args.id, "MOVE", { projectId: target.id });
         return ctx.prisma.feature.findUnique({ where: { id: args.id } });

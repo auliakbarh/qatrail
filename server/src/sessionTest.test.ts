@@ -207,6 +207,7 @@ describe.skipIf(!enabled)("session tests (integration)", () => {
 describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
   const MTAG = "itest-move";
   let adminId = "", saId = "", qaId = "", srcProjectId = "", dstProjectId = "", tcId = "", appTestId = "";
+  let savedSetting: { autoApproveChangeHours: number | null } | null = null;
 
   // The move itself now waits for approval, so every case here asks and then has
   // a super admin settle it (an admin's request needs an admin or above).
@@ -219,6 +220,14 @@ describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
   };
 
   beforeAll(async () => {
+    // The move waits for approval, which the Setting singleton can switch off —
+    // pin it so this suite doesn't depend on a developer's UI toggle.
+    savedSetting = await prisma.setting.findUnique({ where: { id: "singleton" } });
+    await prisma.setting.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", autoApproveChangeHours: null },
+      update: { autoApproveChangeHours: null },
+    });
     const admin = await prisma.user.create({ data: { email: `${MTAG}-admin@test.local`, name: "Admin", role: "ADMIN" } });
     const sa = await prisma.user.create({ data: { email: `${MTAG}-sa@test.local`, name: "SA", role: "SUPER_ADMIN" } });
     const qa = await prisma.user.create({ data: { email: `${MTAG}-qa@test.local`, name: "QA", role: "QA" } });
@@ -237,6 +246,12 @@ describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
   });
 
   afterAll(async () => {
+    if (savedSetting) {
+      await prisma.setting.update({
+        where: { id: "singleton" },
+        data: { autoApproveChangeHours: savedSetting.autoApproveChangeHours },
+      });
+    }
     for (const id of [srcProjectId, dstProjectId]) {
       if (id) await prisma.project.delete({ where: { id } }).catch(() => {});
     }

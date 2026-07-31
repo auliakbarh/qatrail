@@ -85,9 +85,17 @@ async function workloadRows(
       where: { ...caseScope, reviewedById: { not: null }, ...(range ? { reviewedAt: range } : {}) },
       _count: { _all: true },
     }),
+    // Requests carry the project they were made in, so this narrows with the
+    // scope like every other column. Rows from before that column existed have a
+    // null projectId and only show up at "all projects".
     ctx.prisma.approvalRequest.groupBy({
       by: ["reviewedById"],
-      where: { reviewedById: { not: null }, state: { not: "PENDING" }, ...(range ? { reviewedAt: range } : {}) },
+      where: {
+        reviewedById: { not: null },
+        state: { not: "PENDING" },
+        ...(s.projectId ? { projectId: s.projectId } : {}),
+        ...(range ? { reviewedAt: range } : {}),
+      },
       _count: { _all: true },
     }),
     ctx.prisma.appTest.groupBy({

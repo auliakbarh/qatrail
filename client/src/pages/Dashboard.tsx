@@ -28,7 +28,13 @@ export default function Dashboard() {
   const { panel } = useNav();
   const { projectId, featureId, testCaseId, issueId, goFeature } = useDrill();
 
-  const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !featureId });
+  // Same variables as FeatureList so both read one cache entry: with different
+  // variables this one goes stale and a freshly created feature reads as deleted.
+  const { data: featData } = useQuery(FEATURES, {
+    variables: { projectId, includeInactive: true },
+    skip: !featureId,
+    fetchPolicy: "cache-and-network",
+  });
   // Feature open but gone from the loaded list → it was deleted.
   const featDeleted = !!featureId && !!featData?.features && !featData.features.some((f: any) => f.id === featureId);
 

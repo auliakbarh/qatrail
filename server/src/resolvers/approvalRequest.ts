@@ -98,6 +98,9 @@ export async function openRequest(
     data: {
       target,
       targetId,
+      // Stamped once here so scoped analytics never has to resolve a polymorphic
+      // id per row.
+      projectId: await requestProjectId(ctx, { target, targetId }),
       kind,
       targetFeatureId: extra.featureId ?? null,
       targetProjectId: extra.projectId ?? null,
@@ -135,13 +138,16 @@ async function runRequest(ctx: Context, req: any): Promise<void> {
     return;
   }
   if (kind === "DELETE") {
-    // Requests have no FK to their target, so clear the target's own leftovers.
-    if (target === "PROJECT") await ctx.prisma.project.delete({ where: { id: req.targetId } });
-    else if (target === "FEATURE") await ctx.prisma.feature.delete({ where: { id: req.targetId } });
-    else await ctx.prisma.testCase.delete({ where: { id: req.targetId } });
-    await ctx.prisma.approvalRequest.deleteMany({
-      where: { target, targetId: req.targetId, id: { not: req.id } },
-    });
+    // Requests have no FK to their target, so a cascade delete would leave the
+    // requests of everything underneath pointing at rows that no longer exist.
+    if (target === "PROJECT" || target === "FEATURE") {
+      await dropRequestsUnder(ctx, target, req.targetId, req.id);
+      if (target === "PROJECT") await ctx.prisma.project.delete({ where: { id: req.targetId } });
+      else await ctx.prisma.feature.delete({ where: { id: req.targetId } });
+    } else {
+      await ctx.prisma.testCase.delete({ where: { id: req.targetId } });
+      await ctx.prisma.approvalRequest.deleteMany({ where: { target, targetId: req.targetId, id: { not: req.id } } });
+    }
     return;
   }
   // MOVE / COPY: a project copies in place, a feature lands in a project, a test
@@ -372,17 +378,71 @@ async function requestProjectId(ctx: Context, r: { target: string; targetId: str
 }
 
 // Retired content is read-only: it keeps its history and stays visible, but
-// nothing edits it until an activation is approved.
-export async function assertActive(ctx: Context, target: "PROJECT" | "FEATURE", id: string): Promise<void> {
-  const row =
-    target === "PROJECT"
-      ? await ctx.prisma.project.findUnique({ where: { id }, select: { active: true } })
-      : await ctx.prisma.feature.findUnique({ where: { id }, select: { active: true } });
-  if (!row) throw new Error(`${target === "PROJECT" ? "Project" : "Feature"} not found`);
-  if (!row.active) {
-    throw new GraphQLError(
-      `This ${target === "PROJECT" ? "project" : "feature"} is inactive, so it can't be edited. Ask for it to be activated first.`,
-      { extensions: { code: "INACTIVE" } },
-    );
+// nothing edits it until an activation is approved. A test case is also retired
+// when its feature or project is — checking the chain here is what stops the
+// lower level from being a way around the upper one.
+export async function assertActive(ctx: Context, target: Target, id: string): Promise<void> {
+  if (target === "TEST_CASE") {
+    const tc = await ctx.prisma.testCase.findUnique({
+      where: { id },
+      select: { active: true, feature: { select: { active: true, project: { select: { active: true } } } } },
+    });
+    if (!tc) throw new Error("Test case not found");
+    if (!tc.active) throw inactive("test case");
+    if (!tc.feature.active) throw inactive("feature");
+    if (!tc.feature.project.active) throw inactive("project");
+    return;
   }
+  if (target === "FEATURE") {
+    const f = await ctx.prisma.feature.findUnique({
+      where: { id },
+      select: { active: true, project: { select: { active: true } } },
+    });
+    if (!f) throw new Error("Feature not found");
+    if (!f.active) throw inactive("feature");
+    if (!f.project.active) throw inactive("project");
+    return;
+  }
+  const p = await ctx.prisma.project.findUnique({ where: { id }, select: { active: true } });
+  if (!p) throw new Error("Project not found");
+  if (!p.active) throw inactive("project");
+}
+
+function inactive(what: string) {
+  return new GraphQLError(`This ${what} is inactive, so it can't be changed. Ask for it to be activated first.`, {
+    extensions: { code: "INACTIVE" },
+  });
+}
+
+// Requests point at their target by plain id, so a cascade delete leaves the
+// requests of everything underneath behind. Clear them with the parent.
+export async function dropRequestsUnder(
+  ctx: Context,
+  target: "PROJECT" | "FEATURE",
+  id: string,
+  // The request being executed right now: it stays as the record of the decision.
+  exceptId?: string,
+): Promise<void> {
+  const featureIds =
+    target === "PROJECT"
+      ? (await ctx.prisma.feature.findMany({ where: { projectId: id }, select: { id: true } })).map((f) => f.id)
+      : [id];
+  const caseIds = (
+    await ctx.prisma.testCase.findMany({ where: { featureId: { in: featureIds } }, select: { id: true } })
+  ).map((t) => t.id);
+  const appTestIds =
+    target === "PROJECT"
+      ? (await ctx.prisma.appTest.findMany({ where: { projectId: id }, select: { id: true } })).map((a) => a.id)
+      : [];
+  await ctx.prisma.approvalRequest.deleteMany({
+    where: {
+      ...(exceptId ? { id: { not: exceptId } } : {}),
+      OR: [
+        { target, targetId: id },
+        { target: "FEATURE", targetId: { in: featureIds } },
+        { target: "TEST_CASE", targetId: { in: caseIds } },
+        ...(appTestIds.length ? [{ target: "APP_TEST" as const, targetId: { in: appTestIds } }] : []),
+      ],
+    },
+  });
 }

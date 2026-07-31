@@ -2,7 +2,7 @@ import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { projectCoverage } from "../coverage.js";
 import { cloneProjectDeep } from "../clone.js";
-import { needsApproval, openRequest, assertActive } from "./approvalRequest.js";
+import { needsApproval, openRequest, assertActive, dropRequestsUnder } from "./approvalRequest.js";
 
 interface ProjectInput {
   name: string;
@@ -65,8 +65,8 @@ export const projectResolvers = {
         await openRequest(ctx, user, "PROJECT", args.id, "DELETE");
         return true;
       }
+      await dropRequestsUnder(ctx, "PROJECT", args.id);
       await ctx.prisma.project.delete({ where: { id: args.id } });
-      await ctx.prisma.approvalRequest.deleteMany({ where: { target: "PROJECT", targetId: args.id } });
       return true;
     },
     // Retire or revive a project: nothing under it is rewritten, the live filters

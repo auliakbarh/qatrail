@@ -280,6 +280,9 @@ model ApprovalRequest {
   targetProjectId String? // MOVE / COPY destination for a feature or app test
   targetName      String? // COPY name override
   assignmentMode  MoveAssignmentMode? // app test move: what happens to its assignments
+  // Project the target sat in when the request was made. Denormalised so scoped
+  // analytics can count approvals without resolving a polymorphic id per row.
+  projectId       String?
   state           TestCaseApproval    @default(PENDING)
   requestedById   String
   requestedBy     User                @relation("approvalRequester", fields: [requestedById], references: [id])

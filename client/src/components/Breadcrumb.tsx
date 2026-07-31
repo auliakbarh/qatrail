@@ -34,8 +34,12 @@ export function Breadcrumb() {
 
   // Names/keys per level. Each query is skipped unless its level is in play, and
   // the pages themselves have usually already primed the cache.
-  const { data: projData } = useQuery(PROJECTS, { skip: !hierarchy || !projectId });
-  const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !hierarchy || !featureId });
+  const { data: projData } = useQuery(PROJECTS, { variables: { includeInactive: true }, skip: !hierarchy || !projectId });
+  // includeInactive so a retired feature still names itself in the trail.
+  const { data: featData } = useQuery(FEATURES, {
+    variables: { projectId, includeInactive: true },
+    skip: !hierarchy || !featureId,
+  });
   const { data: tcData } = useQuery(TEST_CASE, { variables: { id: testCaseId }, skip: !testCaseId });
   const { data: issueData } = useQuery(ISSUE, { variables: { id: issueId }, skip: !issueId });
   const { data: appData } = useQuery(APP_TEST, { variables: { id: originId }, skip: origin !== "app-test" });

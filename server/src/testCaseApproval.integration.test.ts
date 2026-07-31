@@ -33,6 +33,7 @@ const input = (name: string) => ({
 
 describe.skipIf(!enabled)("test case approval (integration)", () => {
   let qaId = "", leadId = "", engId = "", projectId = "", featureId = "";
+  let savedSetting: { autoApproveNewHours: number | null; autoApproveChangeHours: number | null } | null = null;
 
   // A QA-authored case that made it through review — the starting point for every
   // change-request case below.
@@ -42,6 +43,15 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
   };
 
   beforeAll(async () => {
+    // Approval behaviour depends on the Setting singleton, which a developer may
+    // have flipped to "approve immediately" in the UI. Pin it to "a human
+    // decides" for the run and put it back afterwards.
+    savedSetting = await prisma.setting.findUnique({ where: { id: "singleton" } });
+    await prisma.setting.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", autoApproveNewHours: null, autoApproveChangeHours: null },
+      update: { autoApproveNewHours: null, autoApproveChangeHours: null },
+    });
     const qa = await prisma.user.create({ data: { email: `${TAG}-qa@test.local`, name: "QA", role: "QA" } });
     const lead = await prisma.user.create({ data: { email: `${TAG}-lead@test.local`, name: "Lead", role: "QA_LEAD" } });
     const eng = await prisma.user.create({ data: { email: `${TAG}-eng@test.local`, name: "Eng", role: "ENGINEER" } });
@@ -53,6 +63,15 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
   });
 
   afterAll(async () => {
+    if (savedSetting) {
+      await prisma.setting.update({
+        where: { id: "singleton" },
+        data: {
+          autoApproveNewHours: savedSetting.autoApproveNewHours,
+          autoApproveChangeHours: savedSetting.autoApproveChangeHours,
+        },
+      });
+    }
     // Every project this file makes is TAG-prefixed; dropping them all keeps a
     // failed run from leaving rows that block the user cleanup below.
     await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
@@ -411,6 +430,51 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.active).toBe(true);
     // With nothing queued, the same change can be asked for again.
     await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
+  });
+
+  it("a retired parent makes everything under it read-only, and nothing new lands there", async () => {
+    const feature = await prisma.feature.create({ data: { projectId, name: `${TAG}-frozen`, active: false } });
+    const tc = await prisma.testCase.create({
+      data: { featureId: feature.id, name: `${TAG}-frozen-tc`, createdById: qaId },
+    });
+
+    // The case's own flag is still true — the feature above it is what freezes it.
+    await expect(
+      M.updateTestCase(null, { id: tc.id, input: input(`${TAG}-frozen-tc-v2`) }, ctxFor(qaId, "QA")),
+    ).rejects.toThrow(/inactive/);
+    await expect(
+      M.createTestCase(null, { featureId: feature.id, input: input(`${TAG}-new-in-frozen`) }, ctxFor(qaId, "QA")),
+    ).rejects.toThrow(/inactive/);
+    // Moving a live case into retired content would hide it on arrival.
+    const live = await approvedCase(`${TAG}-movable-live`);
+    await expect(
+      M.moveTestCase(null, { id: live.id, featureId: feature.id }, ctxFor(qaId, "QA")),
+    ).rejects.toThrow(/inactive/);
+
+    await prisma.testCase.delete({ where: { id: tc.id } });
+    await prisma.feature.delete({ where: { id: feature.id } });
+  });
+
+  it("deleting a parent takes the requests of everything under it with it", async () => {
+    const doomed = await prisma.project.create({ data: { name: `${TAG}-orphan-src`, createdById: qaId } });
+    const feature = await prisma.feature.create({ data: { projectId: doomed.id, name: `${TAG}-orphan-feat` } });
+    const tc = await M.createTestCase(null, { featureId: feature.id, input: input(`${TAG}-orphan-tc`) }, ctxFor(qaId, "QA"));
+    await M.approveTestCase(null, { id: tc.id }, ctxFor(leadId, "QA_LEAD"));
+    // A queued change one level down…
+    await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
+    expect(
+      await prisma.approvalRequest.count({ where: { target: "TEST_CASE", targetId: tc.id, state: "PENDING" } }),
+    ).toBe(1);
+
+    // …and the project goes away.
+    await projectResolvers.Mutation.deleteProject(null, { id: doomed.id }, ctxFor(qaId, "QA"));
+    const del = (await RQ.pendingApprovalRequests(null, {}, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === doomed.id);
+    await RM.approveApprovalRequest(null, { id: del.id }, ctxFor(leadId, "QA_LEAD"));
+
+    expect(await prisma.project.findUnique({ where: { id: doomed.id } })).toBeNull();
+    // No request left pointing at rows that no longer exist.
+    expect(await prisma.approvalRequest.count({ where: { targetId: { in: [tc.id, feature.id] } } })).toBe(0);
   });
 
   it("deleting a project waits for approval and leaves it standing until then", async () => {

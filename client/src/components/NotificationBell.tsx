@@ -79,8 +79,10 @@ export function NotificationBell() {
                   else if (n.userTestId) navigate(`/user-tests/${n.userTestId}`);
                   else if (n.issueId) navigate(`/issues/${n.issueId}`);
                   else if (n.testCaseId) navigate(`/test-cases/${n.testCaseId}`);
-                  // An approval notification with no id (a bulk import) lands on the list.
-                  else if (n.kind.startsWith("TEST_CASE_")) navigate("/pending-test-cases");
+                  // Approval notifications without an id — a bulk import, or a
+                  // change to a project/feature/app test — land on the queue.
+                  else if (n.kind.startsWith("TEST_CASE_") || n.kind.startsWith("APPROVAL_"))
+                    navigate("/pending-test-cases");
                 }}
                 className={cn(
                   "block w-full border-b border-border/50 px-3 py-2 text-left last:border-0 hover:bg-muted/40",

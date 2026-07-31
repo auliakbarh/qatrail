@@ -49,16 +49,24 @@ async function sweepAutoApprovals() {
 
     if (newCut) {
       // A rejected case is a decision — only untouched PENDING ones ripen.
-      const cases = await prisma.testCase.updateMany({
+      // Pick the ids first: firstApprovedAt is set once and never overwritten, so
+      // the second pass has to be limited to what this sweep just approved —
+      // otherwise it would also stamp legacy rows that never had a review.
+      const due = await prisma.testCase.findMany({
         where: { approval: "PENDING", updatedAt: { lte: newCut } },
-        data: { approval: "APPROVED", reviewedAt: now, reviewedById: null },
+        select: { id: true, firstApprovedAt: true },
       });
-      // Set once, never overwritten — hence the second pass.
-      await prisma.testCase.updateMany({
-        where: { approval: "APPROVED", firstApprovedAt: null },
-        data: { firstApprovedAt: now },
-      });
-      if (cases.count) log.info({ count: cases.count }, "auto-approved test cases");
+      if (due.length) {
+        await prisma.testCase.updateMany({
+          where: { id: { in: due.map((c) => c.id) } },
+          data: { approval: "APPROVED", reviewedAt: now, reviewedById: null },
+        });
+        const firstTime = due.filter((c) => !c.firstApprovedAt).map((c) => c.id);
+        if (firstTime.length) {
+          await prisma.testCase.updateMany({ where: { id: { in: firstTime } }, data: { firstApprovedAt: now } });
+        }
+        log.info({ count: due.length }, "auto-approved test cases");
+      }
     }
     if (changeCut) {
       const due = await prisma.approvalRequest.findMany({

@@ -8,6 +8,7 @@ import {
   needsApproval,
   deleteNeedsApproval,
   assertReviewedForChange,
+  assertActive,
   openRequest,
   changeAutoApproveHours,
 } from "./approvalRequest.js";
@@ -226,6 +227,8 @@ export const testCaseResolvers = {
   Mutation: {
     async createTestCase(_: unknown, args: { featureId: string; input: TestCaseInput }, ctx: Context) {
       const user = await requireQA(ctx);
+      // Nothing new goes into retired content — it would be invisible on arrival.
+      await assertActive(ctx, "FEATURE", args.featureId);
       const { input } = args;
       const approval = await resolveApproval(ctx, user.role, "new");
       const tc = await ctx.prisma.testCase.create({
@@ -262,9 +265,8 @@ export const testCaseResolvers = {
       const { input } = args;
       const before = await ctx.prisma.testCase.findUnique({ where: { id: args.id } });
       if (!before) throw new Error("Test case not found");
-      // A retired case is read-only: it stays visible with its history, but
-      // nothing edits it until someone asks for it back.
-      if (!before.active) throw retired("be edited");
+      // Read-only while retired — the case itself, or anything above it.
+      await assertActive(ctx, "TEST_CASE", args.id);
       // An edit sends the case back for review — otherwise the gate is trivially
       // bypassed: get a small case approved, then rewrite it. This holds even
       // when the case already has records or sits in an open app test: changed
@@ -411,6 +413,9 @@ export const testCaseResolvers = {
       const user = await requireQA(ctx);
       const target = await ctx.prisma.feature.findUnique({ where: { id: args.featureId } });
       if (!target) throw new Error("Target feature not found");
+      // Both ends have to be live: moving into retired content hides the case.
+      await assertActive(ctx, "TEST_CASE", args.id);
+      await assertActive(ctx, "FEATURE", target.id);
       await assertReviewedForChange(ctx, args.id, "moved");
       if (await needsApproval(ctx, user.role)) {
         await openRequest(ctx, user, "TEST_CASE", args.id, "MOVE", { featureId: target.id });
@@ -422,6 +427,8 @@ export const testCaseResolvers = {
       const user = await requireQA(ctx);
       const target = await ctx.prisma.feature.findUnique({ where: { id: args.targetFeatureId } });
       if (!target) throw new Error("Target feature not found");
+      await assertActive(ctx, "TEST_CASE", args.id);
+      await assertActive(ctx, "FEATURE", target.id);
       await assertReviewedForChange(ctx, args.id, "copied");
       const name = args.name?.trim() || undefined;
       if (await needsApproval(ctx, user.role)) {
@@ -460,14 +467,10 @@ export const testCaseResolvers = {
       if (!projectId && !featureId) throw new Error("projectId or featureId required");
       if (projectId && featureId) throw new Error("pass only one of projectId/featureId");
 
-      // Verify scope target exists.
-      if (featureId) {
-        const f = await ctx.prisma.feature.findUnique({ where: { id: featureId } });
-        if (!f) throw new Error("Feature not found");
-      } else {
-        const p = await ctx.prisma.project.findUnique({ where: { id: projectId } });
-        if (!p) throw new Error("Project not found");
-      }
+      // Verify the scope target exists and is live — importing into retired
+      // content would file every row somewhere nobody can see.
+      if (featureId) await assertActive(ctx, "FEATURE", featureId);
+      else await assertActive(ctx, "PROJECT", projectId!);
 
       // Existing features (project scope) for auto-create detection — match by trimmed name.
       const existing = projectId

@@ -113,9 +113,9 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <option value="—">{t("tc.kindNone")}</option>
           </select>
           <select value={fActive} onChange={(e) => setFActive(e.target.value)} className={selCls}>
-            <option value="ACTIVE">{t("tc.activeOnly")}</option>
-            <option value="INACTIVE">{t("tc.inactiveOnly")}</option>
-            <option value="">{t("tc.activeAll")}</option>
+            <option value="">{t("c.status")}: {t("c.all")}</option>
+            <option value="ACTIVE">{t("tc.active")}</option>
+            <option value="INACTIVE">{t("tc.inactive")}</option>
           </select>
         </div>
         <div className="overflow-x-auto">
