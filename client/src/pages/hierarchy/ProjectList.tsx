@@ -97,7 +97,9 @@ export function ProjectList() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                  <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label={t("dash.project")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label={t("dash.squad")} colKey="squad" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label={t("list.features")} colKey="featureCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("dash.passPct")}</th>
@@ -107,14 +109,14 @@ export function ProjectList() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
                       {t("c.loading")}
                     </td>
                   </tr>
                 )}
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
                       {t("dash.noProjects")}
                     </td>
                   </tr>
@@ -123,7 +125,7 @@ export function ProjectList() {
                   <Fragment key={label || "all"}>
                     {groupKey && (
                       <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                        <td colSpan={6} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                        <td colSpan={8} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                             {label} · {groupRows_.length}
@@ -134,6 +136,7 @@ export function ProjectList() {
                     {!collapsed.has(label) && groupRows_.map((p: any, idx: number) => (
                   <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.key}</td>
                     <td className="px-3 py-2">
                       <button
                         onClick={() => goProject(p.id)}
@@ -141,12 +144,22 @@ export function ProjectList() {
                       >
                         {p.name}
                       </button>
+                      {p.description && (
+                        <div className="text-xs text-muted-foreground">{p.description}</div>
+                      )}
+                    </td>
+                    {/* Status is its own column — a badge under the name is easy
+                        to miss when scanning. */}
+                    <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center gap-1">
-                        {!p.active && (
-                          <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            {t("tc.inactive")}
-                          </span>
-                        )}
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            p.active ? "bg-muted text-muted-foreground" : "border border-border text-muted-foreground",
+                          )}
+                        >
+                          {p.active ? t("tc.active") : t("tc.inactive")}
+                        </span>
                         {p.pendingRequest && (
                           <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">
                             <Clock className="h-2.5 w-2.5" />
@@ -154,9 +167,6 @@ export function ProjectList() {
                           </span>
                         )}
                       </div>
-                      {p.description && (
-                        <div className="text-xs text-muted-foreground">{p.description}</div>
-                      )}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{p.squad ?? "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{p.featureCount}</td>
@@ -171,7 +181,7 @@ export function ProjectList() {
                         <IconBtn
                           title={t("clone.action")}
                           allowed={manage && p.active}
-                          onClick={() => withToast(cloneProject({ variables: { id: p.id } }), t("clone.done"), t("clone.fail"))}
+                          onClick={() => withToast(cloneProject({ variables: { id: p.id } }), t("t.changeAsked"), t("clone.fail"))}
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </IconBtn>

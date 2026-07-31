@@ -262,9 +262,7 @@ export default function Analytics() {
             <KeyCoverageTable rows={a.keyCoverage} projectName={projectName} />
           </Card>
 
-          <Card title={t("an.workload")}>
-            <WorkloadTable rows={a.workload} />
-          </Card>
+          <WorkloadSection rows={a.workload} />
         </>
       )}
     </div>
@@ -471,7 +469,7 @@ WORKLOAD_COLUMNS.VIEWER = [];
 // Role order matches the sidebar's sense of seniority, not the alphabet.
 const ROLE_ORDER = ["QA_LEAD", "QA", "ENGINEER", "ADMIN", "SUPER_ADMIN", "VIEWER"];
 
-function RoleWorkloadTable({ role, rows }: { role: string; rows: any[] }) {
+function RoleWorkloadCard({ role, rows }: { role: string; rows: any[] }) {
   const { t } = useTranslation();
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -484,8 +482,7 @@ function RoleWorkloadTable({ role, rows }: { role: string; rows: any[] }) {
   const list = sortRows(rows, sortKey as any, sortDir);
 
   return (
-    <div className="mb-4 last:mb-0">
-      <div className="mb-1.5 text-xs font-semibold text-muted-foreground">{role} · {rows.length}</div>
+    <Card title={`${role} · ${rows.length}`}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -510,11 +507,11 @@ function RoleWorkloadTable({ role, rows }: { role: string; rows: any[] }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }
 
-function WorkloadTable({ rows }: { rows: any[] }) {
+function WorkloadSection({ rows }: { rows: any[] }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const list = searchRows(rows ?? [], search, ["name", "role"]);
@@ -523,11 +520,16 @@ function WorkloadTable({ rows }: { rows: any[] }) {
   const roles = [...byRole.keys()].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
 
   return (
-    <div>
-      <FilterBar search={search} onSearch={setSearch} />
-      {roles.length === 0 && <div className="py-8 text-center text-sm text-muted-foreground">{t("an.noDataYet")}</div>}
+    <div className="space-y-4">
+      {/* One card per role: the same search narrows them all, but each role keeps
+          its own header, columns and sort. */}
+      <div className="rounded border border-border px-5 py-4">
+        <div className="mb-3 text-sm font-semibold">{t("an.workload")}</div>
+        <FilterBar search={search} onSearch={setSearch} />
+        {roles.length === 0 && <div className="text-sm text-muted-foreground">{t("an.noDataYet")}</div>}
+      </div>
       {roles.map((role) => (
-        <RoleWorkloadTable key={role} role={role} rows={byRole.get(role)!} />
+        <RoleWorkloadCard key={role} role={role} rows={byRole.get(role)!} />
       ))}
     </div>
   );

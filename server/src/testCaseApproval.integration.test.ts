@@ -53,7 +53,9 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
   });
 
   afterAll(async () => {
-    if (projectId) await prisma.project.delete({ where: { id: projectId } }).catch(() => {});
+    // Every project this file makes is TAG-prefixed; dropping them all keeps a
+    // failed run from leaving rows that block the user cleanup below.
+    await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
     // Requests reference the actor by FK but their target by plain id, so they
     // outlive a deleted project and would block the user cleanup.
     const users = await prisma.user.findMany({ where: { email: { startsWith: TAG } }, select: { id: true } });
@@ -334,6 +336,59 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     expect(copyReq.kind).toBe("COPY");
     await RM.approveApprovalRequest(null, { id: copyReq.id }, ctxFor(leadId, "QA_LEAD"));
     expect(await prisma.feature.findFirst({ where: { name: `${TAG}-copied-feat` } })).not.toBeNull();
+
+    await prisma.project.delete({ where: { id: other.id } }).catch(() => {});
+  });
+
+  it("copying a project creates nothing until it is approved", async () => {
+    const src = await prisma.project.create({ data: { name: `${TAG}-copy-src`, createdById: qaId } });
+    await prisma.feature.create({ data: { projectId: src.id, name: `${TAG}-copy-src-feat` } });
+
+    await projectResolvers.Mutation.cloneProject(null, { id: src.id, name: `${TAG}-copy-dst` }, ctxFor(qaId, "QA"));
+    expect(await prisma.project.findFirst({ where: { name: `${TAG}-copy-dst` } })).toBeNull();
+
+    const req = (await RQ.pendingApprovalRequests(null, { projectId: src.id }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === src.id);
+    expect([req.target, req.kind]).toEqual(["PROJECT", "COPY"]);
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"));
+
+    const copy = await prisma.project.findFirst({ where: { name: `${TAG}-copy-dst` } });
+    expect(copy).not.toBeNull();
+    // The deep clone carried the features with it.
+    expect(await prisma.feature.count({ where: { projectId: copy!.id } })).toBe(1);
+
+    await prisma.project.deleteMany({ where: { name: { startsWith: `${TAG}-copy-` } } });
+  });
+
+  it("moving an app test to another project waits for approval", async () => {
+    const other = await prisma.project.create({ data: { name: `${TAG}-at-target`, createdById: qaId } });
+    const admin = await prisma.user.create({ data: { email: `${TAG}-admin@test.local`, name: "Admin", role: "ADMIN" } });
+    const sa = await prisma.user.create({ data: { email: `${TAG}-sa@test.local`, name: "SA", role: "SUPER_ADMIN" } });
+    const at = await appTestResolvers.Mutation.createAppTest(
+      null,
+      {
+        input: {
+          projectId, environment: "STAGING", platform: "ANDROID", appVersion: "2.0.0",
+          backendVersion: null, downloadLink: "https://example.test/move.apk", note: null, jiraTickets: [],
+        },
+      },
+      ctxFor(engId, "ENGINEER"),
+    );
+
+    await appTestResolvers.Mutation.moveAppTestProject(
+      null,
+      { id: at.id, projectId: other.id, mode: "DROP" },
+      ctxFor(admin.id, "ADMIN"),
+    );
+    expect((await prisma.appTest.findUnique({ where: { id: at.id } }))!.projectId).toBe(projectId);
+
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(sa.id, "SUPER_ADMIN")))
+      .find((r: any) => r.targetId === at.id);
+    expect([req.target, req.kind, req.assignmentMode]).toEqual(["APP_TEST", "MOVE", "DROP"]);
+    // An admin's request needs another admin or a super admin — a QA lead may not.
+    await expect(RM.approveApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"))).rejects.toThrow(/may not review/);
+    await RM.approveApprovalRequest(null, { id: req.id }, ctxFor(sa.id, "SUPER_ADMIN"));
+    expect((await prisma.appTest.findUnique({ where: { id: at.id } }))!.projectId).toBe(other.id);
 
     await prisma.project.delete({ where: { id: other.id } }).catch(() => {});
   });

@@ -3,6 +3,7 @@ import type { Context } from "../context.js";
 import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
 import { assertAllApproved } from "./testcase.js";
+import { needsApproval, openRequest } from "./approvalRequest.js";
 import { LIVE_TEST_CASE } from "../approval.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
@@ -42,6 +43,46 @@ function scalarData(input: AppTestInput) {
     note: input.note ?? null,
     jiraTickets: input.jiraTickets.map((t) => t.trim()).filter(Boolean),
   };
+}
+
+// The move itself: CLONE copies each assigned case into a same-named feature of
+// the target project and re-points the assignment; DROP releases the assignments.
+// Records/issues keep pointing at the originals on purpose — history stays honest.
+export async function moveAppTestToProject(
+  ctx: Context,
+  appTestId: string,
+  projectId: string,
+  mode: "DROP" | "CLONE",
+  actorId: string,
+) {
+  const assigned = await ctx.prisma.appTestCase.findMany({
+    where: { appTestId },
+    include: { testCase: { include: { feature: true } } },
+  });
+
+  if (mode === "CLONE") {
+    for (const row of assigned) {
+      const srcFeature = row.testCase.feature;
+      const feature =
+        (await ctx.prisma.feature.findFirst({ where: { projectId, name: srcFeature.name } })) ??
+        (await ctx.prisma.feature.create({
+          data: {
+            projectId,
+            name: srcFeature.name,
+            description: srcFeature.description,
+            minPassPercent: srcFeature.minPassPercent,
+          },
+        }));
+      const copy = await cloneTestCaseInto(row.testCaseId, feature.id, actorId, row.testCase.name);
+      await ctx.prisma.appTestCase.update({ where: { id: row.id }, data: { testCaseId: copy.id } });
+    }
+  } else {
+    await ctx.prisma.appTestCase.deleteMany({ where: { appTestId } });
+  }
+
+  await ctx.prisma.appTest.update({ where: { id: appTestId }, data: { projectId } });
+  await recomputeAppTest(appTestId);
+  return ctx.prisma.appTest.findUnique({ where: { id: appTestId } });
 }
 
 export const appTestResolvers = {
@@ -282,35 +323,14 @@ export const appTestResolvers = {
       const target = await ctx.prisma.project.findUnique({ where: { id: args.projectId } });
       if (!target) throw new Error("Project not found");
       if (target.id === at.projectId) return at;
-
-      const assigned = await ctx.prisma.appTestCase.findMany({
-        where: { appTestId: at.id },
-        include: { testCase: { include: { feature: true } } },
-      });
-
-      if (args.mode === "CLONE") {
-        for (const row of assigned) {
-          const srcFeature = row.testCase.feature;
-          const feature =
-            (await ctx.prisma.feature.findFirst({ where: { projectId: target.id, name: srcFeature.name } })) ??
-            (await ctx.prisma.feature.create({
-              data: {
-                projectId: target.id,
-                name: srcFeature.name,
-                description: srcFeature.description,
-                minPassPercent: srcFeature.minPassPercent,
-              },
-            }));
-          const copy = await cloneTestCaseInto(row.testCaseId, feature.id, user.id, row.testCase.name);
-          await ctx.prisma.appTestCase.update({ where: { id: row.id }, data: { testCaseId: copy.id } });
-        }
-      } else {
-        await ctx.prisma.appTestCase.deleteMany({ where: { appTestId: at.id } });
+      // Moving an app test re-points or drops every assignment under it, so it
+      // waits for approval like any other change. The app test keeps working in
+      // its current project until the decision lands.
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "APP_TEST", at.id, "MOVE", { projectId: target.id, mode: args.mode });
+        return ctx.prisma.appTest.findUnique({ where: { id: at.id } });
       }
-
-      await ctx.prisma.appTest.update({ where: { id: at.id }, data: { projectId: target.id } });
-      await recomputeAppTest(at.id);
-      return ctx.prisma.appTest.findUnique({ where: { id: at.id } });
+      return moveAppTestToProject(ctx, at.id, target.id, args.mode, user.id);
     },
     async closeAppTestTesting(_: unknown, args: { appTestId: string }, ctx: Context) {
       await requireQA(ctx);

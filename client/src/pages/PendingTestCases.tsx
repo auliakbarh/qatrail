@@ -23,6 +23,9 @@ import { withToast } from "../store/toast";
 import { fmtDateTime as fmt, cn } from "../lib/utils";
 import { waitedFor } from "../lib/approval";
 
+// Lists show the human key next to the name, the way every other table does.
+const label = (key?: string | null, name?: string | null) => (name ? (key ? `${key} · ${name}` : name) : "—");
+
 // Two things queue up for review: cases (new or edited) and changes to an
 // existing case (move/copy/delete/(de)activate). One table, one shape.
 function caseRow(tc: any) {
@@ -41,8 +44,8 @@ function caseRow(tc: any) {
     canApprove: tc.canApprove,
     waitingSince: tc.createdAt,
     creatorName: tc.createdBy?.name ?? "",
-    featureName: tc.feature?.name ?? "—",
-    projectName: tc.feature?.project?.name ?? "—",
+    featureName: label(tc.feature?.key, tc.feature?.name),
+    projectName: label(tc.feature?.project?.key, tc.feature?.project?.name),
     detail: "",
   };
 }
@@ -50,23 +53,25 @@ function caseRow(tc: any) {
 // A request can be about a project, a feature or a test case — the row shows
 // which, so a "DELETE" on a whole project can never be mistaken for one case.
 function requestRow(r: any) {
-  const target = [r.targetFeature?.name, r.targetProject?.name, r.targetName].filter(Boolean).join(" · ");
+  const target = [r.targetFeature?.name, r.targetProject?.name, r.targetName, r.assignmentMode].filter(Boolean).join(" · ");
   const feature = r.feature ?? r.testCase?.feature;
   return {
     rowKind: "REQUEST" as const,
     id: r.id,
-    scope: r.target as "PROJECT" | "FEATURE" | "TEST_CASE",
+    scope: r.target as "PROJECT" | "FEATURE" | "TEST_CASE" | "APP_TEST",
     testCaseId: r.testCase?.id ?? null,
     key: r.testCase?.key ?? (r.target === "FEATURE" ? r.feature?.id?.slice(0, 0) || "—" : "—"),
-    name: r.testCase?.name ?? r.feature?.name ?? r.project?.name ?? r.label,
+    name: r.testCase?.name ?? r.feature?.name ?? r.project?.name ?? r.appTest?.key ?? r.label,
     type: r.kind,
     approval: "PENDING",
     rejectReason: null,
     canApprove: r.canApprove,
     waitingSince: r.requestedAt,
     creatorName: r.requestedBy?.name ?? "",
-    featureName: feature?.name ?? "—",
-    projectName: r.project?.name ?? feature?.project?.name ?? "—",
+    featureName: label(feature?.key, feature?.name),
+    projectName: r.project
+      ? label(r.project.key, r.project.name)
+      : label(feature?.project?.key, feature?.project?.name),
     detail: target,
   };
 }
@@ -230,7 +235,8 @@ export default function PendingTestCases() {
                       )}
                     </th>
                     <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("dash.testCase")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("tca.item")} colKey="scope" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("c.name")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("dash.project")} colKey="projectName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("dash.feature")} colKey="featureName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("tca.createdBy")} colKey="creatorName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -241,16 +247,16 @@ export default function PendingTestCases() {
                 </thead>
                 <tbody>
                   {(loading || reqLoading) && (
-                    <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
+                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
                   )}
                   {!loading && !reqLoading && rows.length === 0 && (
-                    <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("tca.empty")}</td></tr>
+                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("tca.empty")}</td></tr>
                   )}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>
                       {groupKey && (
                         <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                          <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                          <td colSpan={10} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                             <span className="inline-flex items-center gap-1">
                               {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                               {label || "—"} · {gr.length}
@@ -271,22 +277,21 @@ export default function PendingTestCases() {
                             )}
                           </td>
                           <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
+                          {/* What kind of thing this is, in its own column: a
+                              DELETE on a project must never read like a DELETE on
+                              one test case. */}
                           <td className="px-3 py-2">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {/* Scope first: a DELETE on a project must never read
-                                  like a DELETE on one test case. */}
-                              {tc.scope !== "TEST_CASE" && (
-                                <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                  {t(`tcr.scope.${tc.scope}`)}
-                                </span>
-                              )}
-                              <button
-                                onClick={() => tc.testCaseId && navigate(`/test-cases/${tc.testCaseId}`)}
-                                className={cn("text-left font-medium", tc.testCaseId && "hover:underline")}
-                              >
-                                {tc.name}
-                              </button>
-                            </div>
+                            <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {t(`tcr.scope.${tc.scope}`)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={() => tc.testCaseId && navigate(`/test-cases/${tc.testCaseId}`)}
+                              className={cn("text-left font-medium", tc.testCaseId && "hover:underline")}
+                            >
+                              {tc.name}
+                            </button>
                             {tc.rejectReason && <div className="text-xs text-destructive">{tc.rejectReason}</div>}
                             {tc.detail && <div className="text-xs text-muted-foreground">→ {tc.detail}</div>}
                           </td>

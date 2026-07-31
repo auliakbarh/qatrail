@@ -5,7 +5,7 @@ const COVERAGE = `coverage { total passed percent } ready`;
 export const PROJECTS = gql`
   query Projects($includeInactive: Boolean) {
     projects(includeInactive: $includeInactive) {
-      id name description squad minPassPercent featureCount ${COVERAGE} createdAt updatedAt
+      id key name description squad minPassPercent featureCount ${COVERAGE} createdAt updatedAt
       active pendingRequest { id kind }
     }
   }
@@ -38,7 +38,7 @@ export const TEST_CASE = gql`
       recordCount issueCount latestResult createdAt createdBy { id name }
       approval reviewedAt firstApprovedAt rejectReason canApprove active reviewedBy { id name }
       pendingRequest { id kind canApprove requestedAt requestedBy { id name } targetFeature { id name } targetName }
-      feature { id name project { id name } }
+      feature { id key name project { id key name } }
     }
   }
 `;
@@ -51,9 +51,11 @@ export const PENDING_APPROVAL_REQUESTS = gql`
       targetFeature { id name }
       targetProject { id name }
       targetName
-      project { id name }
-      feature { id name project { id name } }
-      testCase { id key name active feature { id name project { id name } } }
+      assignmentMode
+      appTest { id key projectId }
+      project { id key name }
+      feature { id key name project { id key name } }
+      testCase { id key name active feature { id key name project { id key name } } }
     }
   }
 `;
@@ -97,7 +99,7 @@ export const PENDING_TEST_CASES = gql`
       id key name kind approval rejectReason reviewedAt firstApprovedAt createdAt canApprove
       createdBy { id name }
       reviewedBy { id name }
-      feature { id name project { id name } }
+      feature { id key name project { id key name } }
     }
   }
 `;

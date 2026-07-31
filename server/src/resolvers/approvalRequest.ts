@@ -2,12 +2,13 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireApprover } from "../context.js";
 import { canApproveTestCase, isApproverRole, autoApprovesNow } from "../approval.js";
-import { cloneTestCaseInto, cloneFeatureInto } from "../clone.js";
+import { cloneTestCaseInto, cloneFeatureInto, cloneProjectDeep } from "../clone.js";
 import { notify, notifyTestCaseApprovers } from "../notify.js";
+import { moveAppTestToProject } from "./appTest.js";
 import { prisma } from "../db.js";
 
 export type RequestKind = "MOVE" | "COPY" | "DELETE" | "DEACTIVATE" | "ACTIVATE";
-export type Target = "PROJECT" | "FEATURE" | "TEST_CASE";
+export type Target = "PROJECT" | "FEATURE" | "TEST_CASE" | "APP_TEST";
 
 const KIND_LABEL: Record<RequestKind, string> = {
   MOVE: "move",
@@ -27,8 +28,12 @@ async function targetLabel(ctx: Context, target: Target, targetId: string): Prom
     const f = await ctx.prisma.feature.findUnique({ where: { id: targetId }, select: { number: true, name: true } });
     return f ? `FEAT-${f.number} — ${f.name}` : "a feature";
   }
-  const p = await ctx.prisma.project.findUnique({ where: { id: targetId }, select: { name: true } });
-  return p ? `project ${p.name}` : "a project";
+  if (target === "APP_TEST") {
+    const at = await ctx.prisma.appTest.findUnique({ where: { id: targetId }, select: { number: true } });
+    return at ? `APP-${at.number}` : "an app test";
+  }
+  const p = await ctx.prisma.project.findUnique({ where: { id: targetId }, select: { number: true, name: true } });
+  return p ? `PRJ-${p.number} — ${p.name}` : "a project";
 }
 
 // How long an undecided change may wait before it approves itself (admin
@@ -75,7 +80,12 @@ export async function openRequest(
   target: Target,
   targetId: string,
   kind: RequestKind,
-  extra: { featureId?: string | null; projectId?: string | null; name?: string | null } = {},
+  extra: {
+    featureId?: string | null;
+    projectId?: string | null;
+    name?: string | null;
+    mode?: "DROP" | "CLONE" | null;
+  } = {},
 ) {
   const label = await targetLabel(ctx, target, targetId);
   const open = await ctx.prisma.approvalRequest.findFirst({ where: { target, targetId, state: "PENDING" } });
@@ -92,6 +102,7 @@ export async function openRequest(
       targetFeatureId: extra.featureId ?? null,
       targetProjectId: extra.projectId ?? null,
       targetName: extra.name ?? null,
+      assignmentMode: extra.mode ?? null,
       requestedById: actor.id,
     },
   });
@@ -109,6 +120,13 @@ async function runRequest(ctx: Context, req: any): Promise<void> {
   const target = req.target as Target;
   const kind = req.kind as RequestKind;
 
+  if (target === "APP_TEST") {
+    // The only thing queued for an app test is a project move.
+    const project = await ctx.prisma.project.findUnique({ where: { id: req.targetProjectId ?? "" } });
+    if (!project) throw new Error("Target project not found");
+    await moveAppTestToProject(ctx, req.targetId, project.id, req.assignmentMode ?? "DROP", req.requestedById);
+    return;
+  }
   if (kind === "ACTIVATE" || kind === "DEACTIVATE") {
     const active = kind === "ACTIVATE";
     if (target === "PROJECT") await ctx.prisma.project.update({ where: { id: req.targetId }, data: { active } });
@@ -126,7 +144,13 @@ async function runRequest(ctx: Context, req: any): Promise<void> {
     });
     return;
   }
-  // MOVE / COPY: a test case lands in a feature, a feature lands in a project.
+  // MOVE / COPY: a project copies in place, a feature lands in a project, a test
+  // case lands in a feature.
+  if (target === "PROJECT") {
+    if (kind === "MOVE") throw new Error("A project has nowhere to move to");
+    await cloneProjectDeep(req.targetId, req.requestedById, req.targetName ?? undefined);
+    return;
+  }
   if (target === "FEATURE") {
     const project = await ctx.prisma.project.findUnique({ where: { id: req.targetProjectId ?? "" } });
     if (!project) throw new Error("Target project not found");
@@ -291,6 +315,8 @@ export const approvalRequestResolvers = {
       r.target === "FEATURE" ? ctx.prisma.feature.findUnique({ where: { id: r.targetId } }) : null,
     project: (r: any, _: unknown, ctx: Context) =>
       r.target === "PROJECT" ? ctx.prisma.project.findUnique({ where: { id: r.targetId } }) : null,
+    appTest: (r: any, _: unknown, ctx: Context) =>
+      r.target === "APP_TEST" ? ctx.prisma.appTest.findUnique({ where: { id: r.targetId } }) : null,
     targetFeature: (r: any, _: unknown, ctx: Context) =>
       r.targetFeatureId ? ctx.prisma.feature.findUnique({ where: { id: r.targetFeatureId } }) : null,
     targetProject: (r: any, _: unknown, ctx: Context) =>
@@ -314,6 +340,10 @@ async function requestProjectId(ctx: Context, r: { target: string; targetId: str
   if (r.target === "FEATURE") {
     const f = await ctx.prisma.feature.findUnique({ where: { id: r.targetId }, select: { projectId: true } });
     return f?.projectId ?? null;
+  }
+  if (r.target === "APP_TEST") {
+    const at = await ctx.prisma.appTest.findUnique({ where: { id: r.targetId }, select: { projectId: true } });
+    return at?.projectId ?? null;
   }
   const tc = await ctx.prisma.testCase.findUnique({
     where: { id: r.targetId },

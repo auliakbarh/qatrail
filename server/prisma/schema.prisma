@@ -102,6 +102,13 @@ enum ApprovalTarget {
   PROJECT
   FEATURE
   TEST_CASE
+  APP_TEST
+}
+
+// What happens to an app test's assignments when it moves project.
+enum MoveAssignmentMode {
+  DROP
+  CLONE
 }
 
 // Kind of testing session. OTHER carries a free-text label in kindOther.
@@ -176,6 +183,7 @@ model User {
 
 model Project {
   id             String   @id @default(cuid())
+  number         Int      @unique @default(autoincrement()) // human key: PRJ-<number>
   name           String
   description    String?
   squad          String?
@@ -269,8 +277,9 @@ model ApprovalRequest {
   targetId        String
   kind            ApprovalRequestKind
   targetFeatureId String? // MOVE / COPY destination for a test case
-  targetProjectId String? // MOVE / COPY destination for a feature
+  targetProjectId String? // MOVE / COPY destination for a feature or app test
   targetName      String? // COPY name override
+  assignmentMode  MoveAssignmentMode? // app test move: what happens to its assignments
   state           TestCaseApproval    @default(PENDING)
   requestedById   String
   requestedBy     User                @relation("approvalRequester", fields: [requestedById], references: [id])

@@ -95,6 +95,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.feature")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("list.testCases")} colKey="testCaseCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("dash.passPct")}</th>
                 <th className="px-3 py-2"></th>
@@ -103,14 +104,14 @@ export function FeatureList({ projectId }: { projectId: string }) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     {t("c.loading")}
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     {t("dash.noFeatures")}
                   </td>
                 </tr>
@@ -119,7 +120,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                 <Fragment key={label || "all"}>
                   {groupKey && (
                     <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                      <td colSpan={6} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      <td colSpan={7} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                           {label || "—"} · {gr.length}
@@ -139,12 +140,17 @@ export function FeatureList({ projectId }: { projectId: string }) {
                       {f.name}
                     </button>
                     {f.description && <div className="text-xs text-muted-foreground">{f.description}</div>}
+                  </td>
+                  <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1">
-                      {!f.active && (
-                        <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {t("tc.inactive")}
-                        </span>
-                      )}
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          f.active ? "bg-muted text-muted-foreground" : "border border-border text-muted-foreground",
+                        )}
+                      >
+                        {f.active ? t("tc.active") : t("tc.inactive")}
+                      </span>
                       {f.pendingRequest && (
                         <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">
                           <Clock className="h-2.5 w-2.5" />

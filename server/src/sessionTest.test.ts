@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "./db.js";
 import { deriveSessionStatus, sessionTestResolvers } from "./resolvers/sessionTest.js";
 import { appTestResolvers } from "./resolvers/appTest.js";
+import { approvalRequestResolvers } from "./resolvers/approvalRequest.js";
 import { recordResolvers } from "./resolvers/record.js";
 import { canMarkProductionIssue, resolveProductionFlag } from "./sla.js";
 import { sessionTestCoverage } from "./coverage.js";
@@ -205,12 +206,23 @@ describe.skipIf(!enabled)("session tests (integration)", () => {
 
 describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
   const MTAG = "itest-move";
-  let adminId = "", qaId = "", srcProjectId = "", dstProjectId = "", tcId = "", appTestId = "";
+  let adminId = "", saId = "", qaId = "", srcProjectId = "", dstProjectId = "", tcId = "", appTestId = "";
+
+  // The move itself now waits for approval, so every case here asks and then has
+  // a super admin settle it (an admin's request needs an admin or above).
+  const moveAndApprove = async (projectId: string, mode: "DROP" | "CLONE") => {
+    await appTestResolvers.Mutation.moveAppTestProject(null, { id: appTestId, projectId, mode }, ctxFor(adminId));
+    const req = await prisma.approvalRequest.findFirst({
+      where: { target: "APP_TEST", targetId: appTestId, state: "PENDING" },
+    });
+    await approvalRequestResolvers.Mutation.approveApprovalRequest(null, { id: req!.id }, ctxFor(saId));
+  };
 
   beforeAll(async () => {
     const admin = await prisma.user.create({ data: { email: `${MTAG}-admin@test.local`, name: "Admin", role: "ADMIN" } });
+    const sa = await prisma.user.create({ data: { email: `${MTAG}-sa@test.local`, name: "SA", role: "SUPER_ADMIN" } });
     const qa = await prisma.user.create({ data: { email: `${MTAG}-qa@test.local`, name: "QA", role: "QA" } });
-    adminId = admin.id; qaId = qa.id;
+    adminId = admin.id; saId = sa.id; qaId = qa.id;
     const src = await prisma.project.create({ data: { name: `${MTAG}-src`, createdById: qa.id } });
     const dst = await prisma.project.create({ data: { name: `${MTAG}-dst`, createdById: qa.id } });
     srcProjectId = src.id; dstProjectId = dst.id;
@@ -228,7 +240,32 @@ describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
     for (const id of [srcProjectId, dstProjectId]) {
       if (id) await prisma.project.delete({ where: { id } }).catch(() => {});
     }
-    await prisma.user.deleteMany({ where: { email: { startsWith: MTAG } } });
+    // Requests point at their target by plain id, so they outlive it and would
+    // block the user cleanup.
+    const users = await prisma.user.findMany({ where: { email: { startsWith: MTAG } }, select: { id: true } });
+    const ids = users.map((u) => u.id);
+    await prisma.approvalRequest.deleteMany({ where: { requestedById: { in: ids } } });
+    await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
+    await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  });
+
+  it("only asks for the move once approved — the app test stays put until then", async () => {
+    await appTestResolvers.Mutation.moveAppTestProject(
+      null,
+      { id: appTestId, projectId: dstProjectId, mode: "DROP" },
+      ctxFor(adminId),
+    );
+    expect((await prisma.appTest.findUnique({ where: { id: appTestId } }))?.projectId).toBe(srcProjectId);
+    const req = await prisma.approvalRequest.findFirst({
+      where: { target: "APP_TEST", targetId: appTestId, state: "PENDING" },
+    });
+    expect(req?.assignmentMode).toBe("DROP");
+    await approvalRequestResolvers.Mutation.rejectApprovalRequest(
+      null,
+      { id: req!.id, reason: "wrong project" },
+      ctxFor(saId),
+    );
+    expect((await prisma.appTest.findUnique({ where: { id: appTestId } }))?.projectId).toBe(srcProjectId);
   });
 
   it("is admin-only", async () => {
@@ -238,11 +275,7 @@ describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
   });
 
   it("CLONE carries the assignments over as copies in the target project", async () => {
-    await appTestResolvers.Mutation.moveAppTestProject(
-      null,
-      { id: appTestId, projectId: dstProjectId, mode: "CLONE" },
-      ctxFor(adminId),
-    );
+    await moveAndApprove(dstProjectId, "CLONE");
     const rows = await prisma.appTestCase.findMany({
       where: { appTestId },
       include: { testCase: { include: { feature: true } } },
@@ -255,11 +288,7 @@ describe.skipIf(!enabled)("moveAppTestProject (integration)", () => {
   });
 
   it("DROP releases the assignments", async () => {
-    await appTestResolvers.Mutation.moveAppTestProject(
-      null,
-      { id: appTestId, projectId: srcProjectId, mode: "DROP" },
-      ctxFor(adminId),
-    );
+    await moveAndApprove(srcProjectId, "DROP");
     expect(await prisma.appTestCase.count({ where: { appTestId } })).toBe(0);
     expect((await prisma.appTest.findUnique({ where: { id: appTestId } }))?.projectId).toBe(srcProjectId);
   });

@@ -82,12 +82,22 @@ export const projectResolvers = {
       }
       return ctx.prisma.project.update({ where: { id: p.id }, data: { active: args.active } });
     },
+    // Copying a project duplicates every feature and test case under it, so it
+    // waits for approval too. Nothing is created until the decision lands.
     async cloneProject(_: unknown, args: { id: string; name?: string }, ctx: Context) {
       const user = await requireQA(ctx);
-      return cloneProjectDeep(args.id, user.id, args.name?.trim() || undefined);
+      await assertActive(ctx, "PROJECT", args.id);
+      const name = args.name?.trim() || undefined;
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "PROJECT", args.id, "COPY", { name });
+        // No copy yet — hand back the source so the client has something to refetch.
+        return ctx.prisma.project.findUnique({ where: { id: args.id } });
+      }
+      return cloneProjectDeep(args.id, user.id, name);
     },
   },
   Project: {
+    key: (p: any) => `PRJ-${p.number}`,
     createdAt: (p: any) => p.createdAt.toISOString(),
     updatedAt: (p: any) => p.updatedAt.toISOString(),
     featureCount: (p: any, _: unknown, ctx: Context) =>

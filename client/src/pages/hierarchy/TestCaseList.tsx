@@ -125,6 +125,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.testCase")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("tc.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.latest")} colKey="latestResult" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.records")} colKey="recordCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -135,14 +136,14 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     {t("c.loading")}
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     {t("dash.noTestCases")}
                   </td>
                 </tr>
@@ -151,7 +152,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                 <Fragment key={label || "all"}>
                   {groupKey && (
                     <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                      <td colSpan={8} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                           {label || "—"} · {gr.length}
@@ -170,12 +171,19 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                     >
                       {tc.name}
                     </button>
+                  </td>
+                  {/* Status has a column of its own: a badge tucked under the
+                      name is easy to miss when scanning. */}
+                  <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1">
-                      {!tc.active && (
-                        <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {t("tc.inactive")}
-                        </span>
-                      )}
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          tc.active ? "bg-muted text-muted-foreground" : "border border-border text-muted-foreground",
+                        )}
+                      >
+                        {tc.active ? t("tc.active") : t("tc.inactive")}
+                      </span>
                       {/* A change is queued: say so instead of letting the row look settled. */}
                       {tc.pendingRequest && (
                         <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">

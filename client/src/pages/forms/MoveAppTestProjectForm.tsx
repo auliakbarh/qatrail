@@ -36,7 +36,7 @@ export function MoveAppTestProjectForm({
     if (!projectId) return;
     const ok = await withToast(
       move({ variables: { id: appTest.id, projectId, mode } }),
-      t("t.appTestMoved"),
+      t("t.changeAsked"),
       t("c.somethingWrong"),
     );
     if (ok) closePanel();

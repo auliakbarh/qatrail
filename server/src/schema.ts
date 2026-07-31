@@ -3,7 +3,7 @@ export const typeDefs = /* GraphQL */ `
   enum Role { SUPER_ADMIN ADMIN QA_LEAD QA ENGINEER VIEWER }
   enum TestCaseApproval { PENDING APPROVED REJECTED }
   enum ApprovalRequestKind { MOVE COPY DELETE DEACTIVATE ACTIVATE }
-  enum ApprovalTarget { PROJECT FEATURE TEST_CASE }
+  enum ApprovalTarget { PROJECT FEATURE TEST_CASE APP_TEST }
   enum AttachKind { IMAGE VIDEO MARKDOWN JSON DOC XLS CSV PDF OTHER }
   enum FindingType { DEFECT BUG }
   enum Platform { ANDROID IOS WEB }
@@ -52,6 +52,7 @@ export const typeDefs = /* GraphQL */ `
 
   type Project {
     id: ID!
+    key: String!
     name: String!
     description: String
     squad: String
@@ -149,9 +150,12 @@ export const typeDefs = /* GraphQL */ `
     project: Project
     feature: Feature
     testCase: TestCase
+    appTest: AppTest
     targetFeature: Feature
     targetProject: Project
     targetName: String
+    # App test move only: what happens to its assignments.
+    assignmentMode: MoveAssignmentMode
     requestedBy: User!
     requestedAt: String!
     reviewedBy: User
