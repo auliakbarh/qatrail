@@ -83,8 +83,11 @@ export function Breadcrumb() {
   const last = crumbs.length - 1;
 
   if (crumbs.length <= 1) return null;
+  // Sticky: the trail is also the way back up a level, and a feature with fifty
+  // test cases scrolls it out of reach. Opaque background so rows can't show
+  // through it.
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-6 py-3 text-xs text-muted-foreground">
+    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1.5 border-b border-border bg-background px-6 py-3 text-xs text-muted-foreground">
       {crumbs.map((c, i) => (
         <span key={`${c.label}-${i}`} className="flex items-center gap-1.5">
           {i > 0 && <ChevronRight className="h-3 w-3" />}
