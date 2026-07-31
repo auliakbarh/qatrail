@@ -310,6 +310,34 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     expect(await featureResolvers.Feature.testCaseCount({ id: feature.id }, null, ctxFor(qaId, "QA"))).toBe(1);
   });
 
+  it("moving and copying a feature both wait for approval", async () => {
+    const other = await prisma.project.create({ data: { name: `${TAG}-target-proj`, createdById: qaId } });
+    const feature = await prisma.feature.create({ data: { projectId, name: `${TAG}-movable` } });
+
+    await featureResolvers.Mutation.moveFeature(null, { id: feature.id, projectId: other.id }, ctxFor(qaId, "QA"));
+    expect((await prisma.feature.findUnique({ where: { id: feature.id } }))!.projectId).toBe(projectId);
+    const moveReq = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === feature.id);
+    expect([moveReq.target, moveReq.kind]).toEqual(["FEATURE", "MOVE"]);
+    await RM.approveApprovalRequest(null, { id: moveReq.id }, ctxFor(leadId, "QA_LEAD"));
+    expect((await prisma.feature.findUnique({ where: { id: feature.id } }))!.projectId).toBe(other.id);
+
+    // Copy: nothing new exists until it is approved.
+    await featureResolvers.Mutation.cloneFeature(
+      null,
+      { id: feature.id, targetProjectId: projectId, name: `${TAG}-copied-feat` },
+      ctxFor(qaId, "QA"),
+    );
+    expect(await prisma.feature.findFirst({ where: { name: `${TAG}-copied-feat` } })).toBeNull();
+    const copyReq = (await RQ.pendingApprovalRequests(null, { projectId: other.id }, ctxFor(leadId, "QA_LEAD")))
+      .find((r: any) => r.targetId === feature.id);
+    expect(copyReq.kind).toBe("COPY");
+    await RM.approveApprovalRequest(null, { id: copyReq.id }, ctxFor(leadId, "QA_LEAD"));
+    expect(await prisma.feature.findFirst({ where: { name: `${TAG}-copied-feat` } })).not.toBeNull();
+
+    await prisma.project.delete({ where: { id: other.id } }).catch(() => {});
+  });
+
   it("deleting a project waits for approval and leaves it standing until then", async () => {
     const project = await prisma.project.create({ data: { name: `${TAG}-doomed`, createdById: qaId } });
 

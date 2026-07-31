@@ -49,6 +49,7 @@ export const PENDING_APPROVAL_REQUESTS = gql`
       id target kind state requestedAt canApprove label
       requestedBy { id name }
       targetFeature { id name }
+      targetProject { id name }
       targetName
       project { id name }
       feature { id name project { id name } }

@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireApprover } from "../context.js";
 import { canApproveTestCase, isApproverRole, autoApprovesNow } from "../approval.js";
-import { cloneTestCaseInto } from "../clone.js";
+import { cloneTestCaseInto, cloneFeatureInto } from "../clone.js";
 import { notify, notifyTestCaseApprovers } from "../notify.js";
 import { prisma } from "../db.js";
 
@@ -75,7 +75,7 @@ export async function openRequest(
   target: Target,
   targetId: string,
   kind: RequestKind,
-  extra: { featureId?: string | null; name?: string | null } = {},
+  extra: { featureId?: string | null; projectId?: string | null; name?: string | null } = {},
 ) {
   const label = await targetLabel(ctx, target, targetId);
   const open = await ctx.prisma.approvalRequest.findFirst({ where: { target, targetId, state: "PENDING" } });
@@ -90,6 +90,7 @@ export async function openRequest(
       targetId,
       kind,
       targetFeatureId: extra.featureId ?? null,
+      targetProjectId: extra.projectId ?? null,
       targetName: extra.name ?? null,
       requestedById: actor.id,
     },
@@ -125,7 +126,17 @@ async function runRequest(ctx: Context, req: any): Promise<void> {
     });
     return;
   }
-  // MOVE / COPY exist for test cases only.
+  // MOVE / COPY: a test case lands in a feature, a feature lands in a project.
+  if (target === "FEATURE") {
+    const project = await ctx.prisma.project.findUnique({ where: { id: req.targetProjectId ?? "" } });
+    if (!project) throw new Error("Target project not found");
+    if (kind === "MOVE") {
+      await ctx.prisma.feature.update({ where: { id: req.targetId }, data: { projectId: project.id } });
+      return;
+    }
+    await cloneFeatureInto(req.targetId, project.id, req.requestedById, req.targetName ?? undefined);
+    return;
+  }
   const feature = await ctx.prisma.feature.findUnique({ where: { id: req.targetFeatureId ?? "" } });
   if (!feature) throw new Error("Target feature not found");
   if (kind === "MOVE") {
@@ -282,6 +293,8 @@ export const approvalRequestResolvers = {
       r.target === "PROJECT" ? ctx.prisma.project.findUnique({ where: { id: r.targetId } }) : null,
     targetFeature: (r: any, _: unknown, ctx: Context) =>
       r.targetFeatureId ? ctx.prisma.feature.findUnique({ where: { id: r.targetFeatureId } }) : null,
+    targetProject: (r: any, _: unknown, ctx: Context) =>
+      r.targetProjectId ? ctx.prisma.project.findUnique({ where: { id: r.targetProjectId } }) : null,
     // One label the client can print without knowing which target it is.
     label: (r: any, _: unknown, ctx: Context) => targetLabel(ctx, r.target as Target, r.targetId),
     async canApprove(r: any, _: unknown, ctx: Context) {

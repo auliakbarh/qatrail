@@ -77,15 +77,33 @@ export const featureResolvers = {
       }
       return ctx.prisma.feature.update({ where: { id: f.id }, data: { active: args.active } });
     },
+    // Copying a feature duplicates every test case under it, so it waits for
+    // approval like any other change; nothing exists until the decision lands.
     async cloneFeature(_: unknown, args: { id: string; targetProjectId: string; name?: string }, ctx: Context) {
       const user = await requireQA(ctx);
-      return cloneFeatureInto(args.id, args.targetProjectId, user.id, args.name?.trim() || undefined);
+      await assertActive(ctx, "FEATURE", args.id);
+      const target = await ctx.prisma.project.findUnique({ where: { id: args.targetProjectId } });
+      if (!target) throw new Error("Target project not found");
+      const name = args.name?.trim() || undefined;
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "FEATURE", args.id, "COPY", { projectId: target.id, name });
+        // Nothing copied yet — hand back the source so the client has something
+        // to refetch.
+        return ctx.prisma.feature.findUnique({ where: { id: args.id } });
+      }
+      return cloneFeatureInto(args.id, args.targetProjectId, user.id, name);
     },
-    // Move a feature (with its test cases) to another project.
+    // Move a feature (with its test cases) to another project — also a change
+    // that waits for approval, since it moves every case with it.
     async moveFeature(_: unknown, args: { id: string; projectId: string }, ctx: Context) {
-      await requireQA(ctx);
+      const user = await requireQA(ctx);
+      await assertActive(ctx, "FEATURE", args.id);
       const target = await ctx.prisma.project.findUnique({ where: { id: args.projectId } });
       if (!target) throw new Error("Target project not found");
+      if (await needsApproval(ctx, user.role)) {
+        await openRequest(ctx, user, "FEATURE", args.id, "MOVE", { projectId: target.id });
+        return ctx.prisma.feature.findUnique({ where: { id: args.id } });
+      }
       return ctx.prisma.feature.update({ where: { id: args.id }, data: { projectId: args.projectId } });
     },
   },

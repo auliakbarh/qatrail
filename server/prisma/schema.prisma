@@ -268,7 +268,8 @@ model ApprovalRequest {
   target          ApprovalTarget
   targetId        String
   kind            ApprovalRequestKind
-  targetFeatureId String? // MOVE / COPY destination (test cases only)
+  targetFeatureId String? // MOVE / COPY destination for a test case
+  targetProjectId String? // MOVE / COPY destination for a feature
   targetName      String? // COPY name override
   state           TestCaseApproval    @default(PENDING)
   requestedById   String

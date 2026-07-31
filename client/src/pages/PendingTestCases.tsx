@@ -50,7 +50,7 @@ function caseRow(tc: any) {
 // A request can be about a project, a feature or a test case — the row shows
 // which, so a "DELETE" on a whole project can never be mistaken for one case.
 function requestRow(r: any) {
-  const target = [r.targetFeature?.name, r.targetName].filter(Boolean).join(" · ");
+  const target = [r.targetFeature?.name, r.targetProject?.name, r.targetName].filter(Boolean).join(" · ");
   const feature = r.feature ?? r.testCase?.feature;
   return {
     rowKind: "REQUEST" as const,

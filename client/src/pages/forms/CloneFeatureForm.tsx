@@ -22,7 +22,7 @@ export function CloneFeatureForm({ featureId, sourceProjectId }: { featureId: st
     e.preventDefault();
     const ok = await withToast(
       clone({ variables: { id: featureId, targetProjectId: projectId, name: name.trim() || null } }),
-      t("clone.done"),
+      t("t.changeAsked"),
       t("clone.fail"),
     );
     if (ok) closePanel();

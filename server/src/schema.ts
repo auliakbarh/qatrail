@@ -150,6 +150,7 @@ export const typeDefs = /* GraphQL */ `
     feature: Feature
     testCase: TestCase
     targetFeature: Feature
+    targetProject: Project
     targetName: String
     requestedBy: User!
     requestedAt: String!

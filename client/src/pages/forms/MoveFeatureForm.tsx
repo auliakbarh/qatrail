@@ -22,7 +22,7 @@ export function MoveFeatureForm({ featureId, sourceProjectId }: { featureId: str
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId) return;
-    const ok = await withToast(move({ variables: { id: featureId, projectId } }), t("move.done"), t("move.fail"));
+    const ok = await withToast(move({ variables: { id: featureId, projectId } }), t("t.changeAsked"), t("move.fail"));
     if (ok) closePanel();
   };
 
