@@ -37,7 +37,7 @@ export const TEST_CASE = gql`
       attachments { id order url kind label }
       recordCount issueCount latestResult createdAt createdBy { id name }
       approval reviewedAt firstApprovedAt rejectReason canApprove active reviewedBy { id name }
-      pendingRequest { id kind canApprove requestedAt requestedBy { id name } targetFeature { id name } targetName }
+      pendingRequest { id kind canApprove canCancel requestedAt requestedBy { id name } targetFeature { id name } targetName }
       feature { id key name project { id key name } }
     }
   }
@@ -46,7 +46,7 @@ export const TEST_CASE = gql`
 export const PENDING_APPROVAL_REQUESTS = gql`
   query PendingApprovalRequests($projectId: ID) {
     pendingApprovalRequests(projectId: $projectId) {
-      id target kind state requestedAt canApprove label
+      id target kind state requestedAt canApprove canCancel label
       requestedBy { id name }
       targetFeature { id name }
       targetProject { id name }
@@ -68,6 +68,11 @@ export const APPROVE_APPROVAL_REQUEST = gql`
 export const APPROVE_APPROVAL_REQUESTS = gql`
   mutation ApproveApprovalRequests($ids: [ID!]!) {
     approveApprovalRequests(ids: $ids) { approved skipped }
+  }
+`;
+export const CANCEL_APPROVAL_REQUEST = gql`
+  mutation CancelApprovalRequest($id: ID!) {
+    cancelApprovalRequest(id: $id)
   }
 `;
 export const REJECT_APPROVAL_REQUEST = gql`

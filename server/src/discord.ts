@@ -22,6 +22,7 @@ const LABELS: Record<string, string> = {
   approveApprovalRequest: "Change approved",
   approveApprovalRequests: "Changes approved (bulk)",
   rejectApprovalRequest: "Change rejected",
+  cancelApprovalRequest: "Change request withdrawn",
   setProjectActive: "Project active flag change requested",
   setFeatureActive: "Feature active flag change requested",
   createRecordTest: "Record test added",

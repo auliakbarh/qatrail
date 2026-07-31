@@ -2,7 +2,7 @@ import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Check, X, FolderOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { Check, X, FolderOpen, ChevronDown, ChevronRight, Undo2 } from "lucide-react";
 import {
   PENDING_TEST_CASES,
   PENDING_APPROVAL_REQUESTS,
@@ -13,6 +13,7 @@ import {
   APPROVE_APPROVAL_REQUEST,
   APPROVE_APPROVAL_REQUESTS,
   REJECT_APPROVAL_REQUEST,
+  CANCEL_APPROVAL_REQUEST,
 } from "../graphql/hierarchy";
 import { FilterBar } from "../components/FilterBar";
 import { IconBtn } from "../components/IconBtn";
@@ -42,6 +43,9 @@ function caseRow(tc: any) {
     approval: tc.approval,
     rejectReason: tc.rejectReason,
     canApprove: tc.canApprove,
+    // A content review has nothing to withdraw: an unwanted new case is deleted,
+    // and an edit can't be un-edited.
+    canCancel: false,
     waitingSince: tc.createdAt,
     creatorName: tc.createdBy?.name ?? "",
     featureName: label(tc.feature?.key, tc.feature?.name),
@@ -70,6 +74,7 @@ function requestRow(r: any) {
     approval: "PENDING",
     rejectReason: null,
     canApprove: r.canApprove,
+    canCancel: r.canCancel,
     waitingSince: r.requestedAt,
     creatorName: r.requestedBy?.name ?? "",
     featureName: label(feature?.key, feature?.name),
@@ -103,6 +108,7 @@ export default function PendingTestCases() {
   const [approveReq] = useMutation(APPROVE_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
   const [approveReqMany] = useMutation(APPROVE_APPROVAL_REQUESTS, { refetchQueries: refetchAfter });
   const [rejectReq] = useMutation(REJECT_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
+  const [cancelReq] = useMutation(CANCEL_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("waitingSince");
@@ -350,6 +356,22 @@ export default function PendingTestCases() {
                               >
                                 <X className="h-3.5 w-3.5" />
                               </IconBtn>
+                              {/* Withdrawing is the requester's own move, so it
+                                  shows up only on their rows. */}
+                              {tc.canCancel && (
+                                <IconBtn
+                                  title={t("tcr.cancel")}
+                                  onClick={() =>
+                                    withToast(
+                                      cancelReq({ variables: { id: tc.id } }),
+                                      t("tcr.cancelled"),
+                                      t("tcr.cancelFail"),
+                                    )
+                                  }
+                                >
+                                  <Undo2 className="h-3.5 w-3.5" />
+                                </IconBtn>
+                              )}
                             </div>
                           </td>
                         </tr>

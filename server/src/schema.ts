@@ -162,6 +162,8 @@ export const typeDefs = /* GraphQL */ `
     reviewedAt: String
     rejectReason: String
     canApprove: Boolean!
+    # True for the requester while the change is still undecided.
+    canCancel: Boolean!
   }
 
   type RecordTest {
@@ -747,6 +749,8 @@ export const typeDefs = /* GraphQL */ `
     approveApprovalRequest(id: ID!): ApprovalRequest!
     approveApprovalRequests(ids: [ID!]!): BulkApproveResult!
     rejectApprovalRequest(id: ID!, reason: String!): ApprovalRequest!
+    # Withdraw your own pending request.
+    cancelApprovalRequest(id: ID!): Boolean!
     approveTestCase(id: ID!): TestCase!
     # Bulk approve. Not all-or-nothing: rights differ per creator, so cases the
     # actor may not approve are skipped instead of failing the batch.

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { Pencil, Plus, Trash2, ArrowRightLeft, Check, X, Clock, Power } from "lucide-react";
+import { Pencil, Plus, Trash2, ArrowRightLeft, Check, X, Clock, Power, Undo2 } from "lucide-react";
 import {
   TEST_CASE,
   PENDING_TEST_CASES,
@@ -12,6 +12,7 @@ import {
   REJECT_TEST_CASE,
   APPROVE_APPROVAL_REQUEST,
   REJECT_APPROVAL_REQUEST,
+  CANCEL_APPROVAL_REQUEST,
   SET_TEST_CASE_ACTIVE,
 } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
@@ -141,6 +142,7 @@ function PendingRequestCard({ tc }: { tc: any }) {
   ];
   const [approve] = useMutation(APPROVE_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
   const [reject] = useMutation(REJECT_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
+  const [cancel] = useMutation(CANCEL_APPROVAL_REQUEST, { refetchQueries: refetchAfter });
 
   return (
     <div className="rounded border border-[var(--warn)]/40 bg-[var(--warn)]/5 px-4 py-3">
@@ -156,8 +158,19 @@ function PendingRequestCard({ tc }: { tc: any }) {
             </div>
           </div>
         </div>
-        {req.canApprove && (
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
+          {/* The requester can take their own request back; reviewing it is
+              somebody else's call. */}
+          {req.canCancel && (
+            <button
+              onClick={() => withToast(cancel({ variables: { id: req.id } }), t("tcr.cancelled"), t("tcr.cancelFail"))}
+              className="flex h-7 items-center gap-1.5 rounded border border-border px-3 text-xs hover:bg-muted"
+            >
+              <Undo2 className="h-3.5 w-3.5" /> {t("tcr.cancel")}
+            </button>
+          )}
+          {req.canApprove && (
+            <>
             <button
               onClick={() => withToast(approve({ variables: { id: req.id } }), t("tcr.approved"), t("tcr.approveFail"))}
               className="flex h-7 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
@@ -170,8 +183,9 @@ function PendingRequestCard({ tc }: { tc: any }) {
             >
               <X className="h-3.5 w-3.5" /> {t("tca.reject")}
             </button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
       <TextPromptModal
         open={rejecting}

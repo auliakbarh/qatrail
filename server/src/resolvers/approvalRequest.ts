@@ -270,6 +270,23 @@ export const approvalRequestResolvers = {
       }
       return { approved, skipped: args.ids.length - approved };
     },
+    // The requester withdrawing their own request. Not a review — no reason, no
+    // rank rule — so the row simply goes away; AuditLog keeps the trace.
+    async cancelApprovalRequest(_: unknown, args: { id: string }, ctx: Context) {
+      const userId = requireAuth(ctx);
+      const req = await ctx.prisma.approvalRequest.findUnique({ where: { id: args.id } });
+      if (!req) throw new Error("Request not found");
+      if (req.state !== "PENDING") {
+        throw new GraphQLError("This change has already been decided.", { extensions: { code: "BAD_USER_INPUT" } });
+      }
+      if (req.requestedById !== userId) {
+        throw new GraphQLError("Only the person who asked for this change can cancel it.", {
+          extensions: { code: "FORBIDDEN" },
+        });
+      }
+      await ctx.prisma.approvalRequest.delete({ where: { id: req.id } });
+      return true;
+    },
     async rejectApprovalRequest(_: unknown, args: { id: string; reason: string }, ctx: Context) {
       const user = await requireApprover(ctx);
       const reason = args.reason.trim();
@@ -323,6 +340,8 @@ export const approvalRequestResolvers = {
       r.targetProjectId ? ctx.prisma.project.findUnique({ where: { id: r.targetProjectId } }) : null,
     // One label the client can print without knowing which target it is.
     label: (r: any, _: unknown, ctx: Context) => targetLabel(ctx, r.target as Target, r.targetId),
+    // Only the requester can withdraw, and only while nobody has decided.
+    canCancel: (r: any, _: unknown, ctx: Context) => r.state === "PENDING" && r.requestedById === ctx.userId,
     async canApprove(r: any, _: unknown, ctx: Context) {
       if (!ctx.userId || !isApproverRole(ctx.role) || r.state !== "PENDING") return false;
       const requester = await ctx.prisma.user.findUnique({

@@ -393,6 +393,26 @@ describe.skipIf(!enabled)("test case approval (integration)", () => {
     await prisma.project.delete({ where: { id: other.id } }).catch(() => {});
   });
 
+  it("only the requester can withdraw their own pending request", async () => {
+    const tc = await approvedCase(`${TAG}-cancel`);
+    await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
+    const req = (await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(qaId, "QA")))
+      .find((r: any) => r.targetId === tc.id);
+
+    // A reviewer rejects; they don't withdraw somebody else's request.
+    await expect(RM.cancelApprovalRequest(null, { id: req.id }, ctxFor(leadId, "QA_LEAD"))).rejects.toThrow(
+      /person who asked/,
+    );
+    expect(await RM.cancelApprovalRequest(null, { id: req.id }, ctxFor(qaId, "QA"))).toBe(true);
+
+    // Gone from the queue, and the case never changed.
+    const open = await RQ.pendingApprovalRequests(null, { projectId }, ctxFor(qaId, "QA"));
+    expect(open.map((r: any) => r.id)).not.toContain(req.id);
+    expect((await prisma.testCase.findUnique({ where: { id: tc.id } }))!.active).toBe(true);
+    // With nothing queued, the same change can be asked for again.
+    await M.setTestCaseActive(null, { id: tc.id, active: false }, ctxFor(qaId, "QA"));
+  });
+
   it("deleting a project waits for approval and leaves it standing until then", async () => {
     const project = await prisma.project.create({ data: { name: `${TAG}-doomed`, createdById: qaId } });
 
