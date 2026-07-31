@@ -444,6 +444,14 @@ export const typeDefs = /* GraphQL */ `
     sessionTestId: ID
     attachments: [AttachmentInput!]!
   }
+  # One row of a bulk run. Scope (app test / session) and the run's timestamp are
+  # shared by the whole batch, so they live on the mutation, not here.
+  input BulkRecordTestInput {
+    testCaseId: ID!
+    result: TestResult!
+    note: String
+    attachments: [AttachmentInput!]!
+  }
   input PostmortemInput {
     rootCause: String!
     resolution: String!
@@ -758,6 +766,10 @@ export const typeDefs = /* GraphQL */ `
     rejectTestCase(id: ID!, reason: String!): TestCase!
 
     createRecordTest(testCaseId: ID!, input: RecordTestInput!): RecordTest!
+    # Record several runs of one app test / session in one go. All-or-nothing:
+    # everything that can fail here is the QA's own input, so a bad row means fix
+    # and resend, not a half-written batch.
+    createRecordTests(executedAt: String!, appTestId: ID, sessionTestId: ID, inputs: [BulkRecordTestInput!]!): [RecordTest!]!
     deleteRecordTest(id: ID!): Boolean!
 
     createIssue(input: IssueInput!): Issue!

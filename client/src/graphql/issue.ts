@@ -25,6 +25,14 @@ export const CREATE_RECORD_TEST = gql`
   }
 `;
 
+export const CREATE_RECORD_TESTS = gql`
+  mutation CreateRecordTests($executedAt: String!, $appTestId: ID, $sessionTestId: ID, $inputs: [BulkRecordTestInput!]!) {
+    createRecordTests(executedAt: $executedAt, appTestId: $appTestId, sessionTestId: $sessionTestId, inputs: $inputs) {
+      id result executedAt testCaseId
+    }
+  }
+`;
+
 export const DELETE_RECORD_TEST = gql`
   mutation DeleteRecordTest($id: ID!) { deleteRecordTest(id: $id) }
 `;

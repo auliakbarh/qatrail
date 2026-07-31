@@ -56,6 +56,7 @@ export function IssueForm({
   appTestId,
   sessionTestId,
   projectId: ctxProjectId,
+  onDone,
 }: {
   panel: PanelState;
   testCaseId: string;
@@ -63,9 +64,13 @@ export function IssueForm({
   appTestId?: string;
   sessionTestId?: string;
   projectId?: string; // session/app context; falls back to the drilldown's project
+  // Set when this form is one stop in a queue (a bulk run's failures): the caller
+  // decides what comes next instead of the panel simply closing.
+  onDone?: () => void;
 }) {
   const { t } = useTranslation();
-  const { closePanel } = useNav();
+  const { closePanel: close } = useNav();
+  const closePanel = () => (onDone ? onDone() : close());
   const drillProjectId = useDrill().projectId;
   const editing = panel.mode === "edit";
   const init = panel.initial ?? {};

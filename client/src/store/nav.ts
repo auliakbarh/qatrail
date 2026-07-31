@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
-export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment" | "movetc" | "movefeature" | "clonefeature" | "clonetc" | "importtc" | "apptest" | "apptestbuild" | "assigntc" | "usertest" | "pickusertest" | "sessiontest" | "sessiontestapp" | "assignsessiontc" | "closesession" | "moveapptest" | "issuescope" | "testcaseview";
+export type PanelKind = "project" | "feature" | "testcase" | "record" | "issue" | "postmortem" | "attachment" | "movetc" | "movefeature" | "clonefeature" | "clonetc" | "importtc" | "apptest" | "apptestbuild" | "assigntc" | "bulkrecord" | "usertest" | "pickusertest" | "sessiontest" | "sessiontestapp" | "assignsessiontc" | "closesession" | "moveapptest" | "issuescope" | "testcaseview";
 export interface PanelState {
   kind: PanelKind;
   mode: "create" | "edit";

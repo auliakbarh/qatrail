@@ -10,11 +10,27 @@ import { useNav } from "../../store/nav";
 export function TestCaseViewPanel({ testCaseId }: { testCaseId: string }) {
   const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
+
+  return (
+    <RightPanel title={t("iss.testCase")} onClose={closePanel}>
+      <TestCaseView
+        testCaseId={testCaseId}
+        onOpenText={(a) => openPanel({ kind: "attachment", mode: "create", initial: a })}
+      />
+    </RightPanel>
+  );
+}
+
+// The body on its own — the bulk run panel shows it in a modal, where swapping
+// the right panel for an attachment viewer would throw away the verdicts typed
+// so far, so `onOpenText` is left off there.
+export function TestCaseView({ testCaseId, onOpenText }: { testCaseId: string; onOpenText?: (a: any) => void }) {
+  const { t } = useTranslation();
   const { data, loading } = useQuery(TEST_CASE, { variables: { id: testCaseId } });
   const tc = data?.testCase;
 
   return (
-    <RightPanel title={t("iss.testCase")} onClose={closePanel}>
+    <>
       {loading && !tc && <p className="text-sm text-muted-foreground">{t("c.loading")}</p>}
       {!loading && !tc && <p className="text-sm text-muted-foreground">{t("c.notFound")}</p>}
       {tc && (
@@ -48,10 +64,7 @@ export function TestCaseViewPanel({ testCaseId }: { testCaseId: string }) {
           {tc.attachments.length > 0 && (
             <div>
               <div className="mb-1 font-medium">{t("c.attachments")}</div>
-              <AttachmentList
-                items={tc.attachments}
-                onOpenText={(a) => openPanel({ kind: "attachment", mode: "create", initial: a })}
-              />
+              <AttachmentList items={tc.attachments} onOpenText={onOpenText} />
             </div>
           )}
           {tc.note && (
@@ -62,6 +75,6 @@ export function TestCaseViewPanel({ testCaseId }: { testCaseId: string }) {
           )}
         </div>
       )}
-    </RightPanel>
+    </>
   );
 }

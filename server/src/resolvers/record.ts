@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { recomputeAppTest } from "../appTestStatus.js";
-import { assertApproved } from "./testcase.js";
+import { assertApproved, assertAllApproved } from "./testcase.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
 
@@ -14,6 +14,45 @@ interface RecordTestInput {
   appTestId?: string | null;
   sessionTestId?: string | null;
   attachments: { url: string; kind: AttachKind; label?: string | null }[];
+}
+
+// A blocked run has no verdict, so the blocker itself is the only useful
+// information — refuse to store one silently. Pure so both paths share it.
+export function assertBlockerNoted(result: string, note?: string | null): void {
+  if (result === "BLOCKED" && !note?.trim()) {
+    throw new GraphQLError("Say what blocked the test in the note.", { extensions: { code: "BAD_USER_INPUT" } });
+  }
+}
+
+// Create-data for one run. Shared by the single and bulk paths so the columns a
+// run is made of can't drift between them.
+function recordData(
+  r: {
+    testCaseId: string;
+    executedById: string;
+    executedAt: Date;
+    result: string;
+    note?: string | null;
+    retestIssueId?: string | null;
+    appTestId?: string | null;
+    sessionTestId?: string | null;
+    attachments: { url: string; kind: AttachKind; label?: string | null }[];
+  },
+) {
+  return {
+    testCaseId: r.testCaseId,
+    executedById: r.executedById,
+    executedAt: r.executedAt,
+    note: r.note ?? null,
+    result: r.result as any,
+    retestIssueId: r.retestIssueId ?? null,
+    appTestId: r.appTestId ?? null,
+    // Session runs stay in their own scope — no recomputeAppTest for them.
+    sessionTestId: r.sessionTestId ?? null,
+    attachments: {
+      create: r.attachments.map((a) => ({ url: a.url, kind: a.kind, label: a.label ?? null })),
+    },
+  };
 }
 
 export const recordResolvers = {
@@ -33,33 +72,52 @@ export const recordResolvers = {
       // Every run — first attempt or retest — lands here, so this one check
       // closes the whole path.
       await assertApproved(ctx, args.testCaseId, "be tested yet");
-      // A blocked run has no verdict, so the blocker itself is the only useful
-      // information — refuse to store one silently.
-      if (input.result === "BLOCKED" && !input.note?.trim()) {
-        throw new GraphQLError("Say what blocked the test in the note.", { extensions: { code: "BAD_USER_INPUT" } });
-      }
+      assertBlockerNoted(input.result, input.note);
       const rec = await ctx.prisma.recordTest.create({
-        data: {
-          testCaseId: args.testCaseId,
-          executedById: user.id,
-          executedAt: new Date(input.executedAt),
-          note: input.note ?? null,
-          result: input.result,
-          retestIssueId: input.retestIssueId ?? null,
-          appTestId: input.appTestId ?? null,
-          // Session runs stay in their own scope — no recomputeAppTest here.
-          sessionTestId: input.sessionTestId ?? null,
-          attachments: {
-            create: input.attachments.map((a) => ({
-              url: a.url,
-              kind: a.kind,
-              label: a.label ?? null,
-            })),
-          },
-        },
+        data: recordData({ ...input, testCaseId: args.testCaseId, executedById: user.id, executedAt: new Date(input.executedAt) }),
       });
       if (rec.appTestId) await recomputeAppTest(rec.appTestId);
       return rec;
+    },
+    // Several runs of one app test / session at once. Everything is validated
+    // before anything is written, and the writes share one transaction, so a bad
+    // row can never leave half a batch behind.
+    async createRecordTests(
+      _: unknown,
+      args: {
+        executedAt: string;
+        appTestId?: string | null;
+        sessionTestId?: string | null;
+        inputs: { testCaseId: string; result: "PASS" | "FAIL" | "BLOCKED"; note?: string | null; attachments: { url: string; kind: AttachKind; label?: string | null }[] }[];
+      },
+      ctx: Context,
+    ) {
+      const user = await requireQA(ctx);
+      const { inputs } = args;
+      if (inputs.length === 0) {
+        throw new GraphQLError("Pick at least one test case to run.", { extensions: { code: "BAD_USER_INPUT" } });
+      }
+      // The same approval/retirement gate as a single run, asked once for the batch.
+      await assertAllApproved(ctx, [...new Set(inputs.map((i) => i.testCaseId))], "be tested yet");
+      inputs.forEach((i) => assertBlockerNoted(i.result, i.note));
+      const executedAt = new Date(args.executedAt);
+      const records = await ctx.prisma.$transaction(
+        inputs.map((i) =>
+          ctx.prisma.recordTest.create({
+            data: recordData({
+              ...i,
+              testCaseId: i.testCaseId,
+              executedById: user.id,
+              executedAt,
+              appTestId: args.appTestId,
+              sessionTestId: args.sessionTestId,
+            }),
+          }),
+        ),
+      );
+      // Once for the batch, not once per row.
+      if (args.appTestId) await recomputeAppTest(args.appTestId);
+      return records;
     },
     async deleteRecordTest(_: unknown, args: { id: string }, ctx: Context) {
       await requireQA(ctx);

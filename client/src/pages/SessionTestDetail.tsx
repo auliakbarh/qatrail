@@ -2,7 +2,7 @@ import { useState, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Printer, Link2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Printer, Link2, PlayCircle } from "lucide-react";
 import {
   SESSION_TEST,
   SESSION_TESTS,
@@ -36,7 +36,9 @@ import { AssignSessionTestCasesPanel } from "./forms/AssignSessionTestCasesPanel
 import { TestCaseForm } from "./forms/TestCaseForm";
 import { CloseSessionForm } from "./forms/CloseSessionForm";
 import { RecordForm } from "./forms/RecordForm";
+import { BulkRecordForm } from "./forms/BulkRecordForm";
 import { IssueForm } from "./forms/IssueForm";
+import { useIssueQueue } from "../lib/useIssueQueue";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -85,6 +87,16 @@ export default function SessionTestDetail() {
   const [fStatus, setFStatus] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [del, setDel] = useState(false);
+  // Bulk run: pick rows here, record them in one panel, then walk the issue form
+  // over whatever failed.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const issueQueue = useIssueQueue();
+  const toggleSel = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -128,6 +140,20 @@ export default function SessionTestDetail() {
   const filtered = rows0.filter((r: any) => (!fFeature || r.featureName === fFeature) && (!fStatus || r.status === fStatus));
   const rows = sortRows(searchRows(filtered, search, ["tcKey", "tcName", "featureName", "appNames"]), sortKey as any, sortDir);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  // Selection is over what's currently listed, so a filtered "select all" means
+  // what it looks like.
+  const selectedRows = rows.filter((r: any) => selected.has(r.testCase.id));
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length;
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map((r: any) => r.testCase.id)));
+  // Each case carries its own related apps: with exactly one, it prefills the issue.
+  const bulkCases = selectedRows.map((r: any) => ({
+    testCaseId: r.testCase.id,
+    featureId: r.featureId,
+    key: r.tcKey,
+    name: r.tcName,
+    apps: r.apps,
+  }));
+  const cols = manage ? 9 : 8; // + the bulk-select checkbox
 
   // Deep-link into the hierarchy drilldown; `from` keeps the breadcrumb rooted here.
   const openTestCase = (r: any) => {
@@ -247,9 +273,16 @@ export default function SessionTestDetail() {
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-sm font-semibold">{t("st.cases")} ({rows0.length})</h3>
-            <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "assignsessiontc", mode: "create" })}>
-              {t("at.assign")}
-            </HeaderButton>
+            <div className="flex items-center gap-2">
+              {selected.size > 0 && (
+                <HeaderButton allowed={manage} icon={PlayCircle} onClick={() => openPanel({ kind: "bulkrecord", mode: "create" })}>
+                  {t("bulkrun.run", { n: selected.size })}
+                </HeaderButton>
+              )}
+              <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "assignsessiontc", mode: "create" })}>
+                {t("at.assign")}
+              </HeaderButton>
+            </div>
           </div>
           <div className="px-5 py-4">
             <FilterBar
@@ -277,6 +310,11 @@ export default function SessionTestDetail() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
+                    {manage && (
+                      <th className="w-8 px-3 py-2 text-left">
+                        <input type="checkbox" checked={allSelected} onChange={toggleAll} className="cursor-pointer" title={t("bulkrun.selectAll")} />
+                      </th>
+                    )}
                     <SortableTh label={t("at.tcNo")} colKey="tcKey" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.tcTitle")} colKey="tcName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.feature")} colKey="featureName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -288,12 +326,12 @@ export default function SessionTestDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows0.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("st.noCases")}</td></tr>}
+                  {rows0.length === 0 && <tr><td colSpan={cols} className="py-8 text-center text-muted-foreground">{t("st.noCases")}</td></tr>}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>
                       {groupKey && (
                         <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                          <td colSpan={8} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                          <td colSpan={cols} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                             <span className="inline-flex items-center gap-1">
                               {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                               {label || "—"} · {gr.length}
@@ -303,6 +341,11 @@ export default function SessionTestDetail() {
                       )}
                       {!collapsed.has(label) && gr.map((r: any) => (
                         <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                          {manage && (
+                            <td className="px-3 py-2">
+                              <input type="checkbox" checked={selected.has(r.testCase.id)} onChange={() => toggleSel(r.testCase.id)} className="cursor-pointer" />
+                            </td>
+                          )}
                           <td className="px-3 py-2">
                             <button onClick={() => openTestCase(r)} className="font-mono text-xs text-primary hover:underline">{r.tcKey}</button>
                           </td>
@@ -416,8 +459,25 @@ export default function SessionTestDetail() {
           sessionApps={panel.initial.apps}
         />
       )}
+      {panel?.kind === "bulkrecord" && bulkCases.length > 0 && (
+        <BulkRecordForm
+          cases={bulkCases}
+          sessionTestId={id}
+          onFailures={(prefills) => {
+            setSelected(new Set());
+            issueQueue.start(prefills);
+          }}
+        />
+      )}
       {panel?.kind === "issue" && panel.initial?.testCaseId && (
-        <IssueForm panel={panel} testCaseId={panel.initial.testCaseId} featureId={panel.initial.featureId} sessionTestId={id} projectId={s.projectId} />
+        <IssueForm
+          panel={panel}
+          testCaseId={panel.initial.testCaseId}
+          featureId={panel.initial.featureId}
+          sessionTestId={id}
+          projectId={s.projectId}
+          onDone={issueQueue.next}
+        />
       )}
     </div>
   );

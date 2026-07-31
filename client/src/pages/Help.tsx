@@ -147,6 +147,7 @@ export default function Help() {
             <P><Trans i18nKey="help.records.p1" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.records.p2" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.records.callout" components={{ b: <B /> }} /></Callout>
+            <P><Trans i18nKey="help.records.bulk" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.attachments" components={{ b: <B /> }} /></P>
           </Doc>
 

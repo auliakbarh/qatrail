@@ -26,6 +26,7 @@ const LABELS: Record<string, string> = {
   setProjectActive: "Project active flag change requested",
   setFeatureActive: "Feature active flag change requested",
   createRecordTest: "Record test added",
+  createRecordTests: "Test results recorded (bulk)",
   deleteRecordTest: "Record test deleted",
   createIssue: "Issue created",
   updateIssue: "Issue updated",

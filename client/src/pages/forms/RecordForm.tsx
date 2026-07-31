@@ -11,6 +11,7 @@ import { SESSION_TEST, SESSION_TEST_CASES, SESSION_TEST_RECORDS } from "../../gr
 import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
+import { issuePrefill, type AppTestCtx, type SessionAppCtx } from "../../lib/issuePrefill";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
 
@@ -43,11 +44,11 @@ export function RecordForm({
   appTestId?: string;
   // App test context — prefills + locks the issue's env/platform/versions and
   // defaults the assignee to the app's creator when a FAIL opens an issue.
-  appTest?: { environment: string; platform: string; appVersion?: string | null; backendVersion?: string | null; createdBy?: { id: string; name: string } };
+  appTest?: AppTestCtx;
   sessionTestId?: string;
   // Session context: only a single related app can prefill the issue — with two
   // or more, guessing which one failed would be a lie, so QA fills it in.
-  sessionApps?: { id: string; name: string; environment?: string | null; platform?: string | null; versionFe?: string | null; versionBe?: string | null }[];
+  sessionApps?: SessionAppCtx[];
 }) {
   const { t } = useTranslation();
   const { closePanel, openPanel } = useNav();
@@ -127,25 +128,10 @@ export function RecordForm({
 
     // Normal mode: FAIL → open a prefilled Issue form (per requirement).
     if (rec?.result === "FAIL") {
-      const onlyApp = sessionApps?.length === 1 ? sessionApps[0] : undefined;
       openPanel({
         kind: "issue",
         mode: "create",
-        // Carry app-test context: link + locked env/platform/versions + default assignee.
-        initial: {
-          recordTestId: rec.id,
-          testedAt: rec.executedAt,
-          appTestId,
-          sessionTestId,
-          testCaseId,
-          featureId,
-          fromAppTest: !!appTestId,
-          environment: appTest?.environment ?? onlyApp?.environment ?? undefined,
-          platform: appTest?.platform ?? onlyApp?.platform ?? undefined,
-          appVersion: appTest?.appVersion ?? onlyApp?.versionFe ?? undefined,
-          backendVersion: appTest?.backendVersion ?? onlyApp?.versionBe ?? undefined,
-          assignee: appTest?.createdBy,
-        },
+        initial: issuePrefill({ record: rec, testCaseId, featureId, appTestId, appTest, sessionTestId, sessionApps }),
       });
     } else {
       closePanel();
