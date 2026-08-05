@@ -238,6 +238,43 @@ export const typeDefs = /* GraphQL */ `
     autoApproveChangeHours: Int
   }
 
+  # Server-to-server consumer of the read-only public API (docs/API_PUBLIC.md).
+  # Never carries the key itself — only its hash is stored, and the raw key is
+  # returned once, by createPublicApiClient.
+  type PublicApiClient {
+    id: ID!
+    appId: String!
+    name: String!
+    allowedOrigins: [String!]!
+    allowedIps: [String!]!
+    active: Boolean!
+    expiresAt: String
+    lastUsedAt: String
+    createdAt: String!
+  }
+
+  input PublicApiClientInput {
+    appId: String!
+    name: String!
+    allowedOrigins: [String!]!
+    allowedIps: [String!]!
+    expiresAt: String
+  }
+
+  input PublicApiClientUpdateInput {
+    name: String
+    allowedOrigins: [String!]
+    allowedIps: [String!]
+    active: Boolean
+    expiresAt: String
+  }
+
+  # The raw key is shown exactly once, at creation.
+  type CreatePublicApiClientResult {
+    client: PublicApiClient!
+    key: String!
+  }
+
   type SlaTargetType {
     priority: Priority!
     respondMins: Int
@@ -726,6 +763,7 @@ export const typeDefs = /* GraphQL */ `
     setting: Setting!
     slaTargets: [SlaTargetType!]!
     auditLogs(limit: Int): [AuditLog!]!
+    publicApiClients: [PublicApiClient!]!
   }
 
   type AuditLog {
@@ -859,6 +897,10 @@ export const typeDefs = /* GraphQL */ `
     updateSetting(input: SettingInput!): Setting!
     testDiscord(url: String!): Boolean!
     updateSlaTarget(priority: Priority!, respondMins: Int, resolveMins: Int!): SlaTargetType!
+
+    createPublicApiClient(input: PublicApiClientInput!): CreatePublicApiClientResult!
+    updatePublicApiClient(id: ID!, input: PublicApiClientUpdateInput!): PublicApiClient!
+    revokePublicApiClient(id: ID!): Boolean!
   }
 
   type Subscription {

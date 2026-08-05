@@ -3,12 +3,52 @@ import { requireAdmin } from "../context.js";
 import { hashPassword } from "../auth.js";
 import { generatePassword } from "../genPassword.js";
 import { sendDiscordTest } from "../discord.js";
+import { requireSuperAdmin } from "../context.js";
+import { generateKey, hashKey } from "../publicApi/keys.js";
 
 interface UserInput {
   email: string;
   name: string;
   role: "SUPER_ADMIN" | "ADMIN" | "QA_LEAD" | "QA" | "ENGINEER" | "VIEWER";
   active?: boolean | null;
+}
+
+interface PublicApiClientInput {
+  appId: string;
+  name: string;
+  allowedOrigins: string[];
+  allowedIps: string[];
+  expiresAt?: string | null;
+}
+
+interface PublicApiClientUpdateInput {
+  name?: string | null;
+  allowedOrigins?: string[] | null;
+  allowedIps?: string[] | null;
+  active?: boolean | null;
+  expiresAt?: string | null;
+}
+
+// Hostnames only — an entry like "https://portal.hpam.id/" is stored as
+// "portal.hpam.id", which is what publicApi/auth.ts compares against.
+function normaliseHosts(values: string[]): string[] {
+  return values
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean)
+    .map((v) => {
+      try {
+        return new URL(v.includes("://") ? v : `https://${v}`).hostname;
+      } catch {
+        return v;
+      }
+    });
+}
+
+// The allow-list is closed by default (publicApi/auth.ts), so a client with
+// neither origins nor IPs is dead on arrival. Say so at creation time.
+function assertAllowList(origins: string[], ips: string[]): void {
+  const hasAny = origins.some((v) => v.trim()) || ips.some((v) => v.trim());
+  if (!hasAny) throw new Error("A public API client needs at least one allowed origin or IP");
 }
 
 // Only a super admin may create/modify SUPER_ADMIN accounts or touch a
@@ -21,7 +61,20 @@ function guardTarget(actor: any, targetRole: string, newRole?: string) {
 }
 
 export const adminResolvers = {
+  // Dates as ISO strings, same as every other type in the schema.
+  PublicApiClient: {
+    createdAt: (c: any) => c.createdAt.toISOString(),
+    expiresAt: (c: any) => c.expiresAt?.toISOString() ?? null,
+    lastUsedAt: (c: any) => c.lastUsedAt?.toISOString() ?? null,
+  },
+
   Query: {
+    // Public API clients are credentials, not settings: super admin only, and
+    // the row never carries the key — only its hash exists, in the DB.
+    async publicApiClients(_: unknown, __: unknown, ctx: Context) {
+      await requireSuperAdmin(ctx);
+      return ctx.prisma.publicApiClient.findMany({ orderBy: { createdAt: "desc" } });
+    },
     async users(_: unknown, __: unknown, ctx: Context) {
       await requireAdmin(ctx);
       return ctx.prisma.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] });
@@ -147,6 +200,58 @@ export const adminResolvers = {
         update: { respondMins: args.respondMins ?? null, resolveMins: args.resolveMins },
         create: { priority: args.priority as any, respondMins: args.respondMins ?? null, resolveMins: args.resolveMins },
       });
+    },
+
+    // ---- public API clients (docs/API_PUBLIC.md) ----
+
+    // Returns the raw key ONCE. It is never stored and cannot be shown again;
+    // a lost key is replaced by revoking and creating another.
+    async createPublicApiClient(_: unknown, args: { input: PublicApiClientInput }, ctx: Context) {
+      const actor = await requireSuperAdmin(ctx);
+      assertAllowList(args.input.allowedOrigins, args.input.allowedIps);
+      const key = generateKey();
+      const client = await ctx.prisma.publicApiClient.create({
+        data: {
+          appId: args.input.appId.trim(),
+          name: args.input.name.trim(),
+          keyHash: hashKey(key),
+          allowedOrigins: normaliseHosts(args.input.allowedOrigins),
+          allowedIps: args.input.allowedIps.map((v) => v.trim()).filter(Boolean),
+          expiresAt: args.input.expiresAt ? new Date(args.input.expiresAt) : null,
+          createdById: actor.id,
+        },
+      });
+      return { client, key };
+    },
+
+    async updatePublicApiClient(_: unknown, args: { id: string; input: PublicApiClientUpdateInput }, ctx: Context) {
+      await requireSuperAdmin(ctx);
+      const { input } = args;
+      const data: Record<string, unknown> = {};
+      if (input.name != null) data.name = input.name.trim();
+      if (input.active != null) data.active = input.active;
+      if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
+      if (input.allowedOrigins != null) data.allowedOrigins = normaliseHosts(input.allowedOrigins);
+      if (input.allowedIps != null) data.allowedIps = input.allowedIps.map((v) => v.trim()).filter(Boolean);
+
+      // An empty allow-list would leave a client that can never authenticate;
+      // refuse it here rather than let it look configured.
+      if (input.allowedOrigins != null || input.allowedIps != null) {
+        const current = await ctx.prisma.publicApiClient.findUnique({ where: { id: args.id } });
+        if (!current) throw new Error("Public API client not found");
+        assertAllowList(
+          (data.allowedOrigins as string[]) ?? current.allowedOrigins,
+          (data.allowedIps as string[]) ?? current.allowedIps,
+        );
+      }
+      return ctx.prisma.publicApiClient.update({ where: { id: args.id }, data });
+    },
+
+    // Hard delete: the row is only a credential, and AuditLog keeps the trace.
+    async revokePublicApiClient(_: unknown, args: { id: string }, ctx: Context) {
+      await requireSuperAdmin(ctx);
+      await ctx.prisma.publicApiClient.delete({ where: { id: args.id } });
+      return true;
     },
   },
 };

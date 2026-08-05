@@ -74,4 +74,5 @@ export const resolvers = {
   StatusEvent: workflowResolvers.StatusEvent,
   Postmortem: workflowResolvers.Postmortem,
   Notification: notificationResolvers.Notification,
+  PublicApiClient: adminResolvers.PublicApiClient,
 };

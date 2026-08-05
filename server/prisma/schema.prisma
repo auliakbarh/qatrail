@@ -179,6 +179,8 @@ model User {
 
   sessionTests             SessionTest[]     @relation("sessionTestCreator")
   sessionTestCasesAssigned SessionTestCase[] @relation("sessionTestCaseAssigner")
+
+  publicApiClients PublicApiClient[] @relation("publicApiClientCreator")
 }
 
 model Project {
@@ -715,6 +717,31 @@ model SlaTarget {
   respondMins Int?
   resolveMins Int
   updatedAt   DateTime @updatedAt
+}
+
+// Server-to-server consumer of the read-only public API (`docs/API_PUBLIC.md`).
+// Not a login: it never maps to a User session, and the key can only read.
+// Three checks must all pass — key hash, appId, and origin/IP allow-list.
+model PublicApiClient {
+  id      String @id @default(cuid())
+  appId   String @unique // caller identity sent in X-App-Id, e.g. "it-portal"
+  name    String
+  keyHash String @unique // SHA-256 of the raw key; the raw key is shown once, at creation
+
+  // Allow-list is closed by default: a client with both lists empty is refused.
+  allowedOrigins String[] // hostnames allowed in Origin/Referer
+  allowedIps     String[] // exact IPs (v4/v6). No CIDR — see publicApi/auth.ts
+
+  active     Boolean   @default(true)
+  expiresAt  DateTime?
+  lastUsedAt DateTime?
+
+  createdById String
+  createdBy   User     @relation("publicApiClientCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active])
 }
 
 // Cross-cutting audit trail for project-domain mutations (who did what, when).

@@ -16,6 +16,7 @@ import { prisma } from "./db.js";
 import { logger } from "./logger.js";
 import { startScheduler } from "./scheduler.js";
 import { notifyDiscord, NOTIFIABLE } from "./discord.js";
+import { publicApiRouter, publicApiErrorHandler } from "./publicApi/router.js";
 
 process.on("uncaughtException", (err) => logger.fatal({ err }, "uncaughtException"));
 process.on("unhandledRejection", (reason) => logger.error({ err: reason }, "unhandledRejection"));
@@ -44,6 +45,15 @@ app.use(
   }),
 );
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
+
+// Read-only public API for server-to-server consumers (docs/API_PUBLIC.md).
+// Mounted before the GraphQL middleware and deliberately without cors(): it is
+// called by another backend, never by a browser. Its own auth (API key + appId
+// + allow-list) lives in publicApi/auth.ts — it never touches the JWT session.
+// `trust proxy` so req.ip is the caller, not nginx — the IP allow-list needs it.
+app.set("trust proxy", true);
+app.use("/api/public/v1", publicApiRouter, publicApiErrorHandler);
+
 const httpServer = createServer(app);
 
 const wsServer = new WebSocketServer({
