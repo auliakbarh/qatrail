@@ -43,6 +43,23 @@ export const UPDATE_SLA_TARGET = gql`
   }
 `;
 
+export const PUBLIC_API_CLIENTS = gql`
+  query PublicApiClients {
+    publicApiClients { id appId name allowedOrigins allowedIps active expiresAt lastUsedAt createdAt }
+  }
+`;
+export const CREATE_PUBLIC_API_CLIENT = gql`
+  mutation CreatePublicApiClient($input: PublicApiClientInput!) {
+    createPublicApiClient(input: $input) { client { id appId } key }
+  }
+`;
+export const UPDATE_PUBLIC_API_CLIENT = gql`
+  mutation UpdatePublicApiClient($id: ID!, $input: PublicApiClientUpdateInput!) {
+    updatePublicApiClient(id: $id, input: $input) { id active }
+  }
+`;
+export const REVOKE_PUBLIC_API_CLIENT = gql`mutation($id: ID!){ revokePublicApiClient(id:$id) }`;
+
 export const AUDIT_LOGS = gql`
   query AuditLogs($limit: Int) {
     auditLogs(limit: $limit) { id action entityId label actor at }

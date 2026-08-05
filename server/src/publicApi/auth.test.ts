@@ -39,6 +39,21 @@ describe("callerAllowed", () => {
     const c = { allowedOrigins: [], allowedIps: ["10.0.0.5"] };
     expect(callerAllowed(c, { host: null, ip: "10.0.0.9" })).toBe(false);
   });
+  // OR, not AND: one trusted signal is enough. Origin is a caller-controlled
+  // header, so it can only ever add access, never take it away — for a
+  // server-to-server caller the IP entry is the load-bearing one.
+  it("allows a listed IP even when the Origin header is foreign", () => {
+    const c = { allowedOrigins: ["portal.hpam.id"], allowedIps: ["10.0.0.5"] };
+    expect(callerAllowed(c, { host: "evil.example.com", ip: "10.0.0.5" })).toBe(true);
+  });
+  it("allows a listed host even when the IP is not listed", () => {
+    const c = { allowedOrigins: ["portal.hpam.id"], allowedIps: ["10.0.0.5"] };
+    expect(callerAllowed(c, { host: "portal.hpam.id", ip: "203.0.113.9" })).toBe(true);
+  });
+  it("refuses when neither signal matches", () => {
+    const c = { allowedOrigins: ["portal.hpam.id"], allowedIps: ["10.0.0.5"] };
+    expect(callerAllowed(c, { host: "evil.example.com", ip: "203.0.113.9" })).toBe(false);
+  });
   it("does not treat a subnet as a match (exact IPs only)", () => {
     const c = { allowedOrigins: [], allowedIps: ["10.0.0.0"] };
     expect(callerAllowed(c, { host: null, ip: "10.0.0.5" })).toBe(false);

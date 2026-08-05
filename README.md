@@ -83,6 +83,14 @@ git push --follow-tags
 Tags created in the GitHub UI work the same — `./scripts/redeploy.sh` fetches
 tags before building. Details in `docs/DEPLOY.md`.
 
+## Public API
+
+A read-only REST surface at `/api/public/v1` lets another backend read testing
+progress and issue status — IT Portal uses it to show development progress to
+non-QA users. Keys are issued by a super admin under Settings → Public API and
+are restricted by app id plus an origin/IP allow-list. Contract and field
+shapes: `docs/API_PUBLIC.md`.
+
 ## Deploy (PM2)
 
 On the server (Node ≥20, Postgres reachable, `npm i -g pm2`):

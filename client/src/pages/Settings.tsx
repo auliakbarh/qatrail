@@ -6,6 +6,7 @@ import { CHANGE_PASSWORD } from "../graphql";
 import {
   USERS, CREATE_USER, UPDATE_USER, DELETE_USER, RESET_USER_PASSWORD,
   SETTING, UPDATE_SETTING, TEST_DISCORD, SLA_TARGETS, UPDATE_SLA_TARGET, AUDIT_LOGS,
+  PUBLIC_API_CLIENTS, CREATE_PUBLIC_API_CLIENT, UPDATE_PUBLIC_API_CLIENT, REVOKE_PUBLIC_API_CLIENT,
 } from "../graphql/admin";
 import { useAuth } from "../store/auth";
 import { cn, fmtDateTime } from "../lib/utils";
@@ -22,7 +23,13 @@ export default function Settings() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
-  const tabs = ["password", ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "audit"] : [])];
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const tabs = [
+    "password",
+    ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "audit"] : []),
+    // Public API keys read across every project, so they stay super-admin only.
+    ...(isSuperAdmin ? ["apiKeys"] : []),
+  ];
   const [tab, setTab] = useState("password");
   const tabLabels: Record<string, string> = {
     password: t("set.tabPassword"),
@@ -32,6 +39,7 @@ export default function Settings() {
     sla: t("set.tabSla"),
     discord: t("set.tabDiscord"),
     audit: t("set.tabAudit"),
+    apiKeys: t("set.tabApiKeys"),
   };
 
   return (
@@ -57,6 +65,7 @@ export default function Settings() {
       {tab === "discord" && isAdmin && <SettingCard kind="discord" />}
       {tab === "sla" && isAdmin && <SlaCard />}
       {tab === "audit" && isAdmin && <AuditCard />}
+      {tab === "apiKeys" && isSuperAdmin && <PublicApiCard />}
     </div>
   );
 }
@@ -493,6 +502,159 @@ function SlaCard() {
         </table>
       </div>
     </Card>
+  );
+}
+
+// Public API clients (server/src/publicApi, docs/API_PUBLIC.md). The raw key
+// exists only in the mutation response — it is never stored, so it is shown
+// once and copied from here.
+function PublicApiCard() {
+  const { t } = useTranslation();
+  const { data } = useQuery(PUBLIC_API_CLIENTS, { fetchPolicy: "cache-and-network" });
+  const [createClient] = useMutation(CREATE_PUBLIC_API_CLIENT, { refetchQueries: [PUBLIC_API_CLIENTS] });
+  const [updateClient] = useMutation(UPDATE_PUBLIC_API_CLIENT, { refetchQueries: [PUBLIC_API_CLIENTS] });
+  const [revokeClient] = useMutation(REVOKE_PUBLIC_API_CLIENT, { refetchQueries: [PUBLIC_API_CLIENTS] });
+  const [form, setForm] = useState<{ appId: string; name: string; origins: string; ips: string } | null>(null);
+  const [issued, setIssued] = useState<string | null>(null);
+  const [del, setDel] = useState<{ id: string; appId: string } | null>(null);
+  const rows = data?.publicApiClients ?? [];
+
+  const list = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
+
+  const submit = async () => {
+    if (!form) return;
+    const res = await withToast(
+      createClient({
+        variables: { input: { appId: form.appId, name: form.name, allowedOrigins: list(form.origins), allowedIps: list(form.ips) } },
+      }),
+      t("api.created"),
+      t("api.createFail"),
+    );
+    if (!res) return;
+    const key = res.data?.createPublicApiClient?.key ?? null;
+    setIssued(key);
+    setForm(null);
+    if (key) await copyWithToast(key, t("set.tabApiKeys"));
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card
+        title={t("set.tabApiKeys")}
+        action={
+          <IconBtn title={t("api.add")} onClick={() => setForm({ appId: "", name: "", origins: "", ips: "" })}>
+            <Plus className="size-4" />
+          </IconBtn>
+        }
+      >
+        <p className="px-3 pb-2 text-xs text-muted-foreground">{t("api.intro")}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("api.appId")}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("api.name")}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("api.origins")}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("api.ips")}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("api.lastUsed")}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("api.active")}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={7} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("api.empty")}</td></tr>
+              )}
+              {rows.map((c: any) => (
+                <tr key={c.id} className="border-b border-border/50 last:border-0">
+                  <td className="px-3 py-2 font-mono text-xs">{c.appId}</td>
+                  <td className="px-3 py-2 text-xs">{c.name}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{c.allowedOrigins.join(", ") || "—"}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{c.allowedIps.join(", ") || "—"}</td>
+                  <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+                    {c.lastUsedAt ? fmtDateTime(c.lastUsedAt) : t("api.never")}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={c.active}
+                      onChange={() =>
+                        withToast(
+                          updateClient({ variables: { id: c.id, input: { active: !c.active } } }),
+                          t("api.updated"),
+                          t("api.updateFail"),
+                        )
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <IconBtn title={t("c.delete")} onClick={() => setDel({ id: c.id, appId: c.appId })}>
+                      <Trash2 className="size-4" />
+                    </IconBtn>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {issued && (
+        <Card
+          title={t("api.created")}
+          action={
+            <IconBtn title={t("c.copy")} onClick={() => void copyWithToast(issued, t("set.tabApiKeys"))}>
+              <KeyRound className="size-4" />
+            </IconBtn>
+          }
+        >
+          <p className="break-all px-3 py-2 font-mono text-xs">{issued}</p>
+        </Card>
+      )}
+
+      {form && (
+        <Card title={t("api.add")}>
+          <div className="space-y-3 p-3">
+            <Field label={t("api.appId")}>
+              <input className={inputCls} value={form.appId} onChange={(e) => setForm({ ...form, appId: e.target.value })} />
+            </Field>
+            <Field label={t("api.name")}>
+              <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </Field>
+            <Field label={t("api.origins")}>
+              <input className={inputCls} value={form.origins} onChange={(e) => setForm({ ...form, origins: e.target.value })} />
+              <p className="text-xs text-muted-foreground">{t("api.originsHint")}</p>
+            </Field>
+            <Field label={t("api.ips")}>
+              <input className={inputCls} value={form.ips} onChange={(e) => setForm({ ...form, ips: e.target.value })} />
+              <p className="text-xs text-muted-foreground">{t("api.ipsHint")}</p>
+            </Field>
+            <div className="flex gap-2">
+              <button
+                className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                disabled={!form.appId.trim() || !form.name.trim() || (!list(form.origins).length && !list(form.ips).length)}
+                onClick={submit}
+              >
+                {t("c.save")}
+              </button>
+              <button className="rounded border border-border px-3 py-1.5 text-xs" onClick={() => setForm(null)}>
+                {t("c.cancel")}
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <DeleteConfirm
+        open={!!del}
+        onClose={() => setDel(null)}
+        onConfirm={() =>
+          del && withToast(revokeClient({ variables: { id: del.id } }), t("api.revoked"), t("api.revokeFail"))
+        }
+        label={del?.appId ?? ""}
+        note={t("api.revokeNote")}
+      />
+    </div>
   );
 }
 

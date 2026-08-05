@@ -22,9 +22,11 @@ let appTestNumber = 0;
 let sessionNumber = 0;
 let issueNumber = 0;
 
+const BASE_PATH = "/api/public/v1";
+
 /** fetch against the test server with the headers the contract requires. */
 async function call(path: string, headers: Record<string, string> = {}) {
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetch(`${baseUrl}${BASE_PATH}${path}`, {
     headers: { "x-api-key": rawKey, "x-app-id": APP_ID, origin: "https://portal.hpam.id", ...headers },
   });
   return { status: res.status, body: (await res.json()) as any, cacheControl: res.headers.get("cache-control") };
