@@ -64,6 +64,7 @@ export const NOTIFIABLE = new Set(Object.keys(LABELS));
 // they never join NOTIFIABLE — nothing here is a GraphQL field.
 const EVENT_LABELS: Record<string, string> = {
   jiraCommentFailed: "⚠️ JIRA comment failed",
+  ssoUserProvisioned: "👤 New account from Microsoft sign-in",
 };
 
 export interface DiscordDetail {

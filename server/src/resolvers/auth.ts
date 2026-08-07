@@ -6,6 +6,8 @@ import { assertStrongPassword } from "../passwordPolicy.js";
 import { assertNotLocked, recordFailure, recordSuccess, assertWithinRate } from "../rateLimit.js";
 import { sendPasswordResetEmail } from "../mail.js";
 import { verifyMicrosoftToken } from "../sso.js";
+import { notifyAdmins } from "../notify.js";
+import { notifyDiscord } from "../discord.js";
 import { env, hasJiraCreds } from "../env.js";
 import { API_VERSION } from "../env.public.js";
 
@@ -68,6 +70,7 @@ export const authResolvers = {
       const identity = await verifyMicrosoftToken(args.idToken);
       const email = identity.email.trim().toLowerCase();
       let user = await ctx.prisma.user.findUnique({ where: { email } });
+      const provisioned = !user;
       if (!user) {
         const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
         if (s?.ssoAutoProvision) {
@@ -90,6 +93,21 @@ export const authResolvers = {
       const sid = crypto.randomUUID();
       await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });
       const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
+
+      // The audit plugin in index.ts only covers NOTIFIABLE mutations, and it
+      // reads the actor off the request context — which is empty here, because
+      // signing in is what creates the identity. So trace it from the resolver.
+      // One row per sign-in; a provisioned account says so instead of logging twice.
+      const action = provisioned ? "ssoUserProvisioned" : "microsoftLogin";
+      void ctx.prisma.auditLog
+        .create({ data: { action, entityId: user.id, label: email, actor: user.name, actorId: user.id } })
+        .catch(() => {});
+      if (provisioned) {
+        // A new account appeared without an admin creating it — say so loudly.
+        const msg = `New Viewer account created from Microsoft sign-in: ${user.name} (${email})`;
+        void notifyAdmins("SSO_USER_CREATED", msg);
+        void notifyDiscord("ssoUserProvisioned", user.name, { name: email, note: "Role: VIEWER (read-only)" });
+      }
       return { token, user };
     },
 

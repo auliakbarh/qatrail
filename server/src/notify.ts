@@ -116,6 +116,16 @@ export async function notifyTestCaseApprovers(
   );
 }
 
+// Fan a notification out to every active admin (account/security events — QA has
+// nothing to act on there, unlike notifyQaAdmins).
+export async function notifyAdmins(kind: string, message: string): Promise<void> {
+  const users = await prisma.user.findMany({
+    where: { active: true, role: { in: ["ADMIN", "SUPER_ADMIN"] } },
+    select: { id: true },
+  });
+  await Promise.all(users.map((u) => notify(u.id, kind, message)));
+}
+
 // Broadcast to every active user (e.g. a new user-test credential), except the actor.
 export async function notifyAll(
   kind: string,
