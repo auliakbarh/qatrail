@@ -60,6 +60,12 @@ const LABELS: Record<string, string> = {
 // user management, settings, and notification reads.
 export const NOTIFIABLE = new Set(Object.keys(LABELS));
 
+// Non-mutation events that reuse the same embed. Deliberately outside LABELS so
+// they never join NOTIFIABLE — nothing here is a GraphQL field.
+const EVENT_LABELS: Record<string, string> = {
+  jiraCommentFailed: "⚠️ JIRA comment failed",
+};
+
 export interface DiscordDetail {
   name?: string | null; // entity name/title
   note?: string | null; // reason / note / clarification
@@ -73,9 +79,9 @@ export async function notifyDiscord(field: string, actor: string | null, detail:
   try {
     const s = await prisma.setting.findUnique({ where: { id: "singleton" } });
     if (!s?.discordEnabled || !s.discordWebhookUrl) return;
-    const title = LABELS[field] ?? field;
+    const title = LABELS[field] ?? EVENT_LABELS[field] ?? field;
     // Pick an accent color by action kind for quick scanning.
-    const color = field.startsWith("delete") || field === "issueReject"
+    const color = EVENT_LABELS[field] || field.startsWith("delete") || field === "issueReject"
       ? 0xe03131 // red
       : field.startsWith("create") || field === "issueSolve"
         ? 0x2f9e44 // green

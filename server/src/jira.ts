@@ -3,8 +3,22 @@
 // degrades gracefully (returns null) when credentials are absent.
 import { env, hasJiraCreds } from "./env.js";
 import { logger } from "./logger.js";
+import { notifyDiscord } from "./discord.js";
 
 const log = logger.child({ mod: "jira" });
+
+// A JIRA post failing is silent otherwise: both callers just get null and carry
+// on, so the comment is simply missing. Report it on the same Discord webhook as
+// the mutations. Fire-and-forget like notifyDiscord itself — never throws.
+// ponytail: reuses the mutation embed; `field` is not a real mutation name, so
+// it falls through to the raw-name title.
+function reportJiraFailure(op: string, jiraKey: string, reason: string): void {
+  void notifyDiscord("jiraCommentFailed", "system", {
+    name: jiraKey,
+    note: reason.slice(0, 512),
+    extra: [{ name: "Operation", value: op }],
+  });
+}
 
 function authHeader(): string {
   return "Basic " + Buffer.from(`${env.jira.email}:${env.jira.apiToken}`).toString("base64");
@@ -111,10 +125,16 @@ export async function addComment(jiraKey: string, adf: object): Promise<string |
       headers: { Authorization: authHeader(), Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ body: adf }),
     });
-    if (!res.ok) { log.warn({ status: res.status, jiraKey }, "jira addComment failed"); return null; }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      log.warn({ status: res.status, jiraKey, body }, "jira addComment failed");
+      reportJiraFailure("addComment", jiraKey, `HTTP ${res.status} ${body}`);
+      return null;
+    }
     return (await res.json())?.id ?? null;
   } catch (err) {
     log.error({ err, jiraKey }, "jira addComment error");
+    reportJiraFailure("addComment", jiraKey, String(err));
     return null;
   }
 }
@@ -128,10 +148,16 @@ export async function updateComment(jiraKey: string, commentId: string, adf: obj
       headers: { Authorization: authHeader(), Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ body: adf }),
     });
-    if (!res.ok) { log.warn({ status: res.status, jiraKey }, "jira updateComment failed"); return null; }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      log.warn({ status: res.status, jiraKey, body }, "jira updateComment failed");
+      reportJiraFailure("updateComment", jiraKey, `HTTP ${res.status} ${body}`);
+      return null;
+    }
     return (await res.json())?.id ?? commentId;
   } catch (err) {
     log.error({ err, jiraKey }, "jira updateComment error");
+    reportJiraFailure("updateComment", jiraKey, String(err));
     return null;
   }
 }
