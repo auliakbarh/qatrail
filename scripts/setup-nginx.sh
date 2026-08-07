@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Write + enable the nginx site for QATrail (qatrail.hpam.id). Serves the static
-# client from WEB_ROOT and proxies /graphql (HTTP + WebSocket) to the API.
+# client from WEB_ROOT and proxies /graphql (HTTP + WebSocket) plus /api/public/
+# (HTTP only) to the API.
 # TLS uses the existing hpam wildcard cert. Re-runnable.
 #
 # Usage:
@@ -51,6 +52,16 @@ server {
 
     root $WEB_ROOT;
     index index.html;
+
+    # Read-only public API (server-to-server; docs/API_PUBLIC.md). Must reach the
+    # API, not the SPA fallback. X-Forwarded-For is required: the IP allow-list
+    # reads req.ip, and without it every caller looks like nginx.
+    location /api/public/ {
+        proxy_pass http://127.0.0.1:$API_PORT/api/public/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
 
     location /graphql {
         proxy_pass http://127.0.0.1:$API_PORT/graphql;
