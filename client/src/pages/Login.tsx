@@ -29,8 +29,8 @@ export default function Login() {
     if (!ssoEnabled) return;
     let cancelled = false;
     (async () => {
-      const { msalRedirectIdToken } = await import("../lib/msal");
-      const idToken = await msalRedirectIdToken;
+      const { takeRedirectIdToken } = await import("../lib/msal");
+      const idToken = await takeRedirectIdToken();
       if (!idToken || cancelled) return;
       setMsBusy(true);
       try {

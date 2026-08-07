@@ -15,15 +15,25 @@ const msal = new PublicClientApplication({
   cache: { cacheLocation: "sessionStorage" },
 });
 
-/** The id token when this page load is the Entra redirect callback, else null. */
-export const msalRedirectIdToken = msal
+let pending: Promise<string | null> = msal
   .initialize()
   .then(() => msal.handleRedirectPromise())
   .then((r) => r?.idToken ?? null)
   .catch(() => null);
 
+/**
+ * The id token when this page load is the Entra redirect callback, else null.
+ * Consumed once: logging out is a client-side navigate, not a reload, so a
+ * token left resolved here would sign the user straight back in.
+ */
+export async function takeRedirectIdToken(): Promise<string | null> {
+  const token = await pending;
+  pending = Promise.resolve(null);
+  return token;
+}
+
 export async function loginWithMicrosoft(): Promise<void> {
-  await msalRedirectIdToken; // ensure initialize() + any pending redirect settled
+  await pending; // ensure initialize() + any pending redirect settled
   // The server verifies the id token, not a Graph access token — these scopes are
   // only what makes Entra mint an id token with an email claim.
   await msal.loginRedirect({ scopes: ["openid", "profile", "email"] });

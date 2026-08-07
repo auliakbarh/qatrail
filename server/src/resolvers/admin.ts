@@ -91,6 +91,7 @@ export const adminResolvers = {
           discordWebhookUrl: null,
           autoApproveNewHours: null,
           autoApproveChangeHours: null,
+          ssoAutoProvision: false,
         }
       );
     },
@@ -175,6 +176,7 @@ export const adminResolvers = {
         "discordWebhookUrl",
         "autoApproveNewHours",
         "autoApproveChangeHours",
+        "ssoAutoProvision",
       ]) {
         if (args.input[k] !== undefined) data[k] = args.input[k];
       }

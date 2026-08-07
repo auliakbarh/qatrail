@@ -715,6 +715,11 @@ model Setting {
   // (edit/move/copy/delete/activate/deactivate) are configured separately.
   autoApproveNewHours    Int?
   autoApproveChangeHours Int?
+  // Microsoft SSO for an email with no User row: false = refuse (an admin must
+  // create the account first), true = create it as VIEWER (read-only) on first
+  // sign-in. Off by default — auto-provision hands an account to anyone in the
+  // tenant, which is a policy call, not a default.
+  ssoAutoProvision   Boolean  @default(false)
   updatedAt          DateTime @updatedAt
 }
 

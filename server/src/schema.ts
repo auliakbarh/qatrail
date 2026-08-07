@@ -241,6 +241,9 @@ export const typeDefs = /* GraphQL */ `
     # activate / deactivate.
     autoApproveNewHours: Int
     autoApproveChangeHours: Int
+    # Microsoft SSO for an unknown email: false = refuse, true = create the user
+    # as VIEWER (read-only) on first sign-in.
+    ssoAutoProvision: Boolean!
   }
 
   # Server-to-server consumer of the read-only public API (docs/API_PUBLIC.md).
@@ -305,6 +308,7 @@ export const typeDefs = /* GraphQL */ `
     discordWebhookUrl: String
     autoApproveNewHours: Int
     autoApproveChangeHours: Int
+    ssoAutoProvision: Boolean
   }
 
   input IssueFilter {

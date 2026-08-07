@@ -60,12 +60,32 @@ export const authResolvers = {
       const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
       return { token, user };
     },
-    // Microsoft Entra SSO login. Prepared: verifyMicrosoftToken fails closed
-    // until Entra is wired. Only pre-created, active users may sign in (email match).
+    // Microsoft Entra SSO login. The email must match a User row — unless the
+    // admin turned on `ssoAutoProvision`, which creates unknown tenant users as
+    // VIEWER (read-only) on first sign-in. Either way the role comes from us,
+    // never from Entra.
     async microsoftLogin(_: unknown, args: { idToken: string }, ctx: Context) {
       const identity = await verifyMicrosoftToken(args.idToken);
       const email = identity.email.trim().toLowerCase();
-      const user = await ctx.prisma.user.findUnique({ where: { email } });
+      let user = await ctx.prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
+        if (s?.ssoAutoProvision) {
+          // upsert, not create: two tabs signing in at once would race a create.
+          user = await ctx.prisma.user.upsert({
+            where: { email },
+            update: {},
+            create: {
+              email,
+              name: identity.name?.trim() || email,
+              role: "VIEWER",
+              authProvider: "SSO",
+              // No password to change — this account can only ever sign in via SSO.
+              mustChangePassword: false,
+            },
+          });
+        }
+      }
       if (!user || !user.active) throw new Error("No account for this Microsoft user. Contact an admin.");
       const sid = crypto.randomUUID();
       await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });

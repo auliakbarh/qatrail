@@ -26,7 +26,7 @@ export default function Settings() {
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const tabs = [
     "password",
-    ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "jira", "audit"] : []),
+    ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "jira", "sso", "audit"] : []),
     // Public API keys read across every project, so they stay super-admin only.
     ...(isSuperAdmin ? ["apiKeys"] : []),
   ];
@@ -39,6 +39,7 @@ export default function Settings() {
     sla: t("set.tabSla"),
     discord: t("set.tabDiscord"),
     jira: t("set.tabJira"),
+    sso: t("set.tabSso"),
     audit: t("set.tabAudit"),
     apiKeys: t("set.tabApiKeys"),
   };
@@ -65,6 +66,7 @@ export default function Settings() {
       {tab === "maintenance" && isAdmin && <SettingCard kind="maintenance" />}
       {tab === "discord" && isAdmin && <SettingCard kind="discord" />}
       {tab === "jira" && isAdmin && <JiraCard />}
+      {tab === "sso" && isAdmin && <SsoCard />}
       {tab === "sla" && isAdmin && <SlaCard />}
       {tab === "audit" && isAdmin && <AuditCard />}
       {tab === "apiKeys" && isSuperAdmin && <PublicApiCard />}
@@ -373,6 +375,48 @@ function ApprovalSettingCard() {
           disabled={loading}
           className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
+          {t("c.save")}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+// Whether Microsoft SSO is on at all is an env decision (MS_SSO_ENABLED, read
+// from health); the only thing an admin picks here is what happens to a tenant
+// user who has no account yet.
+function SsoCard() {
+  const { t } = useTranslation();
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  const { data } = useQuery(SETTING);
+  const [updateSetting, { loading }] = useMutation(UPDATE_SETTING, { refetchQueries: [SETTING] });
+  const s = data?.setting;
+  const [local, setLocal] = useState<boolean | null>(null);
+  const autoProvision = local ?? !!s?.ssoAutoProvision;
+
+  const save = async () => {
+    const ok = await withToast(
+      updateSetting({ variables: { input: { ssoAutoProvision: autoProvision } } }),
+      t("t.settingsSaved"),
+      t("t.settingsSaveFail"),
+    );
+    if (ok) setLocal(null);
+  };
+
+  return (
+    <Card title={t("set.ssoTitle")}>
+      <div className="max-w-lg space-y-4">
+        <p className="text-xs text-muted-foreground">
+          {healthData?.health?.ssoEnabled ? t("set.ssoOn") : t("set.ssoOff")}
+        </p>
+        <Field label={t("set.ssoUnknownUser")}>
+          <select className={inputCls} value={autoProvision ? "viewer" : "deny"} onChange={(e) => setLocal(e.target.value === "viewer")}>
+            <option value="deny">{t("set.ssoDeny")}</option>
+            <option value="viewer">{t("set.ssoViewer")}</option>
+          </select>
+        </Field>
+        <p className="text-xs text-muted-foreground">{autoProvision ? t("set.ssoViewerHelp") : t("set.ssoDenyHelp")}</p>
+        <button onClick={save} disabled={loading} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           {t("c.save")}
         </button>
       </div>
