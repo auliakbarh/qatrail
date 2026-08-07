@@ -25,6 +25,7 @@ interface Form {
   minPassPercent: number;
   note: string;
   stakeholders: { value: string }[];
+  jiraTickets: { value: string }[];
 }
 
 export function SessionTestForm({ panel }: { panel: PanelState }) {
@@ -44,9 +45,11 @@ export function SessionTestForm({ panel }: { panel: PanelState }) {
       minPassPercent: 100,
       note: "",
       stakeholders: [],
+      jiraTickets: [],
     },
   });
   const stakeholders = useFieldArray({ control, name: "stakeholders" });
+  const tickets = useFieldArray({ control, name: "jiraTickets" });
   const kind = watch("kind");
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export function SessionTestForm({ panel }: { panel: PanelState }) {
         minPassPercent: s.minPassPercent,
         note: s.note ?? "",
         stakeholders: (s.stakeholders ?? []).map((v: string) => ({ value: v })),
+        jiraTickets: (s.jiraTickets ?? []).map((v: string) => ({ value: v })),
       });
     }
   }, [editing, stData, reset]);
@@ -81,6 +85,7 @@ export function SessionTestForm({ panel }: { panel: PanelState }) {
       kindOther: v.kind === "OTHER" ? v.kindOther.trim() : null,
       stakeholders: v.stakeholders.map((s) => s.value.trim()).filter(Boolean),
       minPassPercent: Number(v.minPassPercent),
+      jiraTickets: v.jiraTickets.map((x) => x.value.trim()).filter(Boolean),
       note: v.note || null,
     };
     const ok = editing
@@ -156,6 +161,33 @@ export function SessionTestForm({ panel }: { panel: PanelState }) {
           />
           <p className="text-xs text-muted-foreground">{t("st.minPassPercentHint")}</p>
         </Field>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">
+              {t("at.jiraTickets")} <span className="font-normal text-muted-foreground">({t("c.optional")})</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => tickets.append({ value: "" })}
+              className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
+            >
+              <Plus className="h-3 w-3" /> {t("at.ticket")}
+            </button>
+          </div>
+          {tickets.fields.map((f, i) => (
+            <div key={f.id} className="flex items-center gap-2">
+              <input className={inputCls} placeholder="e.g. CAI-652" {...register(`jiraTickets.${i}.value` as const)} />
+              <button
+                type="button"
+                onClick={() => tickets.remove(i)}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border hover:bg-muted"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+
         <Field label={t("c.note")} optional>
           <textarea className={inputCls} rows={2} {...register("note")} />
         </Field>

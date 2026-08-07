@@ -11,7 +11,8 @@ vi.mock("./discord.js", async (orig) => ({
   ...(await orig<typeof import("./discord.js")>()),
   notifyDiscord: (...a: unknown[]) => notifyDiscord(...a),
 }));
-const { addComment, testJira, postedFooter, issueMarkdown, upsertComment } = await import("./jira.js");
+const { addComment, testJira, postedFooter, issueMarkdown, upsertComment, upsertCommentsFor, appTestMarkdown, sessionTestMarkdown } =
+  await import("./jira.js");
 const { NOTIFIABLE } = await import("./discord.js");
 
 // 07 Aug 2026 09:12 UTC = 16:12 in Jakarta (UTC+7), so the footer must not print 09:12.
@@ -86,6 +87,70 @@ describe("re-post when our comment was deleted in JIRA", () => {
     });
     expect(await upsertComment("CAI-652", "old-1", { type: "doc" })).toBe("old-1");
     expect(methods).toEqual(["PUT"]); // no second call
+  });
+});
+
+describe("several tickets on one entity", () => {
+  beforeEach(() => notifyDiscord.mockClear());
+
+  // Reply per (method, url) so each ticket can behave differently.
+  const stub = (reply: (method: string, url: string) => Response) =>
+    vi.stubGlobal("fetch", async (u: string, init: RequestInit) => reply(init.method ?? "GET", u));
+
+  it("edits the remembered comment per ticket and creates for a new one", async () => {
+    const calls: string[] = [];
+    stub((m, u) => {
+      calls.push(`${m} ${u.split("/comment")[1] || "new"}`);
+      return Response.json({ id: m === "PUT" ? "kept" : "fresh" });
+    });
+    const next = await upsertCommentsFor(["CAI-1", "CAI-2"], { "CAI-1": "old-1" }, { type: "doc" });
+    expect(next).toEqual({ "CAI-1": "kept", "CAI-2": "fresh" });
+    expect(calls).toEqual(["PUT /old-1", "POST new"]);
+  });
+
+  it("forgets a ticket JIRA refused, keeping the ones that worked", async () => {
+    stub((_m, u) => (u.includes("CAI-2") ? new Response("nope", { status: 403 }) : Response.json({ id: "ok" })));
+    const next = await upsertCommentsFor(["CAI-1", "CAI-2"], {}, { type: "doc" });
+    expect(next).toEqual({ "CAI-1": "ok" });
+  });
+
+  it("drops a ticket that is no longer in the list", async () => {
+    stub(() => Response.json({ id: "ok" }));
+    const next = await upsertCommentsFor(["CAI-1"], { "CAI-1": "a", "CAI-OLD": "b" }, { type: "doc" });
+    expect(next).toEqual({ "CAI-1": "ok" });
+  });
+});
+
+describe("what the comments contain", () => {
+  const APP = {
+    url: "https://qa.test/app-tests/1", key: "APP-7", status: "PASSED", projectName: "P",
+    environment: "STAGING", platform: "ANDROID", creatorName: "C", downloadLink: "https://d",
+    createdAt: BY.at, passPercent: 90, assignedCount: 10, issueCount: 2, postedBy: BY,
+  };
+
+  it("app test carries the build verdict but no per-case rows", () => {
+    const md = appTestMarkdown(APP);
+    expect(md).toContain("APP-7");
+    expect(md).toContain("90%");
+    expect(md).toContain("| Test cases | 10 |");
+    expect(md).not.toContain("Test case results");
+  });
+
+  it("session carries its own details and the apps, but no per-case rows", () => {
+    const md = sessionTestMarkdown({
+      url: "https://qa.test/session-tests/1", key: "ST-3", kindLabel: "UAT", status: "PASSED",
+      projectName: "P", creatorName: "C", testedAt: BY.at, stakeholders: ["Ops"],
+      minPassPercent: 80, passPercent: 95, caseCount: 20, recordCount: 21, issueCount: 1,
+      summary: "Signed off", apps: [{ name: "MyHero", environment: "STAGING", platform: "ANDROID", versionFe: "1.2.0", versionBe: null }],
+      postedBy: BY,
+    });
+    expect(md).toContain("ST-3");
+    expect(md).toContain("95% (target 80%)");
+    expect(md).toContain("Signed off");
+    expect(md).toContain("MyHero");
+    expect(md).toContain("1.2.0");
+    expect(md).not.toContain("Test case results");
+    expect(md).toContain("16:12 WIB");
   });
 });
 

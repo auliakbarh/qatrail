@@ -6,7 +6,7 @@ const SESSION_APP_FIELDS = `
 
 const SESSION_FIELDS = `
   id key projectId projectName testedAt kind kindOther kindLabel stakeholders
-  minPassPercent note summary status passPercent issueCount caseCount recordCount
+  minPassPercent jiraTickets note summary status passPercent issueCount caseCount recordCount
   coverage { total passed percent }
   closedAt createdAt updatedAt
   createdBy { id name }
@@ -71,6 +71,11 @@ export const CREATE_SESSION_TEST = gql`
 export const UPDATE_SESSION_TEST = gql`
   mutation UpdateSessionTest($id: ID!, $input: SessionTestInput!) {
     updateSessionTest(id: $id, input: $input) { id }
+  }
+`;
+export const POST_SESSION_TEST_TO_JIRA = gql`
+  mutation PostSessionTestToJira($id: ID!) {
+    postSessionTestToJira(id: $id) { id }
   }
 `;
 export const DELETE_SESSION_TEST = gql`

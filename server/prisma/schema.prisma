@@ -498,6 +498,10 @@ model AppTest {
   downloadLink   String
   note           String?
   jiraTickets    String[]
+  // Ticket key -> the comment we posted there, so a re-post edits instead of
+  // stacking duplicates. A plain map because the ticket list is editable and a
+  // parallel array would drift out of step with it.
+  jiraCommentIds Json?
   status         AppTestStatus @default(OPEN)
   passedAt       DateTime?
   closedAt       DateTime?
@@ -531,6 +535,8 @@ model SessionTest {
   kindOther      String? // required when kind = OTHER
   stakeholders   String[]
   minPassPercent Int         @default(0) // agreed go/no-go threshold, 0..100
+  jiraTickets    String[]
+  jiraCommentIds Json? // ticket key -> our comment id, same as AppTest
   note           String?
   summary        String? // filled when QA closes the session
   closedAt       DateTime?

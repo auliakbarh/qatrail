@@ -4,6 +4,8 @@ import { requireAuth, requireQA } from "../context.js";
 import { assertAllApproved } from "./testcase.js";
 import { LIVE_TEST_CASE } from "../approval.js";
 import { sessionTestCoverage } from "../coverage.js";
+import { env } from "../env.js";
+import { toADF, upsertCommentsFor, sessionTestMarkdown } from "../jira.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
@@ -37,6 +39,7 @@ interface SessionTestInput {
   kindOther?: string | null;
   stakeholders: string[];
   minPassPercent: number;
+  jiraTickets?: string[] | null;
   note?: string | null;
 }
 
@@ -77,6 +80,7 @@ function scalarData(input: SessionTestInput) {
     kindOther,
     stakeholders: input.stakeholders.map((s) => s.trim()).filter(Boolean),
     minPassPercent: input.minPassPercent,
+    jiraTickets: (input.jiraTickets ?? []).map((s) => s.trim().toUpperCase()).filter(Boolean),
     note: input.note?.trim() || null,
   };
 }
@@ -367,6 +371,68 @@ export const sessionTestResolvers = {
       await notifyQaAdmins("SESSION_TEST_CLOSED", msg, undefined, user.id, st.id);
       await notifyWatchers("SESSION_TEST", st.id, "SESSION_TEST_CLOSED", msg, { sessionTestId: st.id }, user.id);
       return updated;
+    },
+
+    // Post the session's own details to each linked ticket. Per-case results are
+    // left out on purpose (they live in QATrail); the apps under test stay,
+    // because which builds were signed off is part of the session itself.
+    // Re-posting edits the comment we left before, creating a new one only if it
+    // is gone — see upsertCommentsFor.
+    async postSessionTestToJira(_: unknown, args: { id: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const st = await ctx.prisma.sessionTest.findUnique({
+        where: { id: args.id },
+        include: { createdBy: true, project: true, apps: { orderBy: { createdAt: "asc" } } },
+      });
+      if (!st) throw new Error("Session test not found");
+      const tickets = (st.jiraTickets ?? []).map((k) => k.trim().toUpperCase()).filter(Boolean);
+      if (!tickets.length) throw new Error("No JIRA tickets linked to this testing session.");
+
+      const caseCount = await ctx.prisma.sessionTestCase.count({ where: { sessionTestId: st.id } });
+      const recordCount = await ctx.prisma.recordTest.count({ where: { sessionTestId: st.id } });
+      const issueCount = await ctx.prisma.issue.count({ where: { sessionTestId: st.id } });
+      const cov = await sessionTestCoverage(st.id);
+      const status = deriveSessionStatus({
+        closed: !!st.closedAt,
+        caseCount,
+        coveragePercent: caseCount > 0 ? cov.percent : 0,
+        minPassPercent: st.minPassPercent,
+        activity: caseCount > 0 ? recordCount + issueCount : 0,
+      });
+
+      const adf = toADF(
+        sessionTestMarkdown({
+          url: `${env.frontendBaseUrl}/session-tests/${st.id}`,
+          key: `ST-${st.number}`,
+          kindLabel: st.kind === "OTHER" ? (st.kindOther ?? "OTHER") : st.kind,
+          status,
+          projectName: st.project.name,
+          creatorName: st.createdBy.name,
+          testedAt: st.testedAt,
+          stakeholders: st.stakeholders,
+          minPassPercent: st.minPassPercent,
+          passPercent: cov.percent,
+          caseCount,
+          recordCount,
+          issueCount,
+          closedAt: st.closedAt,
+          summary: st.summary,
+          note: st.note,
+          apps: st.apps.map((a) => ({
+            name: a.name,
+            environment: a.environment ?? "—",
+            platform: a.platform ?? "—",
+            versionFe: a.versionFe,
+            versionBe: a.versionBe,
+          })),
+          postedBy: { name: user.name, email: user.email, at: new Date() },
+        }),
+      );
+      const posted = await upsertCommentsFor(tickets, st.jiraCommentIds, adf);
+      if (!Object.keys(posted).length) {
+        throw new Error("Failed to post to JIRA (check credentials / ticket keys).");
+      }
+      return ctx.prisma.sessionTest.update({ where: { id: st.id }, data: { jiraCommentIds: posted } });
     },
   },
 

@@ -271,6 +271,26 @@ export async function upsertComment(
   return addComment(jiraKey, adf);
 }
 
+/**
+ * Same re-post for an entity that carries several tickets (app test, session).
+ * `prev` is the stored ticket -> comment map; the returned map replaces it and
+ * only holds tickets JIRA accepted, so a ticket that was removed from the list
+ * or refused stops being remembered.
+ */
+export async function upsertCommentsFor(
+  tickets: string[],
+  prev: unknown,
+  adf: object,
+): Promise<Record<string, string>> {
+  const before = (prev ?? {}) as Record<string, string>;
+  const next: Record<string, string> = {};
+  for (const key of tickets) {
+    const id = await upsertComment(key, before[key] ?? null, adf);
+    if (id) next[key] = id;
+  }
+  return next;
+}
+
 export interface IssueComment {
   url: string; // deep link to the issue in this app
   type: string;
@@ -310,7 +330,6 @@ export interface AppTestComment {
   issueCount: number;
   note?: string | null;
   postedBy: PostedBy;
-  cases: { key: string; name: string; feature: string; status: string; issueCount: number }[];
 }
 
 export function appTestMarkdown(c: AppTestComment): string {
@@ -337,16 +356,71 @@ export function appTestMarkdown(c: AppTestComment): string {
     `| --- | --- |`,
     ...rows.map(([k, v]) => `| ${cell(k)} | ${cell(v)} |`),
   ];
-  if (c.cases.length) {
+  // Per-case results are deliberately left out: the ticket wants the build's
+  // verdict, and the case list belongs in QATrail where it stays current.
+  if (c.note) md.push("", `**Note**`, c.note);
+  md.push("", postedFooter(c.postedBy, c.url));
+  return md.join("\n");
+}
+
+export interface SessionTestComment {
+  url: string; // deep link to the session in this app
+  key: string; // ST-<n>
+  kindLabel: string; // SIT / UAT / free text
+  status: string;
+  projectName: string;
+  creatorName: string;
+  testedAt: Date;
+  stakeholders: string[];
+  minPassPercent: number;
+  passPercent: number;
+  caseCount: number;
+  recordCount: number;
+  issueCount: number;
+  closedAt?: Date | null;
+  summary?: string | null;
+  note?: string | null;
+  apps: { name: string; environment: string; platform: string; versionFe?: string | null; versionBe?: string | null }[];
+  postedBy: PostedBy;
+}
+
+export function sessionTestMarkdown(c: SessionTestComment): string {
+  const cell = (s: string) => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+  const rows = [
+    ["Project", c.projectName],
+    ["Kind", c.kindLabel],
+    ["Status", c.status],
+    ["Tested at", c.testedAt.toISOString()],
+    ["Run by", c.creatorName],
+    ...(c.stakeholders.length ? [["Stakeholders", c.stakeholders.join(", ")]] : []),
+    ["Pass rate", `${c.passPercent}% (target ${c.minPassPercent}%)`],
+    ["Test cases", String(c.caseCount)],
+    ["Runs recorded", String(c.recordCount)],
+    ["Issues", String(c.issueCount)],
+    ...(c.closedAt ? [["Closed at", c.closedAt.toISOString()]] : []),
+  ];
+  const md = [
+    `## 🧪 Testing session ${cell(c.key)} — ${cell(c.kindLabel)}`,
+    "",
+    `| Field | Value |`,
+    `| --- | --- |`,
+    ...rows.map(([k, v]) => `| ${cell(k)} | ${cell(v)} |`),
+  ];
+  // The apps under test are part of the session's identity (which builds were
+  // signed off), unlike the per-case results, which stay in QATrail.
+  if (c.apps.length) {
     md.push(
       "",
-      `**Test case results (${c.cases.length})**`,
+      `**Apps under test (${c.apps.length})**`,
       "",
-      `| Test case | Feature | Status | Issues |`,
-      `| --- | --- | --- | --- |`,
-      ...c.cases.map((r) => `| ${cell(r.key)} — ${cell(r.name)} | ${cell(r.feature)} | ${cell(r.status)} | ${r.issueCount} |`),
+      `| App | Environment | Platform | FE | BE |`,
+      `| --- | --- | --- | --- | --- |`,
+      ...c.apps.map((a) =>
+        `| ${cell(a.name)} | ${cell(a.environment)} | ${cell(a.platform)} | ${cell(a.versionFe ?? "—")} | ${cell(a.versionBe ?? "—")} |`,
+      ),
     );
   }
+  if (c.summary) md.push("", `**Summary**`, c.summary);
   if (c.note) md.push("", `**Note**`, c.note);
   md.push("", postedFooter(c.postedBy, c.url));
   return md.join("\n");

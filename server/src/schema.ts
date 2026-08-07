@@ -644,6 +644,7 @@ export const typeDefs = /* GraphQL */ `
     kindLabel: String!        # "SIT" / "UAT" / the free-text label
     stakeholders: [String!]!
     minPassPercent: Int!
+    jiraTickets: [String!]!
     note: String
     summary: String
     status: SessionTestStatus!
@@ -694,6 +695,7 @@ export const typeDefs = /* GraphQL */ `
     kindOther: String
     stakeholders: [String!]!
     minPassPercent: Int!
+    jiraTickets: [String!]
     note: String
   }
 
@@ -872,6 +874,8 @@ export const typeDefs = /* GraphQL */ `
     unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
     closeAppTestTesting(appTestId: ID!): AppTest!
     postAppTestToJira(id: ID!): AppTest!
+    "Post the session's details to every linked ticket; a re-post edits the same comment."
+    postSessionTestToJira(id: ID!): SessionTest!
     # Admin-only: move an app test to another project. Its assignments point at
     # the old project's test cases, so DROP releases them, CLONE copies them over.
     moveAppTestProject(id: ID!, projectId: ID!, mode: MoveAssignmentMode!): AppTest!

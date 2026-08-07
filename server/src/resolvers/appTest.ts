@@ -9,7 +9,7 @@ import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notifyQaAdmins, notifyWatchers } from "../notify.js";
 import { env } from "../env.js";
-import { toADF, addComment, appTestMarkdown } from "../jira.js";
+import { toADF, upsertCommentsFor, appTestMarkdown } from "../jira.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -338,8 +338,9 @@ export const appTestResolvers = {
       await recomputeAppTest(args.appTestId);
       return ctx.prisma.appTest.findUnique({ where: { id: args.appTestId } });
     },
-    // Post a formatted comment (all app-test details + poster identity) to each
-    // linked JIRA ticket. Only works when tickets are linked.
+    // Post a formatted comment (app-test details + poster identity) to each
+    // linked JIRA ticket. Re-posting edits the comment we left there before, so
+    // pressing the button twice does not stack duplicates on the ticket.
     async postAppTestToJira(_: unknown, args: { id: string }, ctx: Context) {
       const user = await requireEngineerOrAdmin(ctx);
       const at = await ctx.prisma.appTest.findUnique({
@@ -350,7 +351,6 @@ export const appTestResolvers = {
       const tickets = (at.jiraTickets ?? []).map((k) => k.trim().toUpperCase()).filter(Boolean);
       if (!tickets.length) throw new Error("No JIRA tickets linked to this app test.");
       const cov = await appTestCoverage(at.id);
-      const rows: any[] = await appTestResolvers.Query.assignedTestCases(_, { appTestId: at.id }, ctx);
       const issueCount = await ctx.prisma.issue.count({ where: { appTestId: at.id } });
       const adf = toADF(
         appTestMarkdown({
@@ -367,25 +367,17 @@ export const appTestResolvers = {
           createdAt: at.createdAt,
           doneAt: at.closedAt ?? at.passedAt,
           passPercent: cov.percent,
-          assignedCount: rows.length,
+          assignedCount: cov.total,
           issueCount,
           note: at.note,
           postedBy: { name: user.name, email: user.email, at: new Date() },
-          cases: rows.map((r) => ({
-            key: `TC-${r.testCase.number}`,
-            name: r.testCase.name,
-            feature: r.featureName,
-            status: r.status,
-            issueCount: r.issueCount,
-          })),
         }),
       );
-      // ponytail: one fresh comment per ticket each call. AppTest has no
-      // jiraCommentId column, so no idempotent edit — add one if duplicate
-      // comments on re-post become a problem.
-      const posted = await Promise.all(tickets.map((k) => addComment(k, adf)));
-      if (!posted.some(Boolean)) throw new Error("Failed to post to JIRA (check credentials / ticket keys).");
-      return at;
+      const posted = await upsertCommentsFor(tickets, at.jiraCommentIds, adf);
+      if (!Object.keys(posted).length) {
+        throw new Error("Failed to post to JIRA (check credentials / ticket keys).");
+      }
+      return ctx.prisma.appTest.update({ where: { id: at.id }, data: { jiraCommentIds: posted } });
     },
   },
 

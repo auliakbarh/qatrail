@@ -2,7 +2,7 @@ import { useState, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Printer, Link2, PlayCircle } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Printer, Link2, PlayCircle, Send } from "lucide-react";
 import {
   SESSION_TEST,
   SESSION_TESTS,
@@ -13,8 +13,10 @@ import {
   UNASSIGN_SESSION_TEST_CASE,
   ASSIGN_SESSION_TEST_CASES,
   SESSION_ASSIGNABLE_TEST_CASES,
+  POST_SESSION_TEST_TO_JIRA,
 } from "../graphql/sessiontest";
 import { ANALYTICS } from "../graphql/analytics";
+import { HEALTH } from "../graphql";
 import { useNav, drillPath } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { canManageContent } from "../lib/perm";
@@ -25,6 +27,7 @@ import { DeleteConfirm } from "../components/DeleteConfirm";
 import { CoverageBar } from "../components/CoverageBar";
 import { CommentsCard } from "../components/CommentsCard";
 import { WatchButton } from "../components/WatchButton";
+import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
@@ -78,6 +81,8 @@ export default function SessionTestDetail() {
   const [deleteSession] = useMutation(DELETE_SESSION_TEST, {
     refetchQueries: [{ query: SESSION_TESTS, variables: { projectId: null } }],
   });
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  const [postToJira, { loading: posting }] = useMutation(POST_SESSION_TEST_TO_JIRA);
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("tcKey");
@@ -126,6 +131,7 @@ export default function SessionTestDetail() {
 
   const canEdit = s.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const apps = s.apps ?? [];
+  const tickets = s.jiraTickets ?? [];
   const rows0 = (tcData?.sessionTestCases ?? []).map((r: any) => ({
     ...r,
     tcKey: r.testCase.key,
@@ -179,6 +185,12 @@ export default function SessionTestDetail() {
             </div>
             <div className="flex items-center gap-1.5">
               <WatchButton target="SESSION_TEST" targetId={id} />
+              {tickets.length > 0 && healthData?.health?.jiraConfigured && (
+                <IconBtn title={posting ? t("jira.posting") : t("at.postToJira")} allowed={manage}
+                  onClick={() => withToast(postToJira({ variables: { id } }), t("t.jiraPosted"), t("t.jiraPostFail"))}>
+                  <Send className="h-3.5 w-3.5" />
+                </IconBtn>
+              )}
               <IconBtn title={t("st.exportSignOff")} onClick={() => printSessionSignOff(s, apps, rows0, records, user?.name ?? "")}>
                 <Printer className="h-3.5 w-3.5" />
               </IconBtn>
@@ -200,6 +212,7 @@ export default function SessionTestDetail() {
             <Info label={t("st.minPassPercent")} value={`${s.minPassPercent}%`} />
             <Info label={t("st.closedAt")} value={s.closedAt ? fmt(s.closedAt) : "—"} />
             <Info label={t("at.issues")} value={s.issueCount} />
+            <Info label={t("at.jiraTickets")} value={<JiraTicketLinks tickets={tickets} baseUrl={healthData?.health?.jiraBaseUrl} />} />
             <div className="col-span-2">
               <div className="text-muted-foreground">{t("st.passPercent")}</div>
               <CoverageBar percent={s.passPercent} min={s.minPassPercent} ready={s.passPercent >= s.minPassPercent} />
