@@ -11,7 +11,7 @@ vi.mock("./discord.js", async (orig) => ({
   ...(await orig<typeof import("./discord.js")>()),
   notifyDiscord: (...a: unknown[]) => notifyDiscord(...a),
 }));
-const { addComment, testJira, postedFooter, issueMarkdown } = await import("./jira.js");
+const { addComment, testJira, postedFooter, issueMarkdown, upsertComment } = await import("./jira.js");
 const { NOTIFIABLE } = await import("./discord.js");
 
 // 07 Aug 2026 09:12 UTC = 16:12 in Jakarta (UTC+7), so the footer must not print 09:12.
@@ -46,6 +46,46 @@ describe("jira comment failure -> discord", () => {
 
   it("keeps the event out of NOTIFIABLE — it is not a mutation", () => {
     expect(NOTIFIABLE.has("jiraCommentFailed")).toBe(false);
+  });
+});
+
+describe("re-post when our comment was deleted in JIRA", () => {
+  beforeEach(() => notifyDiscord.mockClear());
+
+  // PUT on a deleted comment 404s; the re-post must still land as a new comment.
+  const deletedThenCreated = () =>
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) =>
+      init.method === "PUT" ? new Response("gone", { status: 404 }) : Response.json({ id: "new-1" }),
+    );
+
+  it("falls back to a fresh comment", async () => {
+    deletedThenCreated();
+    expect(await upsertComment("CAI-652", "old-1", { type: "doc" })).toBe("new-1");
+  });
+
+  it("does not alert Discord — a deleted comment is recoverable", async () => {
+    deletedThenCreated();
+    await upsertComment("CAI-652", "old-1", { type: "doc" });
+    expect(notifyDiscord).not.toHaveBeenCalled();
+  });
+
+  it("still alerts when the edit fails for a real reason", async () => {
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) =>
+      init.method === "PUT" ? new Response("no permission", { status: 403 }) : Response.json({ id: "new-1" }),
+    );
+    expect(await upsertComment("CAI-652", "old-1", { type: "doc" })).toBe("new-1");
+    expect(notifyDiscord).toHaveBeenCalledTimes(1);
+    expect(notifyDiscord.mock.calls[0][2].note).toContain("403");
+  });
+
+  it("edits in place when the comment is still there", async () => {
+    const methods: (string | undefined)[] = [];
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) => {
+      methods.push(init.method);
+      return Response.json({ id: "old-1" });
+    });
+    expect(await upsertComment("CAI-652", "old-1", { type: "doc" })).toBe("old-1");
+    expect(methods).toEqual(["PUT"]); // no second call
   });
 });
 

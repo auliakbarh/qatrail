@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Archive, ArchiveRestore, Copy, Printer, FileText } from "lucide-react";
-import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA } from "../../graphql/issue";
+import { ArrowLeft, Archive, ArchiveRestore, Copy, Printer, FileText, Trash2 } from "lucide-react";
+import { ISSUE, ISSUES, POST_ISSUE_TO_JIRA, UNLINK_ISSUE_JIRA } from "../../graphql/issue";
 import { HEALTH } from "../../graphql";
 import {
   ISSUE_ACCEPT,
@@ -25,6 +25,8 @@ import { withToast, useToast, copyWithToast } from "../../store/toast";
 import { AttachmentList } from "../../components/AttachmentList";
 import { CommentsCard } from "../../components/CommentsCard";
 import { WatchButton } from "../../components/WatchButton";
+import { JiraTicketLinks } from "../../components/JiraTicketLinks";
+import { IconBtn } from "../../components/IconBtn";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -46,6 +48,9 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const [modal, setModal] = useState<null | "reject" | "clarify" | "clarifyRespond" | "reopen" | "reopenClosed">(null);
   const [jiraKey, setJiraKey] = useState("");
   const [postToJira, { loading: posting }] = useMutation(POST_ISSUE_TO_JIRA, {
+    refetchQueries: [{ query: ISSUE, variables: { id } }],
+  });
+  const [unlinkJira] = useMutation(UNLINK_ISSUE_JIRA, {
     refetchQueries: [{ query: ISSUE, variables: { id } }],
   });
 
@@ -160,7 +165,24 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-sm font-semibold">{t("jira.title")}</h3>
-            {i.jiraKey && <Badge variant="outline">{t("jira.linked", { key: i.jiraKey })}</Badge>}
+            {i.jiraKey && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {t("jira.linked")}{" "}
+                  <span className="ml-1">
+                    <JiraTicketLinks tickets={[i.jiraKey]} baseUrl={healthData?.health?.jiraBaseUrl} />
+                  </span>
+                </Badge>
+                <IconBtn
+                  title={t("jira.unlink")}
+                  onClick={() =>
+                    withToast(unlinkJira({ variables: { id } }), t("t.jiraUnlinked"), t("t.jiraUnlinkFail"))
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </IconBtn>
+              </div>
+            )}
           </div>
           <div className="px-5 py-4">
             {healthData?.health?.jiraConfigured ? (

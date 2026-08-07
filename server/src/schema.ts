@@ -852,6 +852,8 @@ export const typeDefs = /* GraphQL */ `
     # Re-point a finding at an app test or a testing session (pass neither to unlink).
     setIssueScope(id: ID!, appTestId: ID, sessionTestId: ID): Issue!
     postIssueToJira(id: ID!, jiraKey: String!): Issue!
+    "Forget the linked ticket/comment. The comment on the JIRA ticket is left in place."
+    unlinkIssueJira(id: ID!): Issue!
 
     bulkArchiveIssues(ids: [ID!]!, archived: Boolean!): Int!
     bulkAssignIssues(ids: [ID!]!, assigneeId: ID!): Int!

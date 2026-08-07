@@ -5,7 +5,7 @@ import { env } from "../env.js";
 import { notify, notifyWatchers } from "../notify.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { assertApproved } from "./testcase.js";
-import { toADF, addComment, updateComment, issueMarkdown } from "../jira.js";
+import { toADF, upsertComment, issueMarkdown } from "../jira.js";
 import { cachedSlaTargets, classifyResolve, slaApplies, canMarkProductionIssue, resolveProductionFlag } from "../sla.js";
 
 type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV" | "PDF" | "OTHER";
@@ -297,14 +297,26 @@ export const issueResolvers = {
         }),
       );
       // Edit the same comment if we posted before to this key; else create.
-      const commentId =
-        issue.jiraCommentId && issue.jiraKey === jiraKey
-          ? await updateComment(jiraKey, issue.jiraCommentId, adf)
-          : await addComment(jiraKey, adf);
+      const commentId = await upsertComment(
+        jiraKey,
+        issue.jiraKey === jiraKey ? issue.jiraCommentId : null,
+        adf,
+      );
       if (!commentId) throw new Error("Failed to post to JIRA (check credentials / ticket key).");
       return ctx.prisma.issue.update({
         where: { id: issue.id },
         data: { jiraKey, jiraCommentId: commentId },
+      });
+    },
+
+    // Drop the JIRA link. The comment already on the ticket is left alone —
+    // this only forgets which ticket/comment we own, so a wrong key can be
+    // corrected and the next post starts a fresh comment.
+    async unlinkIssueJira(_: unknown, args: { id: string }, ctx: Context) {
+      await requireQA(ctx);
+      return ctx.prisma.issue.update({
+        where: { id: args.id },
+        data: { jiraKey: null, jiraCommentId: null },
       });
     },
   },

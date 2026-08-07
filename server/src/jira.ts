@@ -238,7 +238,10 @@ export async function updateComment(jiraKey: string, commentId: string, adf: obj
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       log.warn({ status: res.status, jiraKey, body }, "jira updateComment failed");
-      reportJiraFailure("updateComment", jiraKey, `HTTP ${res.status} ${body}`);
+      // 404 = the comment we remember is gone (deleted in JIRA). That is a
+      // recoverable state upsertComment handles by posting a fresh one, so it
+      // must not raise an alert; anything else is a real problem.
+      if (res.status !== 404) reportJiraFailure("updateComment", jiraKey, `HTTP ${res.status} ${body}`);
       return null;
     }
     return (await res.json())?.id ?? commentId;
@@ -247,6 +250,25 @@ export async function updateComment(jiraKey: string, commentId: string, adf: obj
     reportJiraFailure("updateComment", jiraKey, String(err));
     return null;
   }
+}
+
+/**
+ * Re-post: edit the comment we wrote before, or create a fresh one when that
+ * edit can't land. Someone deleting our comment in JIRA must not leave the
+ * issue permanently unable to re-post, so the create is the fallback rather
+ * than an error. Returns the id to store, or null when JIRA refused both.
+ */
+export async function upsertComment(
+  jiraKey: string,
+  commentId: string | null,
+  adf: object,
+): Promise<string | null> {
+  if (commentId) {
+    const id = await updateComment(jiraKey, commentId, adf);
+    if (id) return id;
+    log.info({ jiraKey, commentId }, "jira comment gone — posting a new one");
+  }
+  return addComment(jiraKey, adf);
 }
 
 export interface IssueComment {

@@ -112,3 +112,8 @@ export const POST_ISSUE_TO_JIRA = gql`
     postIssueToJira(id: $id, jiraKey: $jiraKey) { id jiraKey jiraCommentId }
   }
 `;
+export const UNLINK_ISSUE_JIRA = gql`
+  mutation UnlinkIssueJira($id: ID!) {
+    unlinkIssueJira(id: $id) { id jiraKey jiraCommentId }
+  }
+`;
