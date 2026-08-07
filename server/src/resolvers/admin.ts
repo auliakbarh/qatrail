@@ -3,6 +3,7 @@ import { requireAdmin } from "../context.js";
 import { hashPassword } from "../auth.js";
 import { generatePassword } from "../genPassword.js";
 import { sendDiscordTest } from "../discord.js";
+import { testJira } from "../jira.js";
 import { requireSuperAdmin } from "../context.js";
 import { generateKey, hashKey } from "../publicApi/keys.js";
 
@@ -187,6 +188,11 @@ export const adminResolvers = {
     async testDiscord(_: unknown, args: { url: string }, ctx: Context) {
       await requireAdmin(ctx);
       return sendDiscordTest(args.url);
+    },
+
+    async testJira(_: unknown, args: { jiraKey?: string | null }, ctx: Context) {
+      await requireAdmin(ctx);
+      return testJira(args.jiraKey);
     },
 
     async updateSlaTarget(

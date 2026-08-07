@@ -24,6 +24,18 @@ function authHeader(): string {
   return "Basic " + Buffer.from(`${env.jira.email}:${env.jira.apiToken}`).toString("base64");
 }
 
+// JIRA localises error bodies to the authenticating account's profile language
+// unless asked otherwise, which is how a failure reached Discord in Chinese.
+// Pin English so the alert is readable regardless of whose token is configured.
+function headers(): Record<string, string> {
+  return {
+    Authorization: authHeader(),
+    Accept: "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Content-Type": "application/json",
+  };
+}
+
 /** Squad code = the ticket-key prefix (ATH-901 -> ATH). "" if no dash. */
 export function squadFromKey(jiraKey: string): string {
   const m = jiraKey.trim().toUpperCase().match(/^([A-Z]+)-\d+/);
@@ -116,13 +128,62 @@ export function toADF(text: string): object {
 
 const base = () => env.jira.baseUrl.replace(/\/+$/, "");
 
+export interface JiraTestResult {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * Admin connectivity check. Without a ticket key it only asks JIRA who the
+ * configured credentials belong to; with one it also posts a throwaway comment,
+ * so an admin can prove the whole path (auth + project permission + ADF) works
+ * without inventing an Issue first.
+ */
+export async function testJira(jiraKey?: string | null): Promise<JiraTestResult> {
+  if (!hasJiraCreds()) {
+    return { ok: false, message: "JIRA is not configured (JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN)." };
+  }
+  let who: string;
+  try {
+    const res = await fetch(`${base()}/rest/api/3/myself`, { headers: headers() });
+    if (!res.ok) {
+      const body = (await res.text().catch(() => "")).slice(0, 200);
+      log.warn({ status: res.status }, "jira test auth failed");
+      return { ok: false, message: `Authentication failed — HTTP ${res.status}. ${body}` };
+    }
+    const me = await res.json();
+    who = `${me?.displayName ?? "unknown"} (${me?.emailAddress ?? "no email"})`;
+  } catch (err) {
+    log.error({ err }, "jira test auth error");
+    return { ok: false, message: `Could not reach ${base()} — ${String(err)}` };
+  }
+  const key = (jiraKey ?? "").trim().toUpperCase();
+  if (!key) return { ok: true, message: `Connected to ${base()} as ${who}.` };
+
+  const id = await addComment(key, toADF(TEST_COMMENT_MD));
+  return id
+    ? { ok: true, message: `Connected as ${who}. Test comment ${id} posted to ${key}.` }
+    : {
+        ok: false,
+        // addComment already logged the JIRA body and fired the Discord alert.
+        message: `Connected as ${who}, but posting to ${key} failed. Check the key and your project permission — the JIRA error is in the server log and the Discord alert.`,
+      };
+}
+
+const TEST_COMMENT_MD = [
+  "**QA Reporting — connection test**",
+  "",
+  "Sent from the admin settings page to verify the JIRA integration.",
+  "Safe to delete.",
+].join("\n");
+
 /** Create a comment. Returns comment id or null. */
 export async function addComment(jiraKey: string, adf: object): Promise<string | null> {
   if (!hasJiraCreds()) return null;
   try {
     const res = await fetch(`${base()}/rest/api/3/issue/${encodeURIComponent(jiraKey)}/comment`, {
       method: "POST",
-      headers: { Authorization: authHeader(), Accept: "application/json", "Content-Type": "application/json" },
+      headers: headers(),
       body: JSON.stringify({ body: adf }),
     });
     if (!res.ok) {
@@ -145,7 +206,7 @@ export async function updateComment(jiraKey: string, commentId: string, adf: obj
   try {
     const res = await fetch(`${base()}/rest/api/3/issue/${encodeURIComponent(jiraKey)}/comment/${commentId}`, {
       method: "PUT",
-      headers: { Authorization: authHeader(), Accept: "application/json", "Content-Type": "application/json" },
+      headers: headers(),
       body: JSON.stringify({ body: adf }),
     });
     if (!res.ok) {

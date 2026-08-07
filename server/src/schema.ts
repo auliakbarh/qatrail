@@ -44,6 +44,11 @@ export const typeDefs = /* GraphQL */ `
     ssoEnabled: Boolean!
   }
 
+  type JiraTestResult {
+    ok: Boolean!
+    message: String!
+  }
+
   type Coverage {
     total: Int!
     passed: Int!
@@ -896,6 +901,8 @@ export const typeDefs = /* GraphQL */ `
 
     updateSetting(input: SettingInput!): Setting!
     testDiscord(url: String!): Boolean!
+    "Check the JIRA credentials; with a ticket key it also posts a throwaway comment there."
+    testJira(jiraKey: String): JiraTestResult!
     updateSlaTarget(priority: Priority!, respondMins: Int, resolveMins: Int!): SlaTargetType!
 
     createPublicApiClient(input: PublicApiClientInput!): CreatePublicApiClientResult!

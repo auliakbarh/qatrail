@@ -29,6 +29,7 @@ export const UPDATE_SETTING = gql`
   }
 `;
 export const TEST_DISCORD = gql`mutation($url: String!){ testDiscord(url:$url) }`;
+export const TEST_JIRA = gql`mutation($jiraKey: String){ testJira(jiraKey:$jiraKey){ ok message } }`;
 
 export const SLA_TARGETS = gql`
   query SlaTargets {

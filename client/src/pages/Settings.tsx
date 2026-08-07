@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation, Trans } from "react-i18next";
 import { Plus, Trash2, KeyRound } from "lucide-react";
-import { CHANGE_PASSWORD } from "../graphql";
+import { CHANGE_PASSWORD, HEALTH } from "../graphql";
 import {
   USERS, CREATE_USER, UPDATE_USER, DELETE_USER, RESET_USER_PASSWORD,
-  SETTING, UPDATE_SETTING, TEST_DISCORD, SLA_TARGETS, UPDATE_SLA_TARGET, AUDIT_LOGS,
+  SETTING, UPDATE_SETTING, TEST_DISCORD, TEST_JIRA, SLA_TARGETS, UPDATE_SLA_TARGET, AUDIT_LOGS,
   PUBLIC_API_CLIENTS, CREATE_PUBLIC_API_CLIENT, UPDATE_PUBLIC_API_CLIENT, REVOKE_PUBLIC_API_CLIENT,
 } from "../graphql/admin";
 import { useAuth } from "../store/auth";
@@ -26,7 +26,7 @@ export default function Settings() {
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const tabs = [
     "password",
-    ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "audit"] : []),
+    ...(isAdmin ? ["users", "approval", "maintenance", "sla", "discord", "jira", "audit"] : []),
     // Public API keys read across every project, so they stay super-admin only.
     ...(isSuperAdmin ? ["apiKeys"] : []),
   ];
@@ -38,6 +38,7 @@ export default function Settings() {
     maintenance: t("set.tabMaintenance"),
     sla: t("set.tabSla"),
     discord: t("set.tabDiscord"),
+    jira: t("set.tabJira"),
     audit: t("set.tabAudit"),
     apiKeys: t("set.tabApiKeys"),
   };
@@ -63,6 +64,7 @@ export default function Settings() {
       {tab === "approval" && isAdmin && <ApprovalSettingCard />}
       {tab === "maintenance" && isAdmin && <SettingCard kind="maintenance" />}
       {tab === "discord" && isAdmin && <SettingCard kind="discord" />}
+      {tab === "jira" && isAdmin && <JiraCard />}
       {tab === "sla" && isAdmin && <SlaCard />}
       {tab === "audit" && isAdmin && <AuditCard />}
       {tab === "apiKeys" && isSuperAdmin && <PublicApiCard />}
@@ -437,6 +439,71 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
             className="rounded border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
           >
             {t("set.testSend")}
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// JIRA has no editable setting — credentials live in server/.env — so this card
+// is purely a connectivity check: who the token authenticates as, and (with a
+// ticket key) whether a comment actually lands.
+function JiraCard() {
+  const { t } = useTranslation();
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  const [testJira, { loading }] = useMutation(TEST_JIRA);
+  const [jiraKey, setJiraKey] = useState("");
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const configured = healthData?.health?.jiraConfigured;
+
+  const run = async (withKey: boolean) => {
+    setResult(null);
+    try {
+      const r = await testJira({ variables: { jiraKey: withKey ? jiraKey.trim() : null } });
+      setResult(r.data?.testJira ?? null);
+    } catch (e: any) {
+      setResult({ ok: false, message: e?.message ?? String(e) });
+    }
+  };
+
+  return (
+    <Card title={t("set.jiraTitle")}>
+      <div className="max-w-lg space-y-4">
+        <Field label={t("set.jiraServer")}>
+          <input className={inputCls} value={healthData?.health?.jiraBaseUrl ?? t("set.jiraNoServer")} readOnly disabled />
+        </Field>
+        {!configured && <p className="text-xs text-muted-foreground">{t("set.jiraNotConfigured")}</p>}
+        <Field label={t("set.jiraTicketKey")} optional>
+          <input
+            className={inputCls}
+            placeholder="e.g. CAI-652"
+            value={jiraKey}
+            onChange={(e) => setJiraKey(e.target.value)}
+          />
+        </Field>
+        <p className="text-xs text-muted-foreground">{t("set.jiraHelp")}</p>
+        {loading && <p className="text-xs">{t("set.sending")}</p>}
+        {result && !loading && (
+          <p className={cn("text-xs", result.ok ? "text-green-600" : "text-destructive")}>
+            {result.ok ? "✅ " : "❌ "}
+            {result.message}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            onClick={() => run(false)}
+            disabled={!configured || loading}
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {t("set.jiraTestConn")}
+          </button>
+          <button
+            onClick={() => run(true)}
+            disabled={!configured || loading || !jiraKey.trim()}
+            className="rounded border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+          >
+            {t("set.jiraTestComment")}
           </button>
         </div>
       </div>
