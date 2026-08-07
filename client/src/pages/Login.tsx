@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client";
 import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { LOGIN, HEALTH } from "../graphql";
+import { LOGIN, MICROSOFT_LOGIN, HEALTH } from "../graphql";
 import { useAuth } from "../store/auth";
 import { PasswordInput } from "../components/PasswordInput";
 
@@ -21,8 +21,50 @@ export default function Login() {
   const { data: health } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const ssoEnabled = !!health?.health?.ssoEnabled;
   const [error, setError] = useState<string | null>(null);
+  const [msBusy, setMsBusy] = useState(false);
+  const [microsoftLogin] = useMutation(MICROSOFT_LOGIN);
+
+  // Entra redirect callback: msal hands back an id token, the server verifies it.
+  useEffect(() => {
+    if (!ssoEnabled) return;
+    let cancelled = false;
+    (async () => {
+      const { msalRedirectIdToken } = await import("../lib/msal");
+      const idToken = await msalRedirectIdToken;
+      if (!idToken || cancelled) return;
+      setMsBusy(true);
+      try {
+        const res = await microsoftLogin({ variables: { idToken } });
+        const payload = res.data?.microsoftLogin;
+        if (payload) {
+          signIn(payload.token, payload.user);
+          navigate("/");
+        }
+      } catch (e: any) {
+        setError(e?.message ?? t("login.error"));
+      } finally {
+        if (!cancelled) setMsBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ssoEnabled, microsoftLogin, signIn, navigate, t]);
 
   if (user) return <Navigate to="/" replace />;
+
+  const onMicrosoft = async () => {
+    setError(null);
+    setMsBusy(true);
+    try {
+      const { loginWithMicrosoft } = await import("../lib/msal");
+      await loginWithMicrosoft();
+      // Page navigates away to Microsoft — nothing below runs on success.
+    } catch (e: any) {
+      setError(e?.message ?? t("login.error"));
+      setMsBusy(false);
+    }
+  };
 
   const onSubmit = async (values: Form) => {
     setError(null);
@@ -74,11 +116,11 @@ export default function Login() {
           </button>
           <button
             type="button"
-            disabled={!ssoEnabled}
-            onClick={() => setError(t("login.ssoNotReady"))}
+            disabled={!ssoEnabled || msBusy}
+            onClick={onMicrosoft}
             className="flex w-full items-center justify-center gap-2 rounded border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-60 disabled:hover:bg-transparent"
           >
-            {t("login.microsoft")}
+            {msBusy ? t("login.redirecting") : t("login.microsoft")}
             {!ssoEnabled && (
               <span className="rounded border border-border px-1.5 py-0.5 text-[10px]">{t("login.soon")}</span>
             )}

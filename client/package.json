@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@apollo/client": "^3.11.10",
+    "@azure/msal-browser": "^5.18.0",
     "clsx": "^2.1.1",
     "graphql": "^16.9.0",
     "graphql-ws": "^6.0.8",
