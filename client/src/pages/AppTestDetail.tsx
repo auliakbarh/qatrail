@@ -17,6 +17,7 @@ import { DeleteConfirm } from "../components/DeleteConfirm";
 import { Modal } from "../components/Modal";
 import { CoverageBar } from "../components/CoverageBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
+import { usePageState, paged, Pager } from "../components/Pager";
 import { CommentsCard } from "../components/CommentsCard";
 import { WatchButton } from "../components/WatchButton";
 import { searchRows, sortRows, groupRows } from "../lib/list";
@@ -71,6 +72,7 @@ export default function AppTestDetail() {
       next.has(label) ? next.delete(label) : next.add(label);
       return next;
     });
+  const pg = usePageState();
   const [del, setDel] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(false);
@@ -127,7 +129,8 @@ export default function AppTestDetail() {
     (r: any) => (!fFeature || r.featureName === fFeature) && (!fStatus || r.status === fStatus) && (!fQa || r.qaName === fQa),
   );
   const rows = sortRows(searchRows(filtered, search, ["tcKey", "tcName", "featureName", "qaName"]), sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const pageRows = paged(rows, pg);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
   // Selection is over what's currently listed, so a filtered "select all" means
   // what it looks like.
   const selectedRows = rows.filter((r: any) => selected.has(r.testCase.id));
@@ -353,6 +356,7 @@ export default function AppTestDetail() {
                 </tbody>
               </table>
             </div>
+            <Pager total={rows.length} st={pg} />
           </div>
         </div>
 

@@ -22,6 +22,7 @@ import { gapLabel, waitedFor } from "../../lib/approval";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
+import { usePageState, paged, Pager } from "../../components/Pager";
 import { AttachmentList } from "../../components/AttachmentList";
 import { CommentsCard } from "../../components/CommentsCard";
 import { WatchButton } from "../../components/WatchButton";
@@ -430,10 +431,13 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
   const { goIssue } = useDrill();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
   const [del, setDel] = useState<string | null>(null);
+  const pg = usePageState();
   const [deleteRecord] = useMutation(DELETE_RECORD_TEST, {
     refetchQueries: [{ query: RECORD_TESTS, variables: { testCaseId } }],
   });
   const rows = data?.recordTests ?? [];
+  // Pair each row with its overall index so the "#" column keeps counting across pages.
+  const pageRows = paged<[any, number]>(rows.map((r: any, i: number) => [r, i]), pg);
 
   return (
     <div className="overflow-x-auto">
@@ -458,7 +462,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
           {!loading && rows.length === 0 && (
             <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
           )}
-          {rows.map((r: any, idx: number) => (
+          {pageRows.map(([r, idx]: [any, number]) => (
             <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
               <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{r.key}</td>
@@ -496,6 +500,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
           ))}
         </tbody>
       </table>
+      <Pager total={rows.length} st={pg} />
       <DeleteConfirm
         open={!!del}
         onClose={() => setDel(null)}

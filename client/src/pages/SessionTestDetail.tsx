@@ -29,6 +29,7 @@ import { CommentsCard } from "../components/CommentsCard";
 import { WatchButton } from "../components/WatchButton";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { SortableTh, nextSort } from "../components/SortableTh";
+import { usePageState, paged, Pager } from "../components/Pager";
 import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
@@ -91,6 +92,8 @@ export default function SessionTestDetail() {
   const [fFeature, setFFeature] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const pg = usePageState();
+  const recPg = usePageState();
   const [del, setDel] = useState(false);
   // Bulk run: pick rows here, record them in one panel, then walk the issue form
   // over whatever failed.
@@ -145,7 +148,8 @@ export default function SessionTestDetail() {
   const distinct = (k: string) => [...new Set(rows0.map((r: any) => r[k]).filter(Boolean))].sort();
   const filtered = rows0.filter((r: any) => (!fFeature || r.featureName === fFeature) && (!fStatus || r.status === fStatus));
   const rows = sortRows(searchRows(filtered, search, ["tcKey", "tcName", "featureName", "appNames"]), sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const pageRows = paged(rows, pg);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
   // Selection is over what's currently listed, so a filtered "select all" means
   // what it looks like.
   const selectedRows = rows.filter((r: any) => selected.has(r.testCase.id));
@@ -391,6 +395,7 @@ export default function SessionTestDetail() {
                 </tbody>
               </table>
             </div>
+            <Pager total={rows.length} st={pg} />
           </div>
         </div>
 
@@ -413,7 +418,7 @@ export default function SessionTestDetail() {
               </thead>
               <tbody>
                 {records.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">{t("st.noRecords")}</td></tr>}
-                {records.map((r: any) => (
+                {paged(records, recPg).map((r: any) => (
                   <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 font-mono text-xs">{r.key}</td>
                     <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{r.result}</span></td>
@@ -429,6 +434,7 @@ export default function SessionTestDetail() {
                 ))}
               </tbody>
             </table>
+            <Pager total={records.length} st={recPg} />
           </div>
         </div>
 
