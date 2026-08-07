@@ -264,7 +264,7 @@ export const issueResolvers = {
     // Post (or re-post/edit) a formatted comment on a JIRA ticket, containing
     // the issue deep-link + all fields. Idempotent via stored jiraCommentId.
     async postIssueToJira(_: unknown, args: { id: string; jiraKey: string }, ctx: Context) {
-      await requireQA(ctx);
+      const user = await requireQA(ctx);
       const issue = await ctx.prisma.issue.findUnique({
         where: { id: args.id },
         include: { reporter: true, assignee: true },
@@ -293,6 +293,7 @@ export const issueResolvers = {
           expectedResult: issue.expectedResult,
           note: issue.note,
           sessionKey: session ? `ST-${session.number}` : null,
+          postedBy: { name: user.name, email: user.email, at: new Date() },
         }),
       );
       // Edit the same comment if we posted before to this key; else create.

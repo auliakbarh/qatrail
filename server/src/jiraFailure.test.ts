@@ -11,8 +11,11 @@ vi.mock("./discord.js", async (orig) => ({
   ...(await orig<typeof import("./discord.js")>()),
   notifyDiscord: (...a: unknown[]) => notifyDiscord(...a),
 }));
-const { addComment, testJira } = await import("./jira.js");
+const { addComment, testJira, postedFooter, issueMarkdown } = await import("./jira.js");
 const { NOTIFIABLE } = await import("./discord.js");
+
+// 07 Aug 2026 09:12 UTC = 16:12 in Jakarta (UTC+7), so the footer must not print 09:12.
+const BY = { name: "Aulia", email: "it@hpam.co.id", at: new Date("2026-08-07T09:12:00Z") };
 
 describe("jira comment failure -> discord", () => {
   beforeEach(() => notifyDiscord.mockClear());
@@ -46,6 +49,29 @@ describe("jira comment failure -> discord", () => {
   });
 });
 
+describe("comment footer", () => {
+  it("stamps Jakarta time regardless of the server timezone", () => {
+    const f = postedFooter(BY, "https://qa.test/issues/1");
+    expect(f).toContain("Aulia");
+    expect(f).toContain("it@hpam.co.id");
+    expect(f).toContain("7 Aug 2026");
+    expect(f).toContain("16:12 WIB");
+    expect(f).toContain("(https://qa.test/issues/1)");
+  });
+
+  it("rides on the issue comment too, not only the app test one", () => {
+    const md = issueMarkdown({
+      url: "https://qa.test/issues/1",
+      type: "BUG", environment: "STAGING", platform: "ANDROID", priority: "HIGH",
+      testedAt: BY.at, testAccount: "qa@test", reporterName: "R", assigneeName: "A",
+      title: "T", steps: "s", actualResult: "a", expectedResult: "e",
+      postedBy: BY,
+    });
+    expect(md).toContain("16:12 WIB");
+    expect(md).toContain("Open issue in QA Reporting");
+  });
+});
+
 describe("admin JIRA connectivity test", () => {
   beforeEach(() => notifyDiscord.mockClear());
 
@@ -55,7 +81,7 @@ describe("admin JIRA connectivity test", () => {
       seen.push(u);
       return Response.json({ displayName: "QA Bot", emailAddress: "qa@test" });
     });
-    const r = await testJira(null);
+    const r = await testJira(null, BY);
     expect(r.ok).toBe(true);
     expect(r.message).toContain("QA Bot");
     expect(seen).toEqual(["https://jira.test/rest/api/3/myself"]);
@@ -67,7 +93,7 @@ describe("admin JIRA connectivity test", () => {
         ? Response.json({ displayName: "QA Bot", emailAddress: "qa@test" })
         : Response.json({ id: "34088" }),
     );
-    const r = await testJira("cai-652");
+    const r = await testJira("cai-652", BY);
     expect(r.ok).toBe(true);
     expect(r.message).toContain("34088");
     expect(r.message).toContain("CAI-652"); // upper-cased before use
@@ -75,10 +101,23 @@ describe("admin JIRA connectivity test", () => {
 
   it("reports bad credentials without attempting a comment", async () => {
     vi.stubGlobal("fetch", async () => new Response("nope", { status: 401 }));
-    const r = await testJira("CAI-652");
+    const r = await testJira("CAI-652", BY);
     expect(r.ok).toBe(false);
     expect(r.message).toContain("401");
     expect(notifyDiscord).not.toHaveBeenCalled();
+  });
+
+  it("signs the test comment with the admin who pressed the button", async () => {
+    let body = "";
+    vi.stubGlobal("fetch", async (u: string, init: RequestInit) => {
+      if (u.endsWith("/myself")) return Response.json({ displayName: "QA Bot", emailAddress: "qa@test" });
+      body = String(init.body);
+      return Response.json({ id: "1" });
+    });
+    await testJira("CAI-652", BY);
+    expect(body).toContain("Aulia");
+    expect(body).toContain("it@hpam.co.id");
+    expect(body).toContain("16:12"); // Jakarta, not the 09:12 UTC instant
   });
 
   it("asks JIRA for English error bodies", async () => {
@@ -87,7 +126,7 @@ describe("admin JIRA connectivity test", () => {
       lang = (init.headers as Record<string, string>)["Accept-Language"];
       return Response.json({ displayName: "QA Bot", emailAddress: "qa@test" });
     });
-    await testJira(null);
+    await testJira(null, BY);
     expect(lang).toMatch(/^en/);
   });
 });

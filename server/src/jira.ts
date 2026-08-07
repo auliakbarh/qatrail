@@ -128,6 +128,28 @@ export function toADF(text: string): object {
 
 const base = () => env.jira.baseUrl.replace(/\/+$/, "");
 
+/** Who pressed the button in QATrail, for the comment footer. */
+export interface PostedBy {
+  name: string;
+  email: string;
+  at: Date;
+}
+
+/**
+ * Every comment ends with this line. JIRA shows the service account as author
+ * and stamps its own timestamp in each reader's timezone, so without it a
+ * comment cannot be traced to a person or to a moment the team agrees on.
+ * Jakarta is the team's clock — printed reports do the same on the client.
+ */
+export function postedFooter(by: PostedBy, url: string, linkLabel = "QA Reporting"): string {
+  const when = by.at.toLocaleString("en-GB", {
+    timeZone: "Asia/Jakarta",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  return `Posted by **${by.name}** (${by.email}) on ${when} WIB via [${linkLabel}](${url})`;
+}
+
 export interface JiraTestResult {
   ok: boolean;
   message: string;
@@ -139,7 +161,7 @@ export interface JiraTestResult {
  * so an admin can prove the whole path (auth + project permission + ADF) works
  * without inventing an Issue first.
  */
-export async function testJira(jiraKey?: string | null): Promise<JiraTestResult> {
+export async function testJira(jiraKey: string | null | undefined, by: PostedBy): Promise<JiraTestResult> {
   if (!hasJiraCreds()) {
     return { ok: false, message: "JIRA is not configured (JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN)." };
   }
@@ -160,7 +182,7 @@ export async function testJira(jiraKey?: string | null): Promise<JiraTestResult>
   const key = (jiraKey ?? "").trim().toUpperCase();
   if (!key) return { ok: true, message: `Connected to ${base()} as ${who}.` };
 
-  const id = await addComment(key, toADF(TEST_COMMENT_MD));
+  const id = await addComment(key, toADF(testCommentMarkdown(by)));
   return id
     ? { ok: true, message: `Connected as ${who}. Test comment ${id} posted to ${key}.` }
     : {
@@ -170,12 +192,16 @@ export async function testJira(jiraKey?: string | null): Promise<JiraTestResult>
       };
 }
 
-const TEST_COMMENT_MD = [
-  "**QA Reporting — connection test**",
-  "",
-  "Sent from the admin settings page to verify the JIRA integration.",
-  "Safe to delete.",
-].join("\n");
+function testCommentMarkdown(by: PostedBy): string {
+  return [
+    "**QA Reporting — connection test**",
+    "",
+    "Sent from the admin settings page to verify the JIRA integration.",
+    "Safe to delete.",
+    "",
+    postedFooter(by, env.frontendBaseUrl),
+  ].join("\n");
+}
 
 /** Create a comment. Returns comment id or null. */
 export async function addComment(jiraKey: string, adf: object): Promise<string | null> {
@@ -241,6 +267,7 @@ export interface IssueComment {
   expectedResult: string;
   note?: string | null;
   sessionKey?: string | null; // ST-<n> when found in a testing session
+  postedBy: PostedBy;
 }
 
 export interface AppTestComment {
@@ -260,8 +287,7 @@ export interface AppTestComment {
   assignedCount: number;
   issueCount: number;
   note?: string | null;
-  postedByName: string;
-  postedByEmail: string;
+  postedBy: PostedBy;
   cases: { key: string; name: string; feature: string; status: string; issueCount: number }[];
 }
 
@@ -300,7 +326,7 @@ export function appTestMarkdown(c: AppTestComment): string {
     );
   }
   if (c.note) md.push("", `**Note**`, c.note);
-  md.push("", `Posted by **${cell(c.postedByName)}** (${cell(c.postedByEmail)}) via [QA Reporting](${c.url})`);
+  md.push("", postedFooter(c.postedBy, c.url));
   return md.join("\n");
 }
 
@@ -336,6 +362,6 @@ export function issueMarkdown(c: IssueComment): string {
     c.expectedResult,
     ...(c.note ? ["", `**Note**`, c.note] : []),
     "",
-    `[Open issue in QA Reporting](${c.url})`,
+    postedFooter(c.postedBy, c.url, "Open issue in QA Reporting"),
   ].join("\n");
 }

@@ -191,8 +191,8 @@ export const adminResolvers = {
     },
 
     async testJira(_: unknown, args: { jiraKey?: string | null }, ctx: Context) {
-      await requireAdmin(ctx);
-      return testJira(args.jiraKey);
+      const user = await requireAdmin(ctx);
+      return testJira(args.jiraKey, { name: user.name, email: user.email, at: new Date() });
     },
 
     async updateSlaTarget(

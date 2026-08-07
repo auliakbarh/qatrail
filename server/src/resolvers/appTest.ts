@@ -370,8 +370,7 @@ export const appTestResolvers = {
           assignedCount: rows.length,
           issueCount,
           note: at.note,
-          postedByName: user.name,
-          postedByEmail: user.email,
+          postedBy: { name: user.name, email: user.email, at: new Date() },
           cases: rows.map((r) => ({
             key: `TC-${r.testCase.number}`,
             name: r.testCase.name,
