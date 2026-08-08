@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation, Trans } from "react-i18next";
 import { Plus, Trash2, KeyRound, ChevronDown, ChevronRight } from "lucide-react";
@@ -22,6 +22,8 @@ import { copyWithToast, withToast, useToast } from "../store/toast";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
 const ROLES = ["QA", "QA_LEAD", "ENGINEER", "VIEWER", "ADMIN", "SUPER_ADMIN"];
+// Mirrors the check in resolvers/admin.ts — the server is the one that enforces it.
+const DISCORD_WEBHOOK_RE = /^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 // Matches FilterBar's own controls so the row reads as one bar.
 
 export default function Settings() {
@@ -617,6 +619,11 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
       </Card>
     );
   }
+  const url = (v.discordWebhookUrl ?? "").trim();
+  const badUrl = !!url && !DISCORD_WEBHOOK_RE.test(url);
+  const enabledWithoutUrl = !!v.discordEnabled && !url;
+  const blocked = badUrl || enabledWithoutUrl;
+
   return (
     <Card title={t("set.discordTitle")}>
       <div className="max-w-lg space-y-4">
@@ -624,19 +631,26 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
           <input type="checkbox" checked={!!v.discordEnabled} onChange={(e) => set({ discordEnabled: e.target.checked })} /> {t("set.enabled")}
         </label>
         <Field label={t("set.webhookUrl")}>
-          <input className={inputCls} placeholder="https://discord.com/api/webhooks/…" value={v.discordWebhookUrl ?? ""} onChange={(e) => set({ discordWebhookUrl: e.target.value })} />
+          <input
+            className={cn(inputCls, badUrl && "border-destructive")}
+            placeholder="https://discord.com/api/webhooks/…"
+            value={v.discordWebhookUrl ?? ""}
+            onChange={(e) => set({ discordWebhookUrl: e.target.value })}
+          />
+          {badUrl && <p className="text-xs text-destructive">{t("set.webhookInvalid")}</p>}
+          {enabledWithoutUrl && <p className="text-xs text-destructive">{t("set.webhookRequired")}</p>}
         </Field>
         <p className="text-xs text-muted-foreground">{t("set.discordHelp")}</p>
         {testMsg && <p className="text-xs">{testMsg}</p>}
         <div className="flex gap-2">
-          <button onClick={save} disabled={loading} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">{t("c.save")}</button>
+          <button onClick={save} disabled={loading || blocked} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">{t("c.save")}</button>
           <button
             onClick={async () => {
               setTestMsg(t("set.sending"));
-              const r = await testDiscord({ variables: { url: v.discordWebhookUrl } });
+              const r = await testDiscord({ variables: { url } });
               setTestMsg(r.data?.testDiscord ? t("set.testSent") : t("set.testFailed"));
             }}
-            disabled={!v.discordWebhookUrl}
+            disabled={!url || badUrl}
             className="rounded border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
           >
             {t("set.testSend")}
@@ -935,14 +949,11 @@ function PublicApiCard() {
   );
 }
 
+// The exception to the client-side list convention: the trail is never pruned,
+// so search / filter / sort / paging all run on the server. Filtering a fetched
+// page in the browser would only ever search that page.
 function AuditCard() {
   const { t } = useTranslation();
-  // 500 is the server's own cap (resolvers/admin.ts) — ask for all of it, since
-  // search and filter below only ever see what was fetched.
-  // ponytail: client-side filtering over one capped page; move to query args if
-  // the trail ever has to be searched past 500 rows.
-  const { data } = useQuery(AUDIT_LOGS, { variables: { limit: 500 }, fetchPolicy: "cache-and-network" });
-  const all: any[] = data?.auditLogs ?? [];
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("");
   const [actor, setActor] = useState("");
@@ -957,41 +968,58 @@ function AuditCard() {
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+  // Every filter change resets to page 1 — `paged`'s clamp doesn't apply here,
+  // and a stale offset would fetch past the end of the new result set.
+  const setFilter = <T,>(set: (v: T) => void) => (v: T) => { set(v); pg.setPage(1); };
+  // Typing shouldn't fire a query per keystroke now that search hits the DB.
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
 
-  const actions = [...new Set(all.map((r) => r.action))].sort();
-  const actors = [...new Set(all.map((r) => r.actor).filter(Boolean))].sort();
-  // datetime-local yields local wall-clock ("2026-08-08T07:30"); new Date() reads
-  // it as local too, so the comparison matches what the table shows.
-  const fromMs = from ? new Date(from).getTime() : null;
-  const toMs = to ? new Date(to).getTime() : null;
   // An inverted range would silently empty the table; say so and ignore it until
   // it's fixed, rather than showing "no results" for what is really a typo.
-  const badRange = fromMs != null && toMs != null && fromMs > toMs;
-  const rows = sortRows(
-    searchRows(all, search, ["actor", "action", "label", "entityId"])
-      .filter((r) => !action || r.action === action)
-      .filter((r) => !actor || r.actor === actor)
-      .filter((r) => {
-        if (badRange) return true;
-        const at = new Date(r.at).getTime();
-        return (fromMs == null || at >= fromMs) && (toMs == null || at <= toMs);
-      }),
-    sort.key as any,
-    sort.dir,
-  );
-  const page = paged(rows, pg);
+  const badRange = !!from && !!to && new Date(from) > new Date(to);
+  const size = pg.size || 1000; // "show all" — the server still caps the page
+  const { data } = useQuery(AUDIT_LOGS, {
+    fetchPolicy: "cache-and-network",
+    variables: {
+      filter: {
+        search: debounced || null,
+        action: action || null,
+        actor: actor || null,
+        from: badRange || !from ? null : new Date(from).toISOString(),
+        to: badRange || !to ? null : new Date(to).toISOString(),
+      },
+      offset: (pg.page - 1) * size,
+      limit: size,
+      sortKey: sort.key,
+      sortDir: sort.dir,
+    },
+  });
+  const page: any[] = data?.auditLogs?.rows ?? [];
+  const total: number = data?.auditLogs?.total ?? 0;
+  const actions: string[] = data?.auditLogs?.actions ?? [];
+  const actors: string[] = data?.auditLogs?.actors ?? [];
   const th = (label: string, colKey: string) => (
-    <SortableTh label={label} colKey={colKey} sortKey={sort.key} sortDir={sort.dir} onSort={(k) => setSort(nextSort(sort, k))} />
+    <SortableTh
+      label={label}
+      colKey={colKey}
+      sortKey={sort.key}
+      sortDir={sort.dir}
+      onSort={(k) => { setSort(nextSort(sort, k)); pg.setPage(1); }}
+    />
   );
 
   return (
     <Card title={t("set.tabAudit")}>
-      <FilterBar search={search} onSearch={setSearch}>
-        <select value={actor} onChange={(e) => setActor(e.target.value)} className={filterCtl}>
+      <FilterBar search={search} onSearch={setFilter(setSearch)}>
+        <select value={actor} onChange={(e) => setFilter(setActor)(e.target.value)} className={filterCtl}>
           <option value="">{t("audit.allActors")}</option>
           {actors.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
-        <select value={action} onChange={(e) => setAction(e.target.value)} className={filterCtl}>
+        <select value={action} onChange={(e) => setFilter(setAction)(e.target.value)} className={filterCtl}>
           <option value="">{t("audit.allActions")}</option>
           {actions.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
@@ -1001,7 +1029,7 @@ function AuditCard() {
           type="datetime-local"
           value={from}
           max={to || undefined}
-          onChange={(e) => setFrom(e.target.value)}
+          onChange={(e) => setFilter(setFrom)(e.target.value)}
           className={cn(filterCtl, badRange && "border-destructive")}
           title={t("audit.from")}
         />
@@ -1009,13 +1037,13 @@ function AuditCard() {
           type="datetime-local"
           value={to}
           min={from || undefined}
-          onChange={(e) => setTo(e.target.value)}
+          onChange={(e) => setFilter(setTo)(e.target.value)}
           className={cn(filterCtl, badRange && "border-destructive")}
           title={t("audit.to")}
         />
         {(search || action || actor || from || to) && (
           <button
-            onClick={() => { setSearch(""); setAction(""); setActor(""); setFrom(""); setTo(""); }}
+            onClick={() => { setSearch(""); setAction(""); setActor(""); setFrom(""); setTo(""); pg.setPage(1); }}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
             {t("c.resetFilters")}
@@ -1082,7 +1110,7 @@ function AuditCard() {
           </tbody>
         </table>
       </div>
-      <Pager total={rows.length} st={pg} />
+      <Pager total={total} st={pg} />
     </Card>
   );
 }

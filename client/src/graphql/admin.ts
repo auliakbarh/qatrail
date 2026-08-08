@@ -62,8 +62,13 @@ export const UPDATE_PUBLIC_API_CLIENT = gql`
 export const REVOKE_PUBLIC_API_CLIENT = gql`mutation($id: ID!){ revokePublicApiClient(id:$id) }`;
 
 export const AUDIT_LOGS = gql`
-  query AuditLogs($limit: Int) {
-    auditLogs(limit: $limit) { id action entityId label actor at details { name value } }
+  query AuditLogs($filter: AuditLogFilter, $offset: Int, $limit: Int, $sortKey: String, $sortDir: String) {
+    auditLogs(filter: $filter, offset: $offset, limit: $limit, sortKey: $sortKey, sortDir: $sortDir) {
+      total
+      actions
+      actors
+      rows { id action entityId label actor at details { name value } }
+    }
   }
 `;
 

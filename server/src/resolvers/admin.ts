@@ -14,6 +14,18 @@ interface UserInput {
   active?: boolean | null;
 }
 
+// Discord's own webhook shape. The client shows the same rule in the form; this
+// copy is the one that actually enforces it.
+const DISCORD_WEBHOOK_RE = /^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+
+interface AuditLogFilter {
+  search?: string | null;
+  action?: string | null;
+  actor?: string | null;
+  from?: string | null; // ISO; an unparseable or inverted range is ignored
+  to?: string | null;
+}
+
 interface PublicApiClientInput {
   appId: string;
   name: string;
@@ -103,21 +115,73 @@ export const adminResolvers = {
       await requireAdmin(ctx);
       return ctx.prisma.slaTarget.findMany();
     },
-    async auditLogs(_: unknown, { limit }: { limit?: number }, ctx: Context) {
+    // The one list that is paged, searched and sorted on the server: the trail
+    // is never pruned, so it outgrows the client-side approach every other list
+    // uses. Filtering a page in the browser would only ever search that page.
+    async auditLogs(
+      _: unknown,
+      args: { filter?: AuditLogFilter; offset?: number; limit?: number; sortKey?: string; sortDir?: string },
+      ctx: Context,
+    ) {
       await requireAdmin(ctx);
-      const rows = await ctx.prisma.auditLog.findMany({
-        orderBy: { at: "desc" },
-        take: Math.min(limit ?? 100, 500),
-      });
-      // `details` is stored as free-form Json; only hand back well-shaped pairs
-      // so a hand-edited row can't break the field's non-null contract.
-      return rows.map((r) => ({
-        ...r,
-        at: r.at.toISOString(),
-        details: (Array.isArray(r.details) ? r.details : []).filter(
-          (d: any) => d && typeof d.name === "string" && typeof d.value === "string",
-        ),
-      }));
+      const f = args.filter ?? {};
+      const at: { gte?: Date; lte?: Date } = {};
+      // Ignore an unparseable or inverted range rather than returning nothing —
+      // an empty table must never be the answer to a malformed filter.
+      const from = f.from ? new Date(f.from) : null;
+      const to = f.to ? new Date(f.to) : null;
+      const rangeOk = !from || !to || from <= to;
+      if (rangeOk) {
+        if (from && !isNaN(+from)) at.gte = from;
+        if (to && !isNaN(+to)) at.lte = to;
+      }
+      const q = f.search?.trim();
+      const where = {
+        ...(f.action ? { action: f.action } : {}),
+        ...(f.actor ? { actor: f.actor } : {}),
+        ...(at.gte || at.lte ? { at } : {}),
+        ...(q
+          ? {
+              OR: [
+                { action: { contains: q, mode: "insensitive" as const } },
+                { actor: { contains: q, mode: "insensitive" as const } },
+                { label: { contains: q, mode: "insensitive" as const } },
+                { entityId: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      };
+      // Whitelisted: an arbitrary key would blow up in Prisma at query time.
+      const key = ["at", "actor", "action", "label"].includes(args.sortKey ?? "") ? args.sortKey! : "at";
+      const dir = args.sortDir === "asc" ? "asc" : "desc";
+
+      const [rows, total, actionGroups, actorGroups] = await Promise.all([
+        ctx.prisma.auditLog.findMany({
+          where,
+          orderBy: { [key]: dir },
+          skip: Math.max(0, args.offset ?? 0),
+          take: Math.min(args.limit ?? 25, 200),
+        }),
+        ctx.prisma.auditLog.count({ where }),
+        // Dropdown options come from the whole table, not the current page —
+        // otherwise the filter you need is missing exactly when you need it.
+        ctx.prisma.auditLog.groupBy({ by: ["action"], orderBy: { action: "asc" } }),
+        ctx.prisma.auditLog.groupBy({ by: ["actor"], orderBy: { actor: "asc" } }),
+      ]);
+      return {
+        total,
+        actions: actionGroups.map((g) => g.action),
+        actors: actorGroups.map((g) => g.actor).filter((a): a is string => !!a),
+        // `details` is stored as free-form Json; only hand back well-shaped pairs
+        // so a hand-edited row can't break the field's non-null contract.
+        rows: rows.map((r) => ({
+          ...r,
+          at: r.at.toISOString(),
+          details: (Array.isArray(r.details) ? r.details : []).filter(
+            (d: any) => d && typeof d.name === "string" && typeof d.value === "string",
+          ),
+        })),
+      };
     },
   },
   Mutation: {
@@ -199,6 +263,19 @@ export const adminResolvers = {
       ]) {
         if (args.input[k] !== undefined) data[k] = args.input[k];
       }
+
+      // Discord config is checked here, not only in the form: a bad webhook fails
+      // silently at post time (notifyDiscord swallows), so the save is the last
+      // moment anyone finds out.
+      if (data.discordWebhookUrl !== undefined && data.discordWebhookUrl && !DISCORD_WEBHOOK_RE.test(data.discordWebhookUrl)) {
+        throw new Error("Discord webhook URL must look like https://discord.com/api/webhooks/<id>/<token>");
+      }
+      if (data.discordEnabled === true) {
+        const current = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
+        const url = data.discordWebhookUrl !== undefined ? data.discordWebhookUrl : current?.discordWebhookUrl;
+        if (!url) throw new Error("Set a Discord webhook URL before enabling notifications.");
+      }
+
       return ctx.prisma.setting.upsert({
         where: { id: "singleton" },
         update: data,

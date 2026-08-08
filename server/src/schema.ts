@@ -781,13 +781,31 @@ export const typeDefs = /* GraphQL */ `
     users: [User!]!
     setting: Setting!
     slaTargets: [SlaTargetType!]!
-    auditLogs(limit: Int): [AuditLog!]!
+    # Paged on the server, unlike every other list: the trail is never pruned.
+    auditLogs(filter: AuditLogFilter, offset: Int, limit: Int, sortKey: String, sortDir: String): AuditLogPage!
     publicApiClients: [PublicApiClient!]!
   }
 
   type AuditDetail {
     name: String!
     value: String!
+  }
+
+  input AuditLogFilter {
+    search: String
+    action: String
+    actor: String
+    from: String
+    to: String
+  }
+
+  # One page of the trail. actions/actors list every distinct value in the whole
+  # table, not just this page — they populate the filter dropdowns.
+  type AuditLogPage {
+    rows: [AuditLog!]!
+    total: Int!
+    actions: [String!]!
+    actors: [String!]!
   }
 
   type AuditLog {
