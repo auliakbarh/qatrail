@@ -1,6 +1,6 @@
 {
   "name": "qatrail",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "private": true,
   "description": "QA reporting: App/Project -> Feature -> Test Case -> Record -> Issue, with review workflow, SLA, analytics",
   "author": "Aulia Akbar Harahap",
