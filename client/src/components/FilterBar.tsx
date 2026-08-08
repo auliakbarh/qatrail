@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -18,6 +19,10 @@ interface FilterBarProps {
   groupKey?: string;
   onGroupKey?: (v: string) => void;
   groupOptions?: Opt[];
+  // Extra controls (page-specific selects, date pickers) rendered inside the
+  // same row — wrapping FilterBar in another flex container instead leaves its
+  // own mb-3 inside the row and the controls sit off the baseline.
+  children?: ReactNode;
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -68,6 +73,10 @@ export function FilterBar(p: FilterBarProps) {
           </select>
         </div>
       )}
+      {p.children}
     </div>
   );
 }
+
+/** Class for a page-specific control passed as a FilterBar child, so it lines up. */
+export const filterCtl = small;

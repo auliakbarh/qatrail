@@ -54,10 +54,17 @@ const LABELS: Record<string, string> = {
   deleteSessionTest: "Testing session deleted",
   closeSessionTest: "Testing session closed",
   moveAppTestProject: "App test moved to another project",
+  createUser: "User created",
+  updateUser: "User updated",
+  deleteUser: "User deleted",
+  resetUserPassword: "User password reset",
+  updateSetting: "Settings changed",
+  updateSlaTarget: "SLA target changed",
 };
 
-// Mutations worth broadcasting (project-domain actions). Excludes login/logout,
-// user management, settings, and notification reads.
+// Mutations worth broadcasting and auditing — project domain plus admin-panel
+// changes (users, settings, SLA). Excludes login/logout and notification reads.
+// Credentials never ride along: index.ts masks testPassword / discordWebhookUrl.
 export const NOTIFIABLE = new Set(Object.keys(LABELS));
 
 // Non-mutation events that reuse the same embed. Deliberately outside LABELS so

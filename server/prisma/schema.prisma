@@ -152,6 +152,11 @@ model User {
   authProvider       AuthProvider @default(PASSWORD)
   mustChangePassword Boolean      @default(true)
   active             Boolean      @default(true)
+  // When a human first let this account in. Null on an SSO auto-provisioned row
+  // until an admin activates it — that is what separates "never approved" from
+  // "approved once, deactivated later". Rows predating the column are null, but
+  // only `authProvider = SSO` is ever read against it, so no backfill is needed.
+  approvedAt         DateTime?
   sessionId          String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -716,10 +721,13 @@ model Setting {
   autoApproveNewHours    Int?
   autoApproveChangeHours Int?
   // Microsoft SSO for an email with no User row: false = refuse (an admin must
-  // create the account first), true = create it as VIEWER (read-only) on first
-  // sign-in. Off by default — auto-provision hands an account to anyone in the
-  // tenant, which is a policy call, not a default.
+  // create the account first), true = create it as an INACTIVE VIEWER, which an
+  // admin then approves by activating it. Off by default — auto-provision is a
+  // policy call, not a default.
   ssoAutoProvision   Boolean  @default(false)
+  // Email domains allowed to sign in with Microsoft. Empty = every domain the
+  // Entra tenant lets through. Exact match, no subdomain inheritance.
+  ssoAllowedDomains  String[]
   updatedAt          DateTime @updatedAt
 }
 
@@ -764,6 +772,10 @@ model AuditLog {
   label    String? // human label (project/feature/testcase name or issue title)
   actor    String? // actor display name
   actorId  String?
+  // Submitted fields, [{name, value}], exactly what the Discord embed shows —
+  // same masking (no testPassword), same caps. Null for rows written before the
+  // column, and for events that carry nothing worth listing.
+  details  Json?
   at       DateTime @default(now())
 
   @@index([at])

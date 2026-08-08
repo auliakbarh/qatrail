@@ -27,6 +27,11 @@ export const typeDefs = /* GraphQL */ `
     role: Role!
     mustChangePassword: Boolean!
     active: Boolean!
+    # PASSWORD | SSO | BOTH.
+    authProvider: String!
+    # When an admin first let this account in. Null on an SSO row = never
+    # approved, which is the pending-approval state.
+    approvedAt: String
   }
 
   type AuthPayload {
@@ -242,8 +247,10 @@ export const typeDefs = /* GraphQL */ `
     autoApproveNewHours: Int
     autoApproveChangeHours: Int
     # Microsoft SSO for an unknown email: false = refuse, true = create the user
-    # as VIEWER (read-only) on first sign-in.
+    # as an inactive VIEWER that an admin must activate before it can sign in.
     ssoAutoProvision: Boolean!
+    # Email domains allowed to sign in with Microsoft. Empty = no restriction.
+    ssoAllowedDomains: [String!]!
   }
 
   # Server-to-server consumer of the read-only public API (docs/API_PUBLIC.md).
@@ -309,6 +316,7 @@ export const typeDefs = /* GraphQL */ `
     autoApproveNewHours: Int
     autoApproveChangeHours: Int
     ssoAutoProvision: Boolean
+    ssoAllowedDomains: [String!]
   }
 
   input IssueFilter {
@@ -777,6 +785,11 @@ export const typeDefs = /* GraphQL */ `
     publicApiClients: [PublicApiClient!]!
   }
 
+  type AuditDetail {
+    name: String!
+    value: String!
+  }
+
   type AuditLog {
     id: ID!
     action: String!
@@ -784,6 +797,9 @@ export const typeDefs = /* GraphQL */ `
     label: String
     actor: String
     at: String!
+    # The fields the actor submitted. Empty for rows written before the column
+    # and for events that carry nothing worth listing.
+    details: [AuditDetail!]!
   }
 
   type Mutation {

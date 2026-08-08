@@ -2,7 +2,7 @@ import { gql } from "@apollo/client";
 
 export const USERS = gql`
   query Users {
-    users { id email name role active mustChangePassword }
+    users { id email name role active mustChangePassword authProvider approvedAt }
   }
 `;
 export const CREATE_USER = gql`
@@ -20,12 +20,12 @@ export const RESET_USER_PASSWORD = gql`mutation($id: ID!){ resetUserPassword(id:
 
 export const SETTING = gql`
   query Setting {
-    setting { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision }
+    setting { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision ssoAllowedDomains }
   }
 `;
 export const UPDATE_SETTING = gql`
   mutation UpdateSetting($input: SettingInput!) {
-    updateSetting(input: $input) { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision }
+    updateSetting(input: $input) { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision ssoAllowedDomains }
   }
 `;
 export const TEST_DISCORD = gql`mutation($url: String!){ testDiscord(url:$url) }`;
@@ -63,7 +63,7 @@ export const REVOKE_PUBLIC_API_CLIENT = gql`mutation($id: ID!){ revokePublicApiC
 
 export const AUDIT_LOGS = gql`
   query AuditLogs($limit: Int) {
-    auditLogs(limit: $limit) { id action entityId label actor at }
+    auditLogs(limit: $limit) { id action entityId label actor at details { name value } }
   }
 `;
 

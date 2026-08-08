@@ -38,6 +38,21 @@ async function keyFor(kid: string): Promise<crypto.KeyObject> {
   return key;
 }
 
+/**
+ * Whether an email may sign in with SSO. An empty list allows every domain —
+ * the Entra tenant is already the outer fence; this narrows it when the tenant
+ * holds guests or several domains.
+ *
+ * Exact domain match, case-insensitive. Subdomains do NOT inherit: "hpam.co.id"
+ * does not admit "x.hpam.co.id", because a suffix match would also admit
+ * "evilhpam.co.id" to anyone who writes the check the obvious way.
+ */
+export function domainAllowed(email: string, allowed: string[]): boolean {
+  if (!allowed.length) return true;
+  const domain = email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+  return allowed.some((d) => d.trim().toLowerCase().replace(/^@/, "") === domain);
+}
+
 export async function verifyMicrosoftToken(idToken: string): Promise<SsoIdentity> {
   const { enabled, tenantId, clientId } = env.msSso;
   if (!enabled) throw new Error("Microsoft SSO is not enabled.");

@@ -68,6 +68,9 @@ export const adminResolvers = {
     expiresAt: (c: any) => c.expiresAt?.toISOString() ?? null,
     lastUsedAt: (c: any) => c.lastUsedAt?.toISOString() ?? null,
   },
+  User: {
+    approvedAt: (u: any) => u.approvedAt?.toISOString() ?? null,
+  },
 
   Query: {
     // Public API clients are credentials, not settings: super admin only, and
@@ -92,6 +95,7 @@ export const adminResolvers = {
           autoApproveNewHours: null,
           autoApproveChangeHours: null,
           ssoAutoProvision: false,
+          ssoAllowedDomains: [],
         }
       );
     },
@@ -105,7 +109,15 @@ export const adminResolvers = {
         orderBy: { at: "desc" },
         take: Math.min(limit ?? 100, 500),
       });
-      return rows.map((r) => ({ ...r, at: r.at.toISOString() }));
+      // `details` is stored as free-form Json; only hand back well-shaped pairs
+      // so a hand-edited row can't break the field's non-null contract.
+      return rows.map((r) => ({
+        ...r,
+        at: r.at.toISOString(),
+        details: (Array.isArray(r.details) ? r.details : []).filter(
+          (d: any) => d && typeof d.name === "string" && typeof d.value === "string",
+        ),
+      }));
     },
   },
   Mutation: {
@@ -122,6 +134,8 @@ export const adminResolvers = {
           authProvider: "BOTH",
           mustChangePassword: true,
           active: args.input.active ?? true,
+          // An admin creating the account is the approval.
+          approvedAt: new Date(),
         },
       });
       return { user, defaultPassword: password };
@@ -132,13 +146,17 @@ export const adminResolvers = {
       const target = await ctx.prisma.user.findUnique({ where: { id: args.id } });
       if (!target) throw new Error("User not found");
       guardTarget(admin, target.role, args.input.role);
+      const active = args.input.active ?? target.active;
       return ctx.prisma.user.update({
         where: { id: args.id },
         data: {
           email: args.input.email.trim().toLowerCase(),
           name: args.input.name.trim(),
           role: args.input.role,
-          active: args.input.active ?? target.active,
+          active,
+          // Stamped once, the first time an admin activates the account — a later
+          // deactivate must not read as "never approved" again.
+          ...(active && !target.approvedAt ? { approvedAt: new Date() } : {}),
         },
       });
     },
@@ -177,6 +195,7 @@ export const adminResolvers = {
         "autoApproveNewHours",
         "autoApproveChangeHours",
         "ssoAutoProvision",
+        "ssoAllowedDomains",
       ]) {
         if (args.input[k] !== undefined) data[k] = args.input[k];
       }

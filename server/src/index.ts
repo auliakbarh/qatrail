@@ -86,7 +86,8 @@ const server = new ApolloServer({
         };
       },
     },
-    // Broadcast successful project-domain mutations to Discord (fire-and-forget).
+    // Broadcast successful NOTIFIABLE mutations to Discord and write the matching
+    // audit row (both fire-and-forget). Covers admin-panel changes too.
     {
       async requestDidStart() {
         return {
@@ -109,7 +110,9 @@ const server = new ApolloServer({
                 const extra: { name: string; value: string }[] = [];
                 // Dump the submitted form fields (skip name/title shown elsewhere,
                 // mask secrets, summarize arrays). Cap to keep the embed sane.
-                const SKIP = new Set(["name", "title", "testPassword"]);
+                // discordWebhookUrl is a credential — it grants posting rights to
+                // anyone holding it, so it never lands in the trail or an embed.
+                const SKIP = new Set(["name", "title", "testPassword", "discordWebhookUrl"]);
                 for (const [k, v] of Object.entries(input)) {
                   if (extra.length >= 12 || SKIP.has(k) || v == null || v === "") continue;
                   let val: string;
@@ -127,6 +130,9 @@ const server = new ApolloServer({
                 if (typeof vars.archived === "boolean") extra.push({ name: "archived", value: String(vars.archived) });
                 void notifyDiscord(field, actor, { name, note, url, extra });
                 // Persist the same event to the audit trail (fire-and-forget).
+                // `details` is the embed's own field list — one source, so what
+                // Discord shows and what the trail keeps can never drift.
+                const details = note ? [...extra, { name: "note", value: String(note) }] : extra;
                 void prisma.auditLog
                   .create({
                     data: {
@@ -135,6 +141,7 @@ const server = new ApolloServer({
                       label: name,
                       actor,
                       actorId: rc.contextValue?.userId ?? null,
+                      details: details.length ? details : undefined,
                     },
                   })
                   .catch(() => {});

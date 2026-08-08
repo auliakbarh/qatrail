@@ -13,13 +13,39 @@ const sign = (payload: object, header: object = {}) =>
   jwt.sign(payload, privateKey, { algorithm: "RS256", keyid: "test-kid", ...header });
 
 let verifyMicrosoftToken: typeof import("./sso.js").verifyMicrosoftToken;
+let domainAllowed: typeof import("./sso.js").domainAllowed;
 
 beforeAll(async () => {
   process.env.MS_SSO_ENABLED = "true";
   process.env.MS_TENANT_ID = TENANT;
   process.env.MS_CLIENT_ID = CLIENT;
   vi.stubGlobal("fetch", async () => ({ ok: true, json: async () => ({ keys: [jwk] }) }));
-  ({ verifyMicrosoftToken } = await import("./sso.js"));
+  ({ verifyMicrosoftToken, domainAllowed } = await import("./sso.js"));
+});
+
+describe("domainAllowed", () => {
+  it("allows everything when the list is empty", () => {
+    expect(domainAllowed("anyone@example.com", [])).toBe(true);
+  });
+  it("allows a listed domain, case-insensitively", () => {
+    expect(domainAllowed("QA@HPAM.co.id", ["hpam.co.id"])).toBe(true);
+    expect(domainAllowed("qa@hpam.co.id", ["HPAM.CO.ID"])).toBe(true);
+  });
+  it("tolerates a leading @ and stray spaces in the list", () => {
+    expect(domainAllowed("qa@hpam.co.id", [" @hpam.co.id "])).toBe(true);
+  });
+  it("refuses an unlisted domain", () => {
+    expect(domainAllowed("qa@gmail.com", ["hpam.co.id"])).toBe(false);
+  });
+  it("refuses a lookalike suffix — this is the point of an exact match", () => {
+    expect(domainAllowed("qa@evilhpam.co.id", ["hpam.co.id"])).toBe(false);
+  });
+  it("does not let a subdomain inherit", () => {
+    expect(domainAllowed("qa@x.hpam.co.id", ["hpam.co.id"])).toBe(false);
+  });
+  it("reads the domain after the LAST @", () => {
+    expect(domainAllowed('"we@ird"@hpam.co.id', ["hpam.co.id"])).toBe(true);
+  });
 });
 
 const base = { iss: ISS, aud: CLIENT, preferred_username: "qa@hpam.co.id", name: "QA One" };

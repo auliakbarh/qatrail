@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword, signToken } from "../auth.js";
 import { assertStrongPassword } from "../passwordPolicy.js";
 import { assertNotLocked, recordFailure, recordSuccess, assertWithinRate } from "../rateLimit.js";
 import { sendPasswordResetEmail } from "../mail.js";
-import { verifyMicrosoftToken } from "../sso.js";
+import { verifyMicrosoftToken, domainAllowed } from "../sso.js";
 import { notifyAdmins } from "../notify.js";
 import { notifyDiscord } from "../discord.js";
 import { env, hasJiraCreds } from "../env.js";
@@ -64,50 +64,69 @@ export const authResolvers = {
     },
     // Microsoft Entra SSO login. The email must match a User row — unless the
     // admin turned on `ssoAutoProvision`, which creates unknown tenant users as
-    // VIEWER (read-only) on first sign-in. Either way the role comes from us,
-    // never from Entra.
+    // an INACTIVE viewer that an admin has to approve (Settings → Users →
+    // Active). The role comes from us, never from Entra.
     async microsoftLogin(_: unknown, args: { idToken: string }, ctx: Context) {
       const identity = await verifyMicrosoftToken(args.idToken);
       const email = identity.email.trim().toLowerCase();
+      const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
+
+      // One gate for every SSO sign-in, not just new accounts: an allow-list that
+      // only covered provisioning would leave an already-created off-domain
+      // account signing in. Password login is unaffected.
+      if (!domainAllowed(email, s?.ssoAllowedDomains ?? [])) {
+        throw new Error("This email domain is not allowed to sign in with Microsoft.");
+      }
+
       let user = await ctx.prisma.user.findUnique({ where: { email } });
       const provisioned = !user;
-      if (!user) {
-        const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
-        if (s?.ssoAutoProvision) {
-          // upsert, not create: two tabs signing in at once would race a create.
-          user = await ctx.prisma.user.upsert({
-            where: { email },
-            update: {},
-            create: {
-              email,
-              name: identity.name?.trim() || email,
-              role: "VIEWER",
-              authProvider: "SSO",
-              // No password to change — this account can only ever sign in via SSO.
-              mustChangePassword: false,
-            },
-          });
-        }
+      if (!user && s?.ssoAutoProvision) {
+        // upsert, not create: two tabs signing in at once would race a create.
+        user = await ctx.prisma.user.upsert({
+          where: { email },
+          update: {},
+          create: {
+            email,
+            name: identity.name?.trim() || email,
+            role: "VIEWER",
+            authProvider: "SSO",
+            // No password to change — this account can only ever sign in via SSO.
+            mustChangePassword: false,
+            // Pending admin approval. Creating it active would make the setting
+            // an open door for the whole tenant.
+            active: false,
+          },
+        });
       }
-      if (!user || !user.active) throw new Error("No account for this Microsoft user. Contact an admin.");
-      const sid = crypto.randomUUID();
-      await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });
-      const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
+      if (!user) throw new Error("No account for this Microsoft user. Contact an admin.");
 
       // The audit plugin in index.ts only covers NOTIFIABLE mutations, and it
       // reads the actor off the request context — which is empty here, because
       // signing in is what creates the identity. So trace it from the resolver.
-      // One row per sign-in; a provisioned account says so instead of logging twice.
-      const action = provisioned ? "ssoUserProvisioned" : "microsoftLogin";
-      void ctx.prisma.auditLog
-        .create({ data: { action, entityId: user.id, label: email, actor: user.name, actorId: user.id } })
-        .catch(() => {});
+      const audit = (action: string) =>
+        void ctx.prisma.auditLog
+          .create({ data: { action, entityId: user!.id, label: email, actor: user!.name, actorId: user!.id } })
+          .catch(() => {});
+
       if (provisioned) {
-        // A new account appeared without an admin creating it — say so loudly.
-        const msg = `New Viewer account created from Microsoft sign-in: ${user.name} (${email})`;
+        // Recorded before the refusal below: this request is the only place the
+        // account's creation happens, even though the sign-in itself fails.
+        audit("ssoUserProvisioned");
+        // Nobody can use this account until an admin activates it — chase them.
+        const msg = `Microsoft sign-in created a Viewer account awaiting approval: ${user.name} (${email})`;
         void notifyAdmins("SSO_USER_CREATED", msg);
-        void notifyDiscord("ssoUserProvisioned", user.name, { name: email, note: "Role: VIEWER (read-only)" });
+        void notifyDiscord("ssoUserProvisioned", user.name, {
+          name: email,
+          note: "Role: VIEWER — inactive until an admin approves it (Settings → Users).",
+        });
+        throw new Error("Your account has been created and is waiting for an admin to approve it.");
       }
+      if (!user.active) throw new Error("This account is not active. Contact an admin.");
+
+      const sid = crypto.randomUUID();
+      await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });
+      const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
+      audit("microsoftLogin");
       return { token, user };
     },
 

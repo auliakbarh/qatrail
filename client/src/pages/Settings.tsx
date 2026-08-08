@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation, Trans } from "react-i18next";
-import { Plus, Trash2, KeyRound } from "lucide-react";
+import { Plus, Trash2, KeyRound, ChevronDown, ChevronRight } from "lucide-react";
 import { CHANGE_PASSWORD, HEALTH } from "../graphql";
 import {
   USERS, CREATE_USER, UPDATE_USER, DELETE_USER, RESET_USER_PASSWORD,
@@ -10,14 +10,19 @@ import {
 } from "../graphql/admin";
 import { useAuth } from "../store/auth";
 import { cn, fmtDateTime } from "../lib/utils";
+import { searchRows, sortRows, type SortDir } from "../lib/list";
 import { inputCls, Field } from "../components/Form";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { PasswordInput } from "../components/PasswordInput";
-import { copyWithToast, withToast } from "../store/toast";
+import { FilterBar, filterCtl } from "../components/FilterBar";
+import { SortableTh, nextSort } from "../components/SortableTh";
+import { usePageState, paged, Pager } from "../components/Pager";
+import { copyWithToast, withToast, useToast } from "../store/toast";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
 const ROLES = ["QA", "QA_LEAD", "ENGINEER", "VIEWER", "ADMIN", "SUPER_ADMIN"];
+// Matches FilterBar's own controls so the row reads as one bar.
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -135,16 +140,73 @@ function ChangePasswordCard() {
 function UsersCard() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { data } = useQuery(USERS);
+  const { data, refetch } = useQuery(USERS);
   const [createUser] = useMutation(CREATE_USER, { refetchQueries: [USERS] });
   const [updateUser] = useMutation(UPDATE_USER, { refetchQueries: [USERS] });
   const [deleteUser] = useMutation(DELETE_USER, { refetchQueries: [USERS] });
+  // Bulk variants skip refetchQueries — one refetch after the batch, not N.
+  const [bulkUpdateUser] = useMutation(UPDATE_USER);
+  const [bulkDeleteUser] = useMutation(DELETE_USER);
   const [resetPw] = useMutation(RESET_USER_PASSWORD);
   const [form, setForm] = useState<{ id?: string; email: string; name: string; role: string; active: boolean } | null>(null);
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
   const [generated, setGenerated] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState<{ key: string; dir: SortDir }>({ key: "name", dir: "asc" });
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [bulkDel, setBulkDel] = useState(false);
+  const pg = usePageState(25);
 
   const roleOptions = user?.role === "SUPER_ADMIN" ? ROLES : ROLES.filter((r) => r !== "SUPER_ADMIN");
+
+  const all: any[] = data?.users ?? [];
+  // Never approved, not merely inactive: approvedAt is stamped the first time an
+  // admin activates the account, so deactivating one later reads as Inactive.
+  const isPending = (u: any) => u.authProvider === "SSO" && !u.approvedAt;
+  const rows = sortRows(
+    searchRows(all, search, ["name", "email", "role"])
+      .filter((u) => !roleFilter || u.role === roleFilter)
+      .filter((u) =>
+        !statusFilter ||
+        (statusFilter === "pending" ? isPending(u) : statusFilter === "active" ? u.active : !u.active),
+      ),
+    sort.key as any,
+    sort.dir,
+  );
+  const page = paged(rows, pg);
+  // Never offer to bulk-act on yourself: deleteUser refuses it server-side, and
+  // deactivating yourself mid-session is nobody's intent.
+  const selectable = page.filter((u) => u.id !== user?.id);
+  const allOnPageSelected = selectable.length > 0 && selectable.every((u) => sel.has(u.id));
+  const toggle = (id: string) =>
+    setSel((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  // Bulk = the single-row mutations in a loop. ponytail: no server bulk mutation
+  // until the user list outgrows one page of allSettled — rights differ per row
+  // (guardTarget), so partial success has to be reported either way.
+  const runBulk = async (label: string, fn: (u: any) => Promise<unknown>) => {
+    const targets = all.filter((u) => sel.has(u.id) && u.id !== user?.id);
+    if (!targets.length) return;
+    const res = await Promise.allSettled(targets.map(fn));
+    const failed = res.filter((r) => r.status === "rejected").length;
+    useToast.getState().push(
+      t("set.bulkDone", { label, ok: res.length - failed, failed }),
+      failed ? "error" : "success",
+    );
+    setSel(new Set());
+    await refetch();
+  };
+
+  const setActive = (active: boolean) =>
+    runBulk(active ? t("set.activate") : t("set.deactivate"), (u) =>
+      bulkUpdateUser({ variables: { id: u.id, input: { email: u.email, name: u.name, role: u.role, active } } }),
+    );
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,26 +245,80 @@ function UsersCard() {
               <button onClick={() => setGenerated(null)} className="ml-2 underline">{t("set.dismiss")}</button>
             </div>
           )}
+          <FilterBar search={search} onSearch={setSearch}>
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className={filterCtl}>
+              <option value="">{t("set.allRoles")}</option>
+              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={filterCtl}>
+              <option value="">{t("set.allStatus")}</option>
+              <option value="active">{t("set.active")}</option>
+              <option value="inactive">{t("set.inactive")}</option>
+              <option value="pending">{t("set.pendingApproval")}</option>
+            </select>
+            {(search || roleFilter || statusFilter) && (
+              <button
+                onClick={() => { setSearch(""); setRoleFilter(""); setStatusFilter(""); }}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                {t("c.resetFilters")}
+              </button>
+            )}
+          </FilterBar>
+          {sel.size > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-border bg-muted/40 px-3 py-2 text-xs">
+              <span className="font-medium">{t("set.selected", { n: sel.size })}</span>
+              <button onClick={() => setActive(true)} className="rounded border border-border bg-background px-2 py-1 hover:bg-muted">{t("set.activate")}</button>
+              <button onClick={() => setActive(false)} className="rounded border border-border bg-background px-2 py-1 hover:bg-muted">{t("set.deactivate")}</button>
+              <button onClick={() => setBulkDel(true)} className="rounded border border-destructive px-2 py-1 text-destructive hover:bg-destructive/10">{t("c.delete")}</button>
+              <button onClick={() => setSel(new Set())} className="ml-auto underline">{t("c.clear")}</button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.name")}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.email")}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.role")}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.status")}</th>
+                  <th className="w-8 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={allOnPageSelected}
+                      onChange={(e) =>
+                        setSel((s) => {
+                          const n = new Set(s);
+                          selectable.forEach((u) => (e.target.checked ? n.add(u.id) : n.delete(u.id)));
+                          return n;
+                        })
+                      }
+                    />
+                  </th>
+                  <SortableTh label={t("c.name")} colKey="name" sortKey={sort.key} sortDir={sort.dir} onSort={(k) => setSort(nextSort(sort, k))} />
+                  <SortableTh label={t("c.email")} colKey="email" sortKey={sort.key} sortDir={sort.dir} onSort={(k) => setSort(nextSort(sort, k))} />
+                  <SortableTh label={t("c.role")} colKey="role" sortKey={sort.key} sortDir={sort.dir} onSort={(k) => setSort(nextSort(sort, k))} />
+                  <SortableTh label={t("c.status")} colKey="active" sortKey={sort.key} sortDir={sort.dir} onSort={(k) => setSort(nextSort(sort, k))} />
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {(data?.users ?? []).map((u: any, idx: number) => (
+                {page.length === 0 && (
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("c.noResults")}</td></tr>
+                )}
+                {page.map((u: any) => (
                   <tr key={u.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
+                    <td className="px-3 py-2">
+                      {u.id !== user?.id && <input type="checkbox" checked={sel.has(u.id)} onChange={() => toggle(u.id)} />}
+                    </td>
                     <td className="px-3 py-2 font-medium">{u.name}</td>
                     <td className="px-3 py-2 font-mono text-xs">{u.email}</td>
                     <td className="px-3 py-2"><span className="rounded bg-muted px-1.5 py-0.5 text-xs">{u.role}</span></td>
-                    <td className="px-3 py-2 text-xs">{u.active ? t("set.active") : t("set.inactive")}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {isPending(u) ? (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+                          {t("set.pendingApproval")}
+                        </span>
+                      ) : (
+                        (u.active ? t("set.active") : t("set.inactive"))
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">
                         <IconBtn title={t("set.resetPw")} onClick={async () => {
@@ -227,6 +343,7 @@ function UsersCard() {
               </tbody>
             </table>
           </div>
+          <Pager total={rows.length} st={pg} />
         </Card>
       </div>
 
@@ -259,6 +376,12 @@ function UsersCard() {
         onClose={() => setDel(null)}
         onConfirm={() => del && withToast(deleteUser({ variables: { id: del.id } }), t("t.userDeleted"), t("t.userDeleteFail"))}
         label={del?.name ?? ""}
+      />
+      <DeleteConfirm
+        open={bulkDel}
+        onClose={() => setBulkDel(false)}
+        onConfirm={() => void runBulk(t("c.delete"), (u) => bulkDeleteUser({ variables: { id: u.id } }))}
+        label={t("set.selected", { n: sel.size })}
       />
     </div>
   );
@@ -391,12 +514,23 @@ function SsoCard() {
   const { data } = useQuery(SETTING);
   const [updateSetting, { loading }] = useMutation(UPDATE_SETTING, { refetchQueries: [SETTING] });
   const s = data?.setting;
-  const [local, setLocal] = useState<boolean | null>(null);
-  const autoProvision = local ?? !!s?.ssoAutoProvision;
+  const [local, setLocal] = useState<{ autoProvision: boolean; domains: string } | null>(null);
+  const v = local ?? {
+    autoProvision: !!s?.ssoAutoProvision,
+    domains: ((s?.ssoAllowedDomains ?? []) as string[]).join(", "),
+  };
+  const set = (patch: Partial<typeof v>) => setLocal({ ...v, ...patch });
 
   const save = async () => {
     const ok = await withToast(
-      updateSetting({ variables: { input: { ssoAutoProvision: autoProvision } } }),
+      updateSetting({
+        variables: {
+          input: {
+            ssoAutoProvision: v.autoProvision,
+            ssoAllowedDomains: v.domains.split(",").map((d) => d.trim().replace(/^@/, "")).filter(Boolean),
+          },
+        },
+      }),
       t("t.settingsSaved"),
       t("t.settingsSaveFail"),
     );
@@ -409,13 +543,22 @@ function SsoCard() {
         <p className="text-xs text-muted-foreground">
           {healthData?.health?.ssoEnabled ? t("set.ssoOn") : t("set.ssoOff")}
         </p>
+        <Field label={t("set.ssoDomains")} optional>
+          <input
+            className={inputCls}
+            placeholder="hpam.co.id, contoh.com"
+            value={v.domains}
+            onChange={(e) => set({ domains: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">{t("set.ssoDomainsHelp")}</p>
+        </Field>
         <Field label={t("set.ssoUnknownUser")}>
-          <select className={inputCls} value={autoProvision ? "viewer" : "deny"} onChange={(e) => setLocal(e.target.value === "viewer")}>
+          <select className={inputCls} value={v.autoProvision ? "viewer" : "deny"} onChange={(e) => set({ autoProvision: e.target.value === "viewer" })}>
             <option value="deny">{t("set.ssoDeny")}</option>
             <option value="viewer">{t("set.ssoViewer")}</option>
           </select>
         </Field>
-        <p className="text-xs text-muted-foreground">{autoProvision ? t("set.ssoViewerHelp") : t("set.ssoDenyHelp")}</p>
+        <p className="text-xs text-muted-foreground">{v.autoProvision ? t("set.ssoViewerHelp") : t("set.ssoDenyHelp")}</p>
         <button onClick={save} disabled={loading} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           {t("c.save")}
         </button>
@@ -771,35 +914,152 @@ function PublicApiCard() {
 
 function AuditCard() {
   const { t } = useTranslation();
-  const { data } = useQuery(AUDIT_LOGS, { variables: { limit: 200 }, fetchPolicy: "cache-and-network" });
-  const rows = data?.auditLogs ?? [];
+  // 500 is the server's own cap (resolvers/admin.ts) — ask for all of it, since
+  // search and filter below only ever see what was fetched.
+  // ponytail: client-side filtering over one capped page; move to query args if
+  // the trail ever has to be searched past 500 rows.
+  const { data } = useQuery(AUDIT_LOGS, { variables: { limit: 500 }, fetchPolicy: "cache-and-network" });
+  const all: any[] = data?.auditLogs ?? [];
+  const [search, setSearch] = useState("");
+  const [action, setAction] = useState("");
+  const [actor, setActor] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [sort, setSort] = useState<{ key: string; dir: SortDir }>({ key: "at", dir: "desc" });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const pg = usePageState(25);
+  const toggleRow = (id: string) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const actions = [...new Set(all.map((r) => r.action))].sort();
+  const actors = [...new Set(all.map((r) => r.actor).filter(Boolean))].sort();
+  // datetime-local yields local wall-clock ("2026-08-08T07:30"); new Date() reads
+  // it as local too, so the comparison matches what the table shows.
+  const fromMs = from ? new Date(from).getTime() : null;
+  const toMs = to ? new Date(to).getTime() : null;
+  // An inverted range would silently empty the table; say so and ignore it until
+  // it's fixed, rather than showing "no results" for what is really a typo.
+  const badRange = fromMs != null && toMs != null && fromMs > toMs;
+  const rows = sortRows(
+    searchRows(all, search, ["actor", "action", "label", "entityId"])
+      .filter((r) => !action || r.action === action)
+      .filter((r) => !actor || r.actor === actor)
+      .filter((r) => {
+        if (badRange) return true;
+        const at = new Date(r.at).getTime();
+        return (fromMs == null || at >= fromMs) && (toMs == null || at <= toMs);
+      }),
+    sort.key as any,
+    sort.dir,
+  );
+  const page = paged(rows, pg);
+  const th = (label: string, colKey: string) => (
+    <SortableTh label={label} colKey={colKey} sortKey={sort.key} sortDir={sort.dir} onSort={(k) => setSort(nextSort(sort, k))} />
+  );
+
   return (
     <Card title={t("set.tabAudit")}>
+      <FilterBar search={search} onSearch={setSearch}>
+        <select value={actor} onChange={(e) => setActor(e.target.value)} className={filterCtl}>
+          <option value="">{t("audit.allActors")}</option>
+          {actors.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select value={action} onChange={(e) => setAction(e.target.value)} className={filterCtl}>
+          <option value="">{t("audit.allActions")}</option>
+          {actions.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        {/* Native datetime-local: date and time in one control, no picker library.
+            min/max keep the pickers themselves honest; badRange catches typed input. */}
+        <input
+          type="datetime-local"
+          value={from}
+          max={to || undefined}
+          onChange={(e) => setFrom(e.target.value)}
+          className={cn(filterCtl, badRange && "border-destructive")}
+          title={t("audit.from")}
+        />
+        <input
+          type="datetime-local"
+          value={to}
+          min={from || undefined}
+          onChange={(e) => setTo(e.target.value)}
+          className={cn(filterCtl, badRange && "border-destructive")}
+          title={t("audit.to")}
+        />
+        {(search || action || actor || from || to) && (
+          <button
+            onClick={() => { setSearch(""); setAction(""); setActor(""); setFrom(""); setTo(""); }}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {t("c.resetFilters")}
+          </button>
+        )}
+        {badRange && <span className="text-xs text-destructive">{t("audit.badRange")}</span>}
+      </FilterBar>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.when")}</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.actor")}</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.action")}</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("audit.target")}</th>
+              <th className="w-8 px-3 py-2"></th>
+              {th(t("audit.when"), "at")}
+              {th(t("audit.actor"), "actor")}
+              {th(t("audit.action"), "action")}
+              {th(t("audit.target"), "label")}
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("audit.empty")}</td></tr>
+            {page.length === 0 && (
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("audit.empty")}</td></tr>
             )}
-            {rows.map((r: any) => (
-              <tr key={r.id} className="border-b border-border/50 last:border-0">
-                <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground whitespace-nowrap">{fmtDateTime(r.at)}</td>
-                <td className="px-3 py-2 text-xs">{r.actor ?? "—"}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">{r.label ?? r.entityId ?? "—"}</td>
-              </tr>
-            ))}
+            {page.map((r: any) => {
+              const open = expanded.has(r.id);
+              const has = r.details?.length > 0;
+              return (
+                <Fragment key={r.id}>
+                  <tr
+                    className={cn("border-b border-border/50", has && "cursor-pointer hover:bg-muted/30")}
+                    onClick={() => has && toggleRow(r.id)}
+                  >
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {has && (open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />)}
+                    </td>
+                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground whitespace-nowrap">{fmtDateTime(r.at)}</td>
+                    <td className="px-3 py-2 text-xs">{r.actor ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{r.label ?? r.entityId ?? "—"}</td>
+                  </tr>
+                  {open && (
+                    <tr className="border-b border-border/50 bg-muted/20">
+                      <td />
+                      <td colSpan={4} className="px-3 py-2">
+                        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
+                          {r.entityId && (
+                            <>
+                              <dt className="font-medium text-muted-foreground">id</dt>
+                              <dd className="font-mono break-all">{r.entityId}</dd>
+                            </>
+                          )}
+                          {r.details.map((d: any) => (
+                            <Fragment key={d.name}>
+                              <dt className="font-medium text-muted-foreground">{d.name}</dt>
+                              <dd className="break-words whitespace-pre-wrap">{d.value}</dd>
+                            </Fragment>
+                          ))}
+                        </dl>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
+      <Pager total={rows.length} st={pg} />
     </Card>
   );
 }
