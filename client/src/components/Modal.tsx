@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ModalProps {
   open: boolean;
@@ -16,6 +17,7 @@ const FOCUSABLE =
 // confirmations; prefer the right panel for detail/edit forms (see DESIGN.md).
 export function Modal({ open, onClose, title, children, footer, wide }: ModalProps) {
   const titleId = useId();
+  const { t } = useTranslation();
   const boxRef = useRef<HTMLDivElement>(null);
   // Keep the latest onClose without making it an effect dep — otherwise callers
   // that pass an inline arrow (recreated each render) would re-run the effect on
@@ -67,7 +69,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: ModalPro
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 id={titleId} className="text-sm font-semibold">{title}</h2>
-          <button aria-label="Close" onClick={onClose} className="text-xl leading-none text-muted-foreground hover:text-foreground">
+          <button aria-label={t("c.close")} onClick={onClose} className="text-xl leading-none text-muted-foreground hover:text-foreground">
             ×
           </button>
         </div>

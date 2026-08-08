@@ -75,5 +75,7 @@ describe.skipIf(!enabled)("issue lifecycle (integration)", () => {
     await M.issueSolve(null, { id: issue.id, postmortem: { rootCause: "rc", resolution: "fix" } }, ctxFor(engId));
     const reopened = await M.issueReview(null, { id: issue.id, pass: false, note: "still broken" }, ctxFor(qaId));
     expect(reopened.status).toBe("REOPENED");
+    // Un-resolved again, or the SLA sweep (resolvedAt: null) never looks at it.
+    expect(reopened.resolvedAt).toBeNull();
   });
 });

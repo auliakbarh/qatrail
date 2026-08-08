@@ -17,6 +17,8 @@ export function sortRows<T>(rows: T[], key: keyof T, dir: SortDir = "asc"): T[] 
   return [...rows].sort((a, b) => {
     const av = a[key];
     const bv = b[key];
+    // Empty cells sort last in both directions (SQL's NULLS LAST). A blank isn't
+    // a value, so flipping the arrow shouldn't float it to the top of the table.
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;

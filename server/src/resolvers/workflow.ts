@@ -69,6 +69,13 @@ async function transition(
   return updated;
 }
 
+// Reopening un-resolves the issue. `resolvedAt` is what the SLA sweep filters on
+// (`scheduler.ts`: resolvedAt null) and what `classifyResolve` reads as "done", so
+// leaving it set would freeze a reopened production issue out of SLA forever — and
+// keep `canMarkProductionIssue` locked. The resolve-breach stamp goes with it so
+// the new clock can notify again; the postmortem keeps the original resolve date.
+const REOPEN_CLEARS = { resolvedAt: null, slaResolveNotifiedAt: null } as const;
+
 // The verdict on a retest: PASS closes the issue, FAIL hands it back to the
 // assignee. Shared by the single review and the bulk retest — `recomputeAppTest`
 // deliberately stays with the caller so a batch can run it once per app test.
@@ -84,7 +91,7 @@ async function applyReview(ctx: Context, user: any, issue: any, pass: boolean, n
   const updated = await transition(
     ctx,
     issue,
-    { status: "REOPENED" },
+    { status: "REOPENED", ...REOPEN_CLEARS },
     { kind: "status", fromVal: "NEED_REVIEW", toVal: "REOPENED", byId: user.id, note: note ?? undefined },
   );
   await notify(issue.assigneeId, "ASSIGNED", `Issue reopened: ${issue.title}`, issue.id);
@@ -225,7 +232,7 @@ export const workflowResolvers = {
       const updated = await transition(
         ctx,
         issue,
-        { status: "REOPENED", closedAt: null },
+        { status: "REOPENED", closedAt: null, ...REOPEN_CLEARS },
         { kind: "status", fromVal: "CLOSED", toVal: "REOPENED", byId: user.id, note: args.note ?? undefined },
       );
       await notify(issue.assigneeId, "STATUS_CHANGED", `Issue reopened: ${issue.title}`, issue.id);

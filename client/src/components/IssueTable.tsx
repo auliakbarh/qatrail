@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useQuery, useApolloClient, useMutation } from "@apollo/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Search, Download } from "lucide-react";
 import { SortableTh, nextSort } from "./SortableTh";
+import { usePageState, Pager } from "./Pager";
 import { ISSUES_PAGED, BULK_ARCHIVE, BULK_ASSIGN, BULK_DELETE, ENGINEERS } from "../graphql/issue";
 import { downloadCsv } from "../lib/csv";
 import { withToast } from "../store/toast";
@@ -38,9 +39,10 @@ function SlaBadge({ s }: { s: string }) {
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
-const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "IN_REVIEW", "CLOSED", "REOPENED", "HOLD"];
+// IN_REVIEW exists in the enum but no transition in workflow.ts ever writes it,
+// so offering it here is a filter that can only ever return nothing.
+const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "CLOSED", "REOPENED", "HOLD"];
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
-const PAGE_SIZE = 25;
 
 function Filter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
   const { t } = useTranslation();
@@ -79,15 +81,19 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const [hideDone, setHideDone] = useState(scope === "assigned");
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [page, setPage] = useState(1);
+  const pg = usePageState(25);
+  // "Show all" (size 0) still asks the server for a page — one big one.
+  const pageSize = pg.size || 1000;
 
   // Debounce the search box.
   useEffect(() => {
     const id = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(id);
   }, [searchInput]);
-  // Any filter/sort change resets to page 1 + clears selection.
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, hideDone, sortKey, sortDir, fAppTest, fSession, fTestCase]);
+  // Any filter/sort change resets to page 1 + clears selection. Paging runs on the
+  // server here, so `paged`'s clamp doesn't apply — a stale offset would just fetch
+  // past the end of the new result set.
+  useEffect(() => { pg.setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, hideDone, sortKey, sortDir, fAppTest, fSession, fTestCase]);
 
   const filterVars = {
     search: search || null,
@@ -101,7 +107,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     hideDone,
   };
   const { data, loading, refetch } = useQuery(ISSUES_PAGED, {
-    variables: { scope, filter: filterVars, sort: sortKey, dir: sortDir, page, pageSize: PAGE_SIZE },
+    variables: { scope, filter: filterVars, sort: sortKey, dir: sortDir, page: pg.page, pageSize },
     fetchPolicy: "cache-and-network",
   });
 
@@ -120,6 +126,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const ids = [...selected];
 
   const onSort = (k: string) => { const n = nextSort({ key: sortKey, dir: sortDir }, k); setSortKey(n.key); setSortDir(n.dir); };
+  const clearFilters = () => { setSearchInput(""); setFStatus(""); setFPriority(""); setFType(""); setFProd(""); setHideDone(scope === "assigned"); };
 
   // Export all rows matching the current filters (not just the page).
   const exportCsv = async () => {
@@ -137,7 +144,6 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   };
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   // Every bulk mutation here (archive/assign/delete/retest) is `requireQA` on the
   // server, so the select column is dropped for anyone below QA — an engineer on
   // "Assigned to me" was being shown a Delete button that could only fail.
@@ -163,7 +169,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         </label>
         {(searchInput || fStatus || fPriority || fType || fProd || hideDone !== (scope === "assigned")) && (
           <button
-            onClick={() => { setSearchInput(""); setFStatus(""); setFPriority(""); setFType(""); setFProd(""); setHideDone(scope === "assigned"); }}
+            onClick={clearFilters}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
             {t("c.resetFilters")}
@@ -237,7 +243,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
                     <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleSel(i.id)} className="cursor-pointer" />
                   </td>
                 )}
-                <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{(pg.page - 1) * pageSize + idx + 1}</td>
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
                 <td className="px-3 py-2 font-medium">{i.title}</td>
                 <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
@@ -264,19 +270,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </tbody>
         </table>
       </div>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{t("page.of", { total, page, totalPages })}</span>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-            className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-            className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
+      <Pager total={total} st={pg} />
       {/* Verify a batch of fixes. Only NEED_REVIEW rows can be retested; the modal
           names the rest instead of dropping them quietly. */}
       {retestOpen && (

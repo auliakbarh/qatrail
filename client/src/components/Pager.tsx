@@ -33,7 +33,7 @@ export function Pager({ total, st }: { total: number; st: PageState }) {
           value={st.size}
           onChange={(e) => { st.setSize(Number(e.target.value)); st.setPage(1); }}
           className="h-7 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-          title={t("page.perPage")}
+          title={t("page.perPageLabel")}
         >
           {SIZES.map((n) => <option key={n} value={n}>{t("page.perPage", { n })}</option>)}
           <option value={0}>{t("page.showAll")}</option>

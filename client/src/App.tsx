@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import Maintenance from "./pages/Maintenance";
 import { Toaster } from "./components/Toaster";
+import { DetailSkeleton } from "./components/Skeleton";
 
 // Route-split: each of these becomes its own chunk, loaded on first visit.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -31,12 +32,13 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const HealthPage = lazy(() => import("./pages/HealthPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const Loading = <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+// A skeleton, not a "Loading…" line — the house rule, and it needs no translation.
+const Loading = <div className="p-6"><DetailSkeleton /></div>;
 
 function ProtectedLayout() {
   const { user, ready } = useAuth();
   const { data } = useQuery(HEALTH, { fetchPolicy: "cache-and-network" });
-  if (!ready) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (!ready) return Loading;
   if (!user) return <Navigate to="/login" replace />;
   // Forced first-login password change.
   if (user.mustChangePassword) return <ForcePasswordChange />;
@@ -68,7 +70,7 @@ export default function App() {
       .finally(() => setReady(true));
   }, [client, setUser, setReady]);
 
-  if (!ready) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  if (!ready) return Loading;
 
   return (
     <>
