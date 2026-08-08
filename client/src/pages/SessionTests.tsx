@@ -17,6 +17,7 @@ import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { SessionTestForm } from "./forms/SessionTestForm";
+import { TableSkeleton } from "../components/Skeleton";
 
 const PAGE_SIZE = 25;
 
@@ -150,7 +151,7 @@ export default function SessionTests() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+                  {loading && rows.length === 0 && <TableSkeleton cols={10} />}
                   {!loading && rows.length === 0 && <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("st.empty")}</td></tr>}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>

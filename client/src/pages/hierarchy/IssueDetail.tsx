@@ -28,6 +28,7 @@ import { WatchButton } from "../../components/WatchButton";
 import { RefreshBtn } from "../../components/RefreshBtn";
 import { JiraTicketLinks } from "../../components/JiraTicketLinks";
 import { IconBtn } from "../../components/IconBtn";
+import { DetailSkeleton } from "../../components/Skeleton";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -72,7 +73,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const [setArchived] = useMutation(SET_ISSUE_ARCHIVED, refetch);
   const [setProductionIssue] = useMutation(SET_PRODUCTION_ISSUE, refetch);
 
-  if (loading && !data) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
+  if (loading && !data) return <DetailSkeleton />;
   const i = data?.issue;
   if (!i) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.notFound")}</div>;
 

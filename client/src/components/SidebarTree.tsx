@@ -5,6 +5,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
 import { useDrill } from "../store/nav";
 import { cn } from "../lib/utils";
+import { Skeleton } from "./Skeleton";
 
 // Collapsible Project → Feature tree in the sidebar. Selecting a node primes
 // nav state and routes to the dashboard, where the drilldown renders it.
@@ -74,7 +75,12 @@ function FeatureBranch({ projectId }: { projectId: string }) {
   const { featureId, goFeature } = useDrill();
   const features = data?.features ?? [];
 
-  if (loading) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">{t("c.loading")}</div>;
+  if (loading)
+    return (
+      <div className="flex flex-col gap-1 py-1 pl-7">
+        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-2.5 w-24" />)}
+      </div>
+    );
   if (features.length === 0) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">{t("an.noFeatures")}</div>;
 
   return (

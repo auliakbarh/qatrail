@@ -14,6 +14,7 @@ import { RefreshBtn } from "../components/RefreshBtn";
 import { searchRows, sortRows } from "../lib/list";
 import { printAnalyticsReport } from "../lib/printReport";
 import { useAuth } from "../store/auth";
+import { Skeleton } from "../components/Skeleton";
 
 function fmtMins(m: number | null): string {
   if (m == null) return "—";
@@ -169,7 +170,14 @@ export default function Analytics() {
         </div>
       </div>
 
-      {loading && !a && <div className="text-sm text-muted-foreground">{t("c.loading")}</div>}
+      {loading && !a && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+          </div>
+          <Skeleton className="h-64" />
+        </div>
+      )}
 
       {a && (
         <>

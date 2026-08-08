@@ -4,6 +4,7 @@ import { RightPanel } from "../../components/RightPanel";
 import { AttachmentList } from "../../components/AttachmentList";
 import { TEST_CASE } from "../../graphql/hierarchy";
 import { useNav } from "../../store/nav";
+import { Skeleton } from "../../components/Skeleton";
 
 // Read-only test case, shown beside an issue so QA/engineers can check the steps
 // a finding came from without navigating away.
@@ -31,7 +32,14 @@ export function TestCaseView({ testCaseId, onOpenText }: { testCaseId: string; o
 
   return (
     <>
-      {loading && !tc && <p className="text-sm text-muted-foreground">{t("c.loading")}</p>}
+      {loading && !tc && (
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-5/6" />
+        </div>
+      )}
       {!loading && !tc && <p className="text-sm text-muted-foreground">{t("c.notFound")}</p>}
       {tc && (
         <div className="space-y-4 text-sm">

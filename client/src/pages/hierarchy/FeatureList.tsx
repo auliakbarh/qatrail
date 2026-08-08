@@ -17,6 +17,7 @@ import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
+import { TableSkeleton } from "../../components/Skeleton";
 
 export function FeatureList({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
@@ -104,13 +105,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                    {t("c.loading")}
-                  </td>
-                </tr>
-              )}
+              {loading && rows.length === 0 && <TableSkeleton cols={7} />}
               {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-muted-foreground">

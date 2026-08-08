@@ -31,6 +31,7 @@ import { RecordForm } from "./forms/RecordForm";
 import { BulkRecordForm } from "./forms/BulkRecordForm";
 import { IssueForm } from "./forms/IssueForm";
 import { useIssueQueue } from "../lib/useIssueQueue";
+import { DetailSkeleton } from "../components/Skeleton";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -94,7 +95,7 @@ export default function AppTestDetail() {
     setSortDir(n.dir);
   };
 
-  if (loading && !data) return <div className="p-6 text-sm text-muted-foreground">{t("c.loading")}</div>;
+  if (loading && !data) return <div className="p-6"><DetailSkeleton /></div>;
   const a = data?.appTest;
   // App test was deleted (or never existed): show a deleted state, not a blank page.
   if (!a) {

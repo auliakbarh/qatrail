@@ -16,6 +16,7 @@ import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
+import { TableSkeleton } from "../../components/Skeleton";
 
 export function ProjectList() {
   const { t } = useTranslation();
@@ -111,13 +112,7 @@ export function ProjectList() {
                 </tr>
               </thead>
               <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
-                      {t("c.loading")}
-                    </td>
-                  </tr>
-                )}
+                {loading && rows.length === 0 && <TableSkeleton cols={8} />}
                 {!loading && rows.length === 0 && (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-muted-foreground">

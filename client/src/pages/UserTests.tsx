@@ -17,6 +17,7 @@ import { fmtDateTime as fmt } from "../lib/utils";
 import { UserTestForm } from "./forms/UserTestForm";
 import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
+import { TableSkeleton } from "../components/Skeleton";
 
 const PAGE_SIZE = 25;
 
@@ -120,7 +121,7 @@ export default function UserTests() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+                  {loading && rows.length === 0 && <TableSkeleton cols={8} />}
                   {!loading && rows.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">{t("ut.empty")}</td></tr>}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>

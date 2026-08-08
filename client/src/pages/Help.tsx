@@ -143,6 +143,7 @@ export default function Help() {
             <P><Trans i18nKey="help.nav.p3" components={{ b: <B />, code: <Code /> }} /></P>
             <P><Trans i18nKey="help.nav.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.nav.p5" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.nav.p6" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="approval" title={t("help.sec.approval")}>

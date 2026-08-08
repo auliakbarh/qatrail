@@ -32,6 +32,7 @@ import { Modal } from "../../components/Modal";
 import { withToast, denied } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
+import { TableSkeleton, DetailSkeleton } from "../../components/Skeleton";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const cls = {
@@ -227,7 +228,7 @@ export function TestCaseDetail({ id }: { id: string }) {
     refetchQueries: [{ query: TEST_CASE, variables: { id } }, "TestCases", { query: PENDING_APPROVAL_COUNT }],
   });
 
-  if (loading) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.loading")}</div>;
+  if (loading) return <DetailSkeleton />;
   const tc = data?.testCase;
   if (!tc) return <div className="rounded border border-border p-8 text-sm text-muted-foreground">{t("c.notFound")}</div>;
   // Runs and findings need a reviewed case; commenting and watching never do.
@@ -459,7 +460,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
+            <TableSkeleton rows={3} cols={9} />
           )}
           {!loading && rows.length === 0 && (
             <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
@@ -543,7 +544,7 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
         </thead>
         <tbody>
           {loading && (
-            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
+            <TableSkeleton rows={3} cols={9} />
           )}
           {!loading && rows.length === 0 && (
             <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("tc.noIssuesYet")}</td></tr>

@@ -13,6 +13,7 @@ import { RefreshBtn } from "./RefreshBtn";
 import { cn, fmtDateTime } from "../lib/utils";
 import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
+import { TableSkeleton } from "./Skeleton";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
   const c = {
@@ -209,7 +210,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
             </tr>
           </thead>
           <tbody>
-            {loading && !data && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+            {loading && !data && <TableSkeleton cols={colCount} />}
             {!loading && rows.length === 0 && <tr><td colSpan={colCount} className="py-8 text-center text-muted-foreground">{t("issue.none")}</td></tr>}
             {rows.map((i: any, idx: number) => (
               <tr key={i.id} className="cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/30" onClick={() => navigate(`/issues/${i.id}?from=${scope === "assigned" ? "assigned" : "issues"}`)}>

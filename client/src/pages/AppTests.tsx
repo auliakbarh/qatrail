@@ -20,6 +20,7 @@ import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { AppTestForm } from "./forms/AppTestForm";
 import { MoveAppTestProjectForm } from "./forms/MoveAppTestProjectForm";
+import { TableSkeleton } from "../components/Skeleton";
 
 const canCreate = (r?: string) => r === "ENGINEER" || r === "ADMIN" || r === "SUPER_ADMIN";
 const PAGE_SIZE = 25;
@@ -167,7 +168,7 @@ export default function AppTests() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>}
+                  {loading && rows.length === 0 && <TableSkeleton cols={14} />}
                   {!loading && rows.length === 0 && <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">{t("at.empty")}</td></tr>}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>

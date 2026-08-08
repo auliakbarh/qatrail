@@ -15,6 +15,7 @@ import { fmtDateTime as fmt } from "../lib/utils";
 import { UserTestForm } from "./forms/UserTestForm";
 import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
+import { DetailSkeleton } from "../components/Skeleton";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -37,7 +38,7 @@ export default function UserTestDetail() {
   const [deleteUserTest] = useMutation(DELETE_USER_TEST);
   const [del, setDel] = useState(false);
 
-  if (loading && !data) return <div className="p-6 text-sm text-muted-foreground">{t("c.loading")}</div>;
+  if (loading && !data) return <div className="p-6"><DetailSkeleton /></div>;
   const u = data?.userTest;
   // User test was deleted (or never existed): show a deleted state, not a blank page.
   if (!u) {

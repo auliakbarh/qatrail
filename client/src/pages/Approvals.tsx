@@ -24,6 +24,7 @@ import { RefreshBtn } from "../components/RefreshBtn";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt, cn } from "../lib/utils";
 import { waitedFor } from "../lib/approval";
+import { TableSkeleton } from "../components/Skeleton";
 
 // Lists show the human key next to the name, the way every other table does.
 const label = (key?: string | null, name?: string | null) => (name ? (key ? `${key} · ${name}` : name) : "—");
@@ -260,9 +261,7 @@ export default function Approvals() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(loading || reqLoading) && (
-                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("c.loading")}</td></tr>
-                  )}
+                  {(loading || reqLoading) && rows.length === 0 && <TableSkeleton cols={10} />}
                   {!loading && !reqLoading && rows.length === 0 && (
                     <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("tca.empty")}</td></tr>
                   )}

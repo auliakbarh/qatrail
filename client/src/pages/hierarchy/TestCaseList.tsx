@@ -16,6 +16,7 @@ import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
+import { TableSkeleton } from "../../components/Skeleton";
 
 function ResultBadge({ result }: { result: string | null }) {
   const { t } = useTranslation();
@@ -136,13 +137,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
-                    {t("c.loading")}
-                  </td>
-                </tr>
-              )}
+              {loading && rows.length === 0 && <TableSkeleton cols={9} />}
               {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-muted-foreground">

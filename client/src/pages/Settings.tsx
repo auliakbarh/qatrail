@@ -19,6 +19,7 @@ import { FilterBar, filterCtl } from "../components/FilterBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { usePageState, paged, Pager } from "../components/Pager";
 import { RefreshBtn } from "../components/RefreshBtn";
+import { TableSkeleton } from "../components/Skeleton";
 import { copyWithToast, withToast, useToast } from "../store/toast";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
@@ -305,7 +306,8 @@ function UsersCard() {
                 </tr>
               </thead>
               <tbody>
-                {page.length === 0 && (
+                {loading && all.length === 0 && <TableSkeleton cols={6} />}
+                {!loading && page.length === 0 && (
                   <tr><td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("c.noResults")}</td></tr>
                 )}
                 {page.map((u: any) => (
@@ -1067,7 +1069,8 @@ function AuditCard() {
             </tr>
           </thead>
           <tbody>
-            {page.length === 0 && (
+            {loading && page.length === 0 && <TableSkeleton cols={5} />}
+            {!loading && page.length === 0 && (
               <tr><td colSpan={5} className="px-3 py-6 text-center text-xs text-muted-foreground">{t("audit.empty")}</td></tr>
             )}
             {page.map((r: any) => {

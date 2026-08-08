@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "./Skeleton";
 
 // Fetches a text-based attachment (markdown/json/csv/other; works with data: URLs)
 // and renders it formatted. Used inside the right panel.
@@ -28,7 +29,11 @@ export function TextAttachmentViewer({ url, kind, label }: { url: string; kind: 
         </a>
       </div>
       {error && <p className="text-xs text-destructive">{t("c.somethingWrong")}</p>}
-      {text == null && !error && <p className="text-xs text-muted-foreground">{t("c.loading")}</p>}
+      {text == null && !error && (
+        <div className="space-y-1.5">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-2.5 w-full" />)}
+        </div>
+      )}
       {text != null && <Rendered kind={kind} text={text} />}
     </div>
   );
