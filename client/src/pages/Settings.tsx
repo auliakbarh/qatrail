@@ -587,6 +587,20 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
     if (ok) setLocal(null);
   };
 
+  // Drop the stored webhook. Turns notifications off in the same write — a null
+  // URL with discordEnabled still true is a setting that silently does nothing.
+  const removeWebhook = async () => {
+    const ok = await withToast(
+      updateSetting({ variables: { input: { discordEnabled: false, discordWebhookUrl: null } } }),
+      t("set.webhookRemoved"),
+      t("t.settingsSaveFail"),
+    );
+    if (ok) {
+      setLocal(null);
+      setTestMsg(null);
+    }
+  };
+
   if (kind === "maintenance") {
     return (
       <Card title={t("set.maintenance")}>
@@ -627,6 +641,15 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
           >
             {t("set.testSend")}
           </button>
+          {s?.discordWebhookUrl && (
+            <button
+              onClick={removeWebhook}
+              disabled={loading}
+              className="rounded border border-destructive px-4 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            >
+              {t("set.removeWebhook")}
+            </button>
+          )}
         </div>
       </div>
     </Card>
