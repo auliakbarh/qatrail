@@ -315,8 +315,7 @@ export default function SessionTestDetail() {
                 { value: "status", label: t("c.status") },
                 { value: "appNames", label: t("st.apps") },
               ]}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            >
               <select value={fFeature} onChange={(e) => setFFeature(e.target.value)} className={selCls}>
                 <option value="">{t("at.feature")}: {t("c.all")}</option>
                 {distinct("featureName").map((v: any) => <option key={v} value={v}>{v}</option>)}
@@ -325,7 +324,15 @@ export default function SessionTestDetail() {
                 <option value="">{t("c.status")}: {t("c.all")}</option>
                 {distinct("status").map((v: any) => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
+              {(search || fFeature || fStatus || groupKey) && (
+                <button
+                  onClick={() => { setSearch(""); setFFeature(""); setFStatus(""); setGroupKey(""); }}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.resetFilters")}
+                </button>
+              )}
+            </FilterBar>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

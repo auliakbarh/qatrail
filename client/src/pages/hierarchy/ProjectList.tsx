@@ -17,6 +17,7 @@ import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
 import { TableSkeleton } from "../../components/Skeleton";
+import { usePageState, paged, Pager } from "../../components/Pager";
 
 export function ProjectList() {
   const { t } = useTranslation();
@@ -39,6 +40,7 @@ export function ProjectList() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [groupKey, setGroupKey] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const pg = usePageState(25);
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -59,9 +61,10 @@ export function ProjectList() {
     .filter((p: any) => (fActive === "" ? true : fActive === "ACTIVE" ? p.active : !p.active));
   const rows = sortRows(searchRows(visible, search, ["name", "squad", "description"]), sortKey as any, sortDir);
   // When grouping, split into labelled buckets; otherwise one unlabelled bucket.
+  const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey
-    ? Object.entries(groupRows(rows, groupKey as any))
-    : [["", rows]];
+    ? Object.entries(groupRows(pageRows, groupKey as any))
+    : [["", pageRows]];
 
   return (
     <div className="space-y-4 p-6">
@@ -85,8 +88,7 @@ export function ProjectList() {
               { value: "squad", label: "squad" },
               { value: "activeLabel", label: t("tc.groupActive") },
             ]}
-          />
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          >
             <select
               value={fActive}
               onChange={(e) => setFActive(e.target.value)}
@@ -96,7 +98,15 @@ export function ProjectList() {
               <option value="ACTIVE">{t("tc.active")}</option>
               <option value="INACTIVE">{t("tc.inactive")}</option>
             </select>
-          </div>
+            {(search || fActive || groupKey) && (
+              <button
+                onClick={() => { setSearch(""); setFActive(""); setGroupKey(""); }}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                {t("c.resetFilters")}
+              </button>
+            )}
+          </FilterBar>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -216,6 +226,7 @@ export function ProjectList() {
               </tbody>
             </table>
           </div>
+          <Pager total={rows.length} st={pg} />
         </div>
       </div>
 

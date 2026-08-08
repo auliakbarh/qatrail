@@ -1,13 +1,14 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { SESSION_TESTS, DELETE_SESSION_TEST } from "../graphql/sessiontest";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { canManageContent } from "../lib/perm";
 import { FilterBar } from "../components/FilterBar";
+import { usePageState, paged, Pager } from "../components/Pager";
 import { HeaderButton } from "../components/HeaderButton";
 import { RefreshBtn } from "../components/RefreshBtn";
 import { IconBtn } from "../components/IconBtn";
@@ -19,7 +20,6 @@ import { fmtDateTime as fmt } from "../lib/utils";
 import { SessionTestForm } from "./forms/SessionTestForm";
 import { TableSkeleton } from "../components/Skeleton";
 
-const PAGE_SIZE = 25;
 
 // Flatten a session into a row with sortable/searchable scalar fields.
 function toRow(s: any) {
@@ -53,7 +53,7 @@ export default function SessionTests() {
   const [fCreator, setFCreator] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [del, setDel] = useState<{ id: string; key: string } | null>(null);
-  const [page, setPage] = useState(1);
+  const pg = usePageState(25);
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -82,11 +82,8 @@ export default function SessionTests() {
     sortKey as any,
     sortDir,
   );
-  const total = rows.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
-  useEffect(() => { setPage(1); }, [search, fKind, fProject, fCreator, fStatus, groupKey, sortKey, sortDir]);
 
   const canEditRow = (s: any) => s.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -115,8 +112,7 @@ export default function SessionTests() {
                 { value: "projectName", label: t("at.project") },
                 { value: "creatorName", label: t("at.creator") },
               ]}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            >
               <select value={fKind} onChange={(e) => setFKind(e.target.value)} className={selCls}>
                 <option value="">{t("st.kind")}: {t("c.all")}</option>
                 {distinct("kindLabel").map((v) => <option key={v} value={v}>{v}</option>)}
@@ -133,7 +129,15 @@ export default function SessionTests() {
                 <option value="">{t("c.status")}: {t("c.all")}</option>
                 {["OPEN", "IN_TESTING", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
+              {(search || fKind || fProject || fCreator || fStatus || groupKey) && (
+                <button
+                  onClick={() => { setSearch(""); setFKind(""); setFProject(""); setFCreator(""); setFStatus(""); setGroupKey(""); }}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.resetFilters")}
+                </button>
+              )}
+            </FilterBar>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -195,19 +199,7 @@ export default function SessionTests() {
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{t("page.of", { total, page, totalPages })}</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
+            <Pager total={rows.length} st={pg} />
           </div>
         </div>
 

@@ -151,6 +151,14 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         <Filter label={t("c.priority")} value={fPriority} onChange={setFPriority} options={PRIORITIES} />
         <Filter label={t("c.type")} value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
         <Filter label={t("issue.colProdIssue")} value={fProd} onChange={setFProd} options={["YES", "NO"]} />
+        {(searchInput || fStatus || fPriority || fType || fProd) && (
+          <button
+            onClick={() => { setSearchInput(""); setFStatus(""); setFPriority(""); setFType(""); setFProd(""); }}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {t("c.resetFilters")}
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs text-muted-foreground">{t("issue.count", { n: total })}</span>
           <RefreshBtn onClick={() => void refetch()} loading={loading} />

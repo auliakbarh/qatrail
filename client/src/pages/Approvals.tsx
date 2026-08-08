@@ -25,6 +25,7 @@ import { withToast } from "../store/toast";
 import { fmtDateTime as fmt, cn } from "../lib/utils";
 import { waitedFor } from "../lib/approval";
 import { TableSkeleton } from "../components/Skeleton";
+import { usePageState, paged, Pager } from "../components/Pager";
 
 // Lists show the human key next to the name, the way every other table does.
 const label = (key?: string | null, name?: string | null) => (name ? (key ? `${key} · ${name}` : name) : "—");
@@ -117,6 +118,7 @@ export default function Approvals() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [groupKey, setGroupKey] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const pg = usePageState(25);
   const [fType, setFType] = useState("");
   const [fProject, setFProject] = useState("");
   const [fFeature, setFFeature] = useState("");
@@ -155,7 +157,8 @@ export default function Approvals() {
       (!fCreator || r.creatorName === fCreator),
   );
   const rows = sortRows(searchRows(filtered, search, ["name", "key", "creatorName", "featureName", "projectName"]), sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const pageRows = paged(rows, pg);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
 
   // Only rows the server says this user may decide on can be bulk-approved.
   const approvable = rows.filter((r) => r.canApprove);
@@ -213,8 +216,7 @@ export default function Approvals() {
                 { value: "creatorName", label: t("tca.createdBy") },
                 { value: "type", label: t("tca.type") },
               ]}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            >
               <select value={fType} onChange={(e) => setFType(e.target.value)} className={selCls}>
                 <option value="">{t("tca.type")}: {t("c.all")}</option>
                 {["NEW", "EDIT", "REJECTED", "MOVE", "COPY", "DELETE", "DEACTIVATE", "ACTIVATE"].map((v) => (
@@ -233,7 +235,15 @@ export default function Approvals() {
                 <option value="">{t("tca.createdBy")}: {t("c.all")}</option>
                 {distinct("creatorName").map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
+              {(search || fType || fProject || fFeature || fCreator || groupKey) && (
+                <button
+                  onClick={() => { setSearch(""); setFType(""); setFProject(""); setFFeature(""); setFCreator(""); setGroupKey(""); }}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.resetFilters")}
+                </button>
+              )}
+            </FilterBar>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -384,6 +394,7 @@ export default function Approvals() {
                 </tbody>
               </table>
             </div>
+            <Pager total={rows.length} st={pg} />
           </div>
         </div>
       </div>

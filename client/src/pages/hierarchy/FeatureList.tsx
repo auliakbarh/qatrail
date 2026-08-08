@@ -18,6 +18,7 @@ import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
 import { TableSkeleton } from "../../components/Skeleton";
+import { usePageState, paged, Pager } from "../../components/Pager";
 
 export function FeatureList({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
@@ -41,6 +42,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
   const [fActive, setFActive] = useState("");
   const [groupKey, setGroupKey] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const pg = usePageState(25);
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -58,7 +60,8 @@ export function FeatureList({ projectId }: { projectId: string }) {
     .map((f: any) => ({ ...f, activeLabel: f.active ? t("tc.active") : t("tc.inactive") }))
     .filter((f: any) => (fActive === "" ? true : fActive === "ACTIVE" ? f.active : !f.active));
   const rows = sortRows(searchRows(visible, search, ["name", "description"]), sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const pageRows = paged(rows, pg);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
 
   return (
     <div className="rounded border border-border">
@@ -79,8 +82,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
           groupKey={groupKey}
           onGroupKey={setGroupKey}
           groupOptions={[{ value: "activeLabel", label: t("tc.groupActive") }]}
-        />
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        >
           <select
             value={fActive}
             onChange={(e) => setFActive(e.target.value)}
@@ -90,7 +92,15 @@ export function FeatureList({ projectId }: { projectId: string }) {
             <option value="ACTIVE">{t("tc.active")}</option>
             <option value="INACTIVE">{t("tc.inactive")}</option>
           </select>
-        </div>
+          {(search || fActive || groupKey) && (
+            <button
+              onClick={() => { setSearch(""); setFActive(""); setGroupKey(""); }}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              {t("c.resetFilters")}
+            </button>
+          )}
+        </FilterBar>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -211,6 +221,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
             </tbody>
           </table>
         </div>
+        <Pager total={rows.length} st={pg} />
       </div>
 
       <DeleteConfirm

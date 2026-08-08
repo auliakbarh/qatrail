@@ -1,11 +1,12 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { USER_TESTS, DELETE_USER_TEST } from "../graphql/usertest";
 import { useNav } from "../store/nav";
 import { FilterBar } from "../components/FilterBar";
+import { usePageState, paged, Pager } from "../components/Pager";
 import { HeaderButton } from "../components/HeaderButton";
 import { RefreshBtn } from "../components/RefreshBtn";
 import { IconBtn } from "../components/IconBtn";
@@ -19,7 +20,6 @@ import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
 import { TableSkeleton } from "../components/Skeleton";
 
-const PAGE_SIZE = 25;
 
 function toRow(u: any) {
   return { ...u, creatorName: u.createdBy?.name ?? "", dateCreated: u.createdAt };
@@ -42,7 +42,7 @@ export default function UserTests() {
   const [fEnv, setFEnv] = useState("");
   const [fProject, setFProject] = useState("");
   const [del, setDel] = useState<{ id: string; key: string } | null>(null);
-  const [page, setPage] = useState(1);
+  const pg = usePageState(25);
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -63,11 +63,8 @@ export default function UserTests() {
     (r) => (!fEnv || r.environment === fEnv) && (!fProject || r.projectName === fProject),
   );
   const rows = sortRows(searchRows(filtered, search, ["key", "account", "projectName", "creatorName"]), sortKey as any, sortDir);
-  const total = rows.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
-  useEffect(() => { setPage(1); }, [search, fEnv, fProject, groupKey, sortKey, sortDir]);
 
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
@@ -95,8 +92,7 @@ export default function UserTests() {
                 { value: "environment", label: t("iss.environment") },
                 { value: "creatorName", label: t("at.creator") },
               ]}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            >
               <select value={fProject} onChange={(e) => setFProject(e.target.value)} className={selCls}>
                 <option value="">{t("ut.project")}: {t("c.all")}</option>
                 {distinct("projectName").map((v) => <option key={v} value={v}>{v}</option>)}
@@ -105,7 +101,15 @@ export default function UserTests() {
                 <option value="">{t("iss.environment")}: {t("c.all")}</option>
                 {distinct("environment").map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
+              {(search || fProject || fEnv || groupKey) && (
+                <button
+                  onClick={() => { setSearch(""); setFProject(""); setFEnv(""); setGroupKey(""); }}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.resetFilters")}
+                </button>
+              )}
+            </FilterBar>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -137,7 +141,7 @@ export default function UserTests() {
                       )}
                       {!collapsed.has(label) && gr.map((u: any, i: number) => (
                         <tr key={u.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                          <td className="px-3 py-2 tabular-nums text-muted-foreground">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                          <td className="px-3 py-2 tabular-nums text-muted-foreground">{(pg.page - 1) * (pg.size || rows.length) + i + 1}</td>
                           <td className="px-3 py-2">
                             <button onClick={() => navigate(`/user-tests/${u.id}`)} className="font-medium hover:underline">{u.account}</button>
                           </td>
@@ -160,19 +164,7 @@ export default function UserTests() {
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{t("page.of", { total, page, totalPages })}</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
+            <Pager total={rows.length} st={pg} />
           </div>
         </div>
 

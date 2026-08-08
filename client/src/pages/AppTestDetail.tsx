@@ -270,8 +270,7 @@ export default function AppTestDetail() {
                 { value: "status", label: t("c.status") },
                 { value: "qaName", label: t("at.qaAssigner") },
               ]}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            >
               <select value={fFeature} onChange={(e) => setFFeature(e.target.value)} className={selCls}>
                 <option value="">{t("at.feature")}: {t("c.all")}</option>
                 {distinct("featureName").map((v: any) => <option key={v} value={v}>{v}</option>)}
@@ -284,7 +283,15 @@ export default function AppTestDetail() {
                 <option value="">{t("at.qaAssigner")}: {t("c.all")}</option>
                 {distinct("qaName").map((v: any) => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
+              {(search || fFeature || fStatus || fQa || groupKey) && (
+                <button
+                  onClick={() => { setSearch(""); setFFeature(""); setFStatus(""); setFQa(""); setGroupKey(""); }}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.resetFilters")}
+                </button>
+              )}
+            </FilterBar>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

@@ -17,6 +17,7 @@ import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
 import { TableSkeleton } from "../../components/Skeleton";
+import { usePageState, paged, Pager } from "../../components/Pager";
 
 function ResultBadge({ result }: { result: string | null }) {
   const { t } = useTranslation();
@@ -57,6 +58,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const [fKind, setFKind] = useState("");
   const [fActive, setFActive] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const pg = usePageState(25);
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
 
   const toggleGroup = (label: string) =>
@@ -82,7 +84,8 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const filtered =
     fActive === "" ? byKind : byKind.filter((tc: any) => (fActive === "ACTIVE" ? tc.active : !tc.active));
   const rows = sortRows(searchRows(filtered, search, ["name", "description"]), sortKey as any, sortDir);
-  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(rows, groupKey as any)) : [["", rows]];
+  const pageRows = paged(rows, pg);
+  const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
@@ -107,8 +110,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             { value: "kindLabel", label: t("tc.kind") },
             { value: "activeLabel", label: t("tc.groupActive") },
           ]}
-        />
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        >
           <select value={fKind} onChange={(e) => setFKind(e.target.value)} className={selCls}>
             <option value="">{t("tc.kind")}: {t("c.all")}</option>
             <option value="POSITIVE">{t("tc.kindPositive")}</option>
@@ -120,7 +122,15 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <option value="ACTIVE">{t("tc.active")}</option>
             <option value="INACTIVE">{t("tc.inactive")}</option>
           </select>
-        </div>
+          {(search || fKind || fActive || groupKey) && (
+            <button
+              onClick={() => { setSearch(""); setFKind(""); setFActive(""); setGroupKey(""); }}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              {t("c.resetFilters")}
+            </button>
+          )}
+        </FilterBar>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -251,6 +261,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             </tbody>
           </table>
         </div>
+        <Pager total={rows.length} st={pg} />
       </div>
 
       <DeleteConfirm

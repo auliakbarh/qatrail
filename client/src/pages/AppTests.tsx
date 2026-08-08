@@ -1,14 +1,15 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Plus, FolderOpen, Pencil, Trash2, FolderInput, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, FolderOpen, Pencil, Trash2, FolderInput, ChevronDown, ChevronRight } from "lucide-react";
 import { APP_TESTS, DELETE_APP_TEST } from "../graphql/apptest";
 import { HEALTH } from "../graphql";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { FilterBar } from "../components/FilterBar";
+import { usePageState, paged, Pager } from "../components/Pager";
 import { HeaderButton } from "../components/HeaderButton";
 import { RefreshBtn } from "../components/RefreshBtn";
 import { IconBtn } from "../components/IconBtn";
@@ -23,7 +24,6 @@ import { MoveAppTestProjectForm } from "./forms/MoveAppTestProjectForm";
 import { TableSkeleton } from "../components/Skeleton";
 
 const canCreate = (r?: string) => r === "ENGINEER" || r === "ADMIN" || r === "SUPER_ADMIN";
-const PAGE_SIZE = 25;
 
 // Flatten an app test into a row with sortable/searchable scalar fields.
 function toRow(a: any) {
@@ -56,7 +56,7 @@ export default function AppTests() {
   const [fStatus, setFStatus] = useState("");
   const [del, setDel] = useState<{ id: string; key: string } | null>(null);
   const [blocked, setBlocked] = useState(false);
-  const [page, setPage] = useState(1);
+  const pg = usePageState(25);
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -82,12 +82,8 @@ export default function AppTests() {
       (!fStatus || r.status === fStatus),
   );
   const rows = sortRows(searchRows(filtered, search, ["key", "creatorName", "jira", "appVersion", "backendVersion"]), sortKey as any, sortDir);
-  const total = rows.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
-  // Reset to page 1 whenever the result set changes.
-  useEffect(() => { setPage(1); }, [search, fEnv, fPlat, fAppVer, fBeVer, fStatus, groupKey, sortKey, sortDir]);
 
   const canEditRow = (a: any) => a.createdBy?.id === user?.id || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   // Only an admin may move an app test between projects (assignments follow the old project).
@@ -124,8 +120,7 @@ export default function AppTests() {
                 { value: "creatorName", label: t("at.creator") },
                 { value: "status", label: t("c.status") },
               ]}
-            />
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            >
               <select value={fEnv} onChange={(e) => setFEnv(e.target.value)} className={selCls}>
                 <option value="">{t("iss.environment")}: {t("c.all")}</option>
                 {distinct("environment").map((v) => <option key={v} value={v}>{v}</option>)}
@@ -146,7 +141,15 @@ export default function AppTests() {
                 <option value="">{t("c.status")}: {t("c.all")}</option>
                 {["OPEN", "ASSIGNED", "IN_TESTING", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
+              {(search || fEnv || fPlat || fAppVer || fBeVer || fStatus || groupKey) && (
+                <button
+                  onClick={() => { setSearch(""); setFEnv(""); setFPlat(""); setFAppVer(""); setFBeVer(""); setFStatus(""); setGroupKey(""); }}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.resetFilters")}
+                </button>
+              )}
+            </FilterBar>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -225,19 +228,7 @@ export default function AppTests() {
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{t("page.of", { total, page, totalPages })}</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border hover:bg-muted disabled:opacity-40">
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
+            <Pager total={rows.length} st={pg} />
           </div>
         </div>
 
