@@ -4,6 +4,7 @@ import { notify } from "./notify.js";
 import { slaTargets, classifyResolve, respondBreached } from "./sla.js";
 import { autoApproveCutoff } from "./approval.js";
 import { autoApproveRequest } from "./resolvers/approvalRequest.js";
+import { settleWindow } from "./maintenance.js";
 
 const log = logger.child({ mod: "scheduler" });
 
@@ -89,10 +90,27 @@ async function sweepAutoApprovals() {
   }
 }
 
+// Fold a finished maintenance window back into the stored flag. `maintenanceActive`
+// already answers correctly while this is pending, so the tick's lag is invisible;
+// what this buys is a switch an admin can actually turn off afterwards.
+async function settleMaintenance() {
+  try {
+    const s = await prisma.setting.findUnique({ where: { id: "singleton" } });
+    const data = settleWindow(s);
+    if (!data) return;
+    await prisma.setting.update({ where: { id: "singleton" }, data });
+    log.info({ data }, "maintenance window settled");
+  } catch (e) {
+    log.error({ err: e }, "settleMaintenance failed");
+  }
+}
+
 export function startScheduler() {
   log.info("SLA scheduler started");
   void checkSla();
   void sweepAutoApprovals();
+  void settleMaintenance();
   setInterval(() => void checkSla(), CHECK_MS);
   setInterval(() => void sweepAutoApprovals(), CHECK_MS);
+  setInterval(() => void settleMaintenance(), CHECK_MS);
 }

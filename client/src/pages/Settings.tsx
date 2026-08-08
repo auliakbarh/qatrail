@@ -575,6 +575,15 @@ function SsoCard() {
   );
 }
 
+// ISO → the "YYYY-MM-DDTHH:mm" a datetime-local input expects, in local time.
+function toLocalInput(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(+d)) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
   const { t } = useTranslation();
   const { data } = useQuery(SETTING);
@@ -582,14 +591,23 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
   const [testDiscord] = useMutation(TEST_DISCORD);
   const s = data?.setting;
   const [local, setLocal] = useState<any>(null);
-  const v = local ?? s ?? {};
+  // The window is stored as ISO but edited as local wall-clock, so the two
+  // datetime-local inputs get their own fields seeded from the stored value.
+  const v = local ?? { ...(s ?? {}), startLocal: toLocalInput(s?.maintenanceStartAt), endLocal: toLocalInput(s?.maintenanceEndAt) };
   const set = (patch: any) => setLocal({ ...v, ...patch });
   const [testMsg, setTestMsg] = useState<string | null>(null);
 
   const save = async () => {
     const input =
       kind === "maintenance"
-        ? { maintenanceMode: !!v.maintenanceMode, maintenanceMessage: v.maintenanceMessage || null }
+        ? {
+            maintenanceMode: !!v.maintenanceMode,
+            maintenanceMessage: v.maintenanceMessage || null,
+            // datetime-local is local wall-clock; the API stores UTC.
+            maintenanceStartAt: v.startLocal ? new Date(v.startLocal).toISOString() : null,
+            maintenanceEndAt: v.endLocal ? new Date(v.endLocal).toISOString() : null,
+            maintenanceAutoEnd: v.maintenanceAutoEnd !== false,
+          }
         : { discordEnabled: !!v.discordEnabled, discordWebhookUrl: v.discordWebhookUrl || null };
     const ok = await withToast(updateSetting({ variables: { input } }), t("t.settingsSaved"), t("t.settingsSaveFail"));
     if (ok) setLocal(null);
@@ -610,6 +628,8 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
   };
 
   if (kind === "maintenance") {
+    const badWindow = !!v.startLocal && !!v.endLocal && new Date(v.startLocal) >= new Date(v.endLocal);
+    const endWithoutStart = !v.startLocal && !!v.endLocal;
     return (
       <Card title={t("set.maintenance")}>
         <div className="max-w-md space-y-4">
@@ -620,7 +640,59 @@ function SettingCard({ kind }: { kind: "maintenance" | "discord" }) {
           <Field label={t("set.message")} optional>
             <textarea className={inputCls} rows={2} value={v.maintenanceMessage ?? ""} onChange={(e) => set({ maintenanceMessage: e.target.value })} />
           </Field>
-          <button onClick={save} disabled={loading} className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">{t("c.save")}</button>
+          <div className="space-y-2 rounded border border-border p-3">
+            <p className="text-xs font-medium">{t("set.maintSchedule")}</p>
+            <p className="text-xs text-muted-foreground">{t("set.maintScheduleHelp")}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                value={v.startLocal ?? ""}
+                max={v.endLocal || undefined}
+                onChange={(e) => set({ startLocal: e.target.value })}
+                className={cn(filterCtl, badWindow && "border-destructive")}
+                title={t("set.maintStart")}
+              />
+              <span className="text-xs text-muted-foreground">→</span>
+              <input
+                type="datetime-local"
+                value={v.endLocal ?? ""}
+                min={v.startLocal || undefined}
+                onChange={(e) => set({ endLocal: e.target.value })}
+                className={cn(filterCtl, (badWindow || endWithoutStart) && "border-destructive")}
+                title={t("set.maintEnd")}
+              />
+              {(v.startLocal || v.endLocal) && (
+                <button
+                  onClick={() => set({ startLocal: "", endLocal: "" })}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("c.clear")}
+                </button>
+              )}
+            </div>
+            {badWindow && <p className="text-xs text-destructive">{t("set.maintBadWindow")}</p>}
+            {endWithoutStart && <p className="text-xs text-destructive">{t("set.maintEndNoStart")}</p>}
+            <Field label={t("set.maintOnEnd")}>
+              <select
+                className={inputCls}
+                value={v.maintenanceAutoEnd === false ? "manual" : "auto"}
+                onChange={(e) => set({ maintenanceAutoEnd: e.target.value === "auto" })}
+              >
+                <option value="auto">{t("set.maintAutoEnd")}</option>
+                <option value="manual">{t("set.maintManualEnd")}</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {v.maintenanceAutoEnd === false ? t("set.maintManualEndHelp") : t("set.maintAutoEndHelp")}
+              </p>
+            </Field>
+          </div>
+          <button
+            onClick={save}
+            disabled={loading || badWindow || endWithoutStart}
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {t("c.save")}
+          </button>
         </div>
       </Card>
     );

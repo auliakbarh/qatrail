@@ -2,6 +2,7 @@ import { GraphQLError } from "graphql";
 import { prisma } from "./db.js";
 import { verifyToken } from "./auth.js";
 import { isApproverRole } from "./approval.js";
+import { maintenanceActive } from "./maintenance.js";
 
 export interface Context {
   prisma: typeof prisma;
@@ -103,6 +104,35 @@ export function readOnlyGuard<T extends Record<string, any>>(mutations: T): T {
             throw new GraphQLError("Forbidden: the viewer role is read-only", {
               extensions: { code: "FORBIDDEN" },
             });
+          }
+          return fn(parent, args, ctx, info);
+        };
+  }
+  return out as T;
+}
+
+// Auth entry points stay open while the instance is closed: a locked-out user
+// still has to be able to sign in far enough to *see* the maintenance screen.
+// Everything else is refused, so maintenance is a real freeze and not just a
+// screen the client happens to render.
+const MAINTENANCE_MUTATIONS = new Set(["login", "microsoftLogin", "forgotPassword", "resetPassword"]);
+
+// Second wrapper around the Mutation map, same shape as readOnlyGuard: one place
+// that covers HTTP and WS, and a new mutation is closed by default. Admins are
+// exempt — maintenance exists so they can work while nobody else does.
+export function maintenanceGuard<T extends Record<string, any>>(mutations: T): T {
+  const out: Record<string, any> = {};
+  for (const [field, fn] of Object.entries(mutations)) {
+    out[field] = MAINTENANCE_MUTATIONS.has(field)
+      ? fn
+      : async (parent: any, args: any, ctx: Context, info: any) => {
+          if (ctx.role !== "ADMIN" && ctx.role !== "SUPER_ADMIN") {
+            const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
+            if (process.env.MAINTENANCE === "true" || maintenanceActive(s)) {
+              throw new GraphQLError("The system is under maintenance. Please try again later.", {
+                extensions: { code: "MAINTENANCE" },
+              });
+            }
           }
           return fn(parent, args, ctx, info);
         };

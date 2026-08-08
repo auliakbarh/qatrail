@@ -20,12 +20,12 @@ export const RESET_USER_PASSWORD = gql`mutation($id: ID!){ resetUserPassword(id:
 
 export const SETTING = gql`
   query Setting {
-    setting { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision ssoAllowedDomains }
+    setting { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision ssoAllowedDomains maintenanceStartAt maintenanceEndAt maintenanceAutoEnd }
   }
 `;
 export const UPDATE_SETTING = gql`
   mutation UpdateSetting($input: SettingInput!) {
-    updateSetting(input: $input) { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision ssoAllowedDomains }
+    updateSetting(input: $input) { maintenanceMode maintenanceMessage discordEnabled discordWebhookUrl autoApproveNewHours autoApproveChangeHours ssoAutoProvision ssoAllowedDomains maintenanceStartAt maintenanceEndAt maintenanceAutoEnd }
   }
 `;
 export const TEST_DISCORD = gql`mutation($url: String!){ testDiscord(url:$url) }`;

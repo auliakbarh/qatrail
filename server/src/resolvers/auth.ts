@@ -6,6 +6,7 @@ import { assertStrongPassword } from "../passwordPolicy.js";
 import { assertNotLocked, recordFailure, recordSuccess, assertWithinRate } from "../rateLimit.js";
 import { sendPasswordResetEmail } from "../mail.js";
 import { verifyMicrosoftToken, domainAllowed } from "../sso.js";
+import { maintenanceActive } from "../maintenance.js";
 import { notifyAdmins } from "../notify.js";
 import { notifyDiscord } from "../discord.js";
 import { env, hasJiraCreds } from "../env.js";
@@ -17,12 +18,15 @@ export const authResolvers = {
   Query: {
     async health(_: unknown, __: unknown, ctx: Context) {
       const s = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
-      const maintenance = process.env.MAINTENANCE === "true" || Boolean(s?.maintenanceMode);
+      const maintenance = process.env.MAINTENANCE === "true" || maintenanceActive(s);
       return {
         status: "ok",
         apiVersion: API_VERSION,
         maintenance,
         maintenanceMessage: s?.maintenanceMessage ?? null,
+        // The window is public so every page can announce it before it starts.
+        maintenanceStartAt: s?.maintenanceStartAt?.toISOString() ?? null,
+        maintenanceEndAt: s?.maintenanceEndAt?.toISOString() ?? null,
         jiraConfigured: hasJiraCreds(),
         jiraBaseUrl: env.jira.baseUrl || null,
         ssoEnabled: env.msSso.enabled,

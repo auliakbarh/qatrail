@@ -20,6 +20,8 @@ export const HEALTH = gql`
       apiVersion
       maintenance
       maintenanceMessage
+      maintenanceStartAt
+      maintenanceEndAt
       jiraConfigured
       jiraBaseUrl
       ssoEnabled

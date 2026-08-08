@@ -712,6 +712,13 @@ model Setting {
   id                 String   @id @default("singleton")
   maintenanceMode    Boolean  @default(false)
   maintenanceMessage String?
+  // Scheduled window. Maintenance is derived from these plus the manual switch
+  // (maintenance.ts) so it opens on the second rather than on a scheduler tick.
+  // When the window ends: autoEnd true = it lifts itself, false = it folds into
+  // maintenanceMode and waits for an admin. Both dates are cleared either way.
+  maintenanceStartAt DateTime?
+  maintenanceEndAt   DateTime?
+  maintenanceAutoEnd Boolean  @default(true)
   discordWebhookUrl  String?
   discordEnabled     Boolean  @default(false)
   // Auto-approval for test case review, in hours. null = never (a human must

@@ -44,6 +44,9 @@ export const typeDefs = /* GraphQL */ `
     apiVersion: String!
     maintenance: Boolean!
     maintenanceMessage: String
+    # Scheduled window, ISO. Public so every page can announce it in advance.
+    maintenanceStartAt: String
+    maintenanceEndAt: String
     jiraConfigured: Boolean!
     jiraBaseUrl: String
     ssoEnabled: Boolean!
@@ -238,6 +241,11 @@ export const typeDefs = /* GraphQL */ `
   type Setting {
     maintenanceMode: Boolean!
     maintenanceMessage: String
+    maintenanceStartAt: String
+    maintenanceEndAt: String
+    # When the window ends: true = maintenance lifts itself, false = it stays on
+    # until an admin switches it off.
+    maintenanceAutoEnd: Boolean!
     discordEnabled: Boolean!
     discordWebhookUrl: String
     # Test case auto-approval, in hours. null = never (a human decides),
@@ -311,6 +319,9 @@ export const typeDefs = /* GraphQL */ `
   input SettingInput {
     maintenanceMode: Boolean
     maintenanceMessage: String
+    maintenanceStartAt: String
+    maintenanceEndAt: String
+    maintenanceAutoEnd: Boolean
     discordEnabled: Boolean
     discordWebhookUrl: String
     autoApproveNewHours: Int

@@ -83,6 +83,10 @@ export const adminResolvers = {
   User: {
     approvedAt: (u: any) => u.approvedAt?.toISOString() ?? null,
   },
+  Setting: {
+    maintenanceStartAt: (s: any) => s.maintenanceStartAt?.toISOString?.() ?? s.maintenanceStartAt ?? null,
+    maintenanceEndAt: (s: any) => s.maintenanceEndAt?.toISOString?.() ?? s.maintenanceEndAt ?? null,
+  },
 
   Query: {
     // Public API clients are credentials, not settings: super admin only, and
@@ -102,6 +106,9 @@ export const adminResolvers = {
         s ?? {
           maintenanceMode: false,
           maintenanceMessage: null,
+          maintenanceStartAt: null,
+          maintenanceEndAt: null,
+          maintenanceAutoEnd: true,
           discordEnabled: false,
           discordWebhookUrl: null,
           autoApproveNewHours: null,
@@ -254,6 +261,9 @@ export const adminResolvers = {
       for (const k of [
         "maintenanceMode",
         "maintenanceMessage",
+        "maintenanceStartAt",
+        "maintenanceEndAt",
+        "maintenanceAutoEnd",
         "discordEnabled",
         "discordWebhookUrl",
         "autoApproveNewHours",
@@ -262,6 +272,26 @@ export const adminResolvers = {
         "ssoAllowedDomains",
       ]) {
         if (args.input[k] !== undefined) data[k] = args.input[k];
+      }
+
+      // Dates arrive as ISO strings; Prisma wants Date or null.
+      for (const k of ["maintenanceStartAt", "maintenanceEndAt"]) {
+        if (data[k] === undefined) continue;
+        if (!data[k]) { data[k] = null; continue; }
+        const d = new Date(data[k]);
+        if (isNaN(+d)) throw new Error(`Invalid ${k}`);
+        data[k] = d;
+      }
+      // A window that ends before it starts would never open, and the banner
+      // would announce a maintenance nobody ever sees.
+      const start = data.maintenanceStartAt !== undefined ? data.maintenanceStartAt : undefined;
+      const end = data.maintenanceEndAt !== undefined ? data.maintenanceEndAt : undefined;
+      if (start !== undefined || end !== undefined) {
+        const cur = await ctx.prisma.setting.findUnique({ where: { id: "singleton" } });
+        const s0 = start !== undefined ? start : cur?.maintenanceStartAt ?? null;
+        const e0 = end !== undefined ? end : cur?.maintenanceEndAt ?? null;
+        if (e0 && !s0) throw new Error("Set a maintenance start before an end.");
+        if (s0 && e0 && e0 <= s0) throw new Error("Maintenance must end after it starts.");
       }
 
       // Discord config is checked here, not only in the form: a bad webhook fails

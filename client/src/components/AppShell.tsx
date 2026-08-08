@@ -10,6 +10,7 @@ import { PENDING_APPROVAL_COUNT } from "../graphql/hierarchy";
 import { UI_VERSION, THEME_KEY } from "../config";
 import { cn } from "../lib/utils";
 import { useTranslation } from "react-i18next";
+import { MaintenanceBanner } from "./MaintenanceBanner";
 
 function toggleTheme() {
   const el = document.documentElement;
@@ -186,7 +187,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>
         )}
       </aside>
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MaintenanceBanner />
+        <main className="flex-1 overflow-hidden">{children}</main>
+      </div>
     </div>
   );
 }

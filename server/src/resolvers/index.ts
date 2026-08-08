@@ -15,7 +15,7 @@ import { userTestResolvers } from "./userTest.js";
 import { sessionTestResolvers } from "./sessionTest.js";
 import { watchResolvers } from "./watch.js";
 import { suggestionsResolvers } from "./suggestions.js";
-import { readOnlyGuard } from "../context.js";
+import { readOnlyGuard, maintenanceGuard } from "../context.js";
 
 export const resolvers = {
   Query: {
@@ -36,8 +36,12 @@ export const resolvers = {
     ...watchResolvers.Query,
     ...suggestionsResolvers.Query,
   },
-  // readOnlyGuard: every mutation is closed to the VIEWER role unless allowlisted.
-  Mutation: readOnlyGuard({
+  // Two wrappers, same shape: readOnlyGuard closes every mutation to VIEWER,
+  // maintenanceGuard closes them to everyone but an admin while maintenance is
+  // on. Both allowlist by field name, so a new mutation is closed by default.
+  // readOnlyGuard is outermost so a VIEWER is refused without a DB round-trip,
+  // and its refusal stays synchronous.
+  Mutation: readOnlyGuard(maintenanceGuard({
     ...authResolvers.Mutation,
     ...projectResolvers.Mutation,
     ...featureResolvers.Mutation,
@@ -53,7 +57,7 @@ export const resolvers = {
     ...userTestResolvers.Mutation,
     ...sessionTestResolvers.Mutation,
     ...watchResolvers.Mutation,
-  }),
+  })),
   Subscription: {
     ...notificationResolvers.Subscription,
   },
@@ -76,4 +80,5 @@ export const resolvers = {
   Notification: notificationResolvers.Notification,
   PublicApiClient: adminResolvers.PublicApiClient,
   User: adminResolvers.User,
+  Setting: adminResolvers.Setting,
 };

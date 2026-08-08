@@ -278,6 +278,7 @@ export default function Help() {
                 t("help.settings.4"),
               ]}
             />
+            <P>{t("help.settings.p2")}</P>
           </Doc>
 
           <Doc id="account" title={t("help.sec.account")}>
