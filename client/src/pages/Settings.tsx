@@ -18,6 +18,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { FilterBar, filterCtl } from "../components/FilterBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { usePageState, paged, Pager } from "../components/Pager";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { copyWithToast, withToast, useToast } from "../store/toast";
 import { unmetPasswordRules } from "../lib/passwordPolicy";
 
@@ -142,7 +143,7 @@ function ChangePasswordCard() {
 function UsersCard() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { data, refetch } = useQuery(USERS);
+  const { data, loading, refetch } = useQuery(USERS);
   const [createUser] = useMutation(CREATE_USER, { refetchQueries: [USERS] });
   const [updateUser] = useMutation(UPDATE_USER, { refetchQueries: [USERS] });
   const [deleteUser] = useMutation(DELETE_USER, { refetchQueries: [USERS] });
@@ -233,12 +234,15 @@ function UsersCard() {
         <Card
           title={t("set.users")}
           action={
-            <button
-              onClick={() => setForm({ email: "", name: "", role: "QA", active: true })}
-              className="flex h-7 items-center gap-1.5 rounded bg-black px-3 text-xs font-medium text-white hover:bg-black/80"
-            >
-              <Plus className="h-3.5 w-3.5" /> {t("set.addUser")}
-            </button>
+            <div className="flex items-center gap-2">
+              <RefreshBtn onClick={() => void refetch()} loading={loading} />
+              <button
+                onClick={() => setForm({ email: "", name: "", role: "QA", active: true })}
+                className="flex h-7 items-center gap-1.5 rounded bg-black px-3 text-xs font-medium text-white hover:bg-black/80"
+              >
+                <Plus className="h-3.5 w-3.5" /> {t("set.addUser")}
+              </button>
+            </div>
           }
         >
           {generated && (
@@ -982,7 +986,7 @@ function AuditCard() {
   // it's fixed, rather than showing "no results" for what is really a typo.
   const badRange = !!from && !!to && new Date(from) > new Date(to);
   const size = pg.size || 1000; // "show all" — the server still caps the page
-  const { data } = useQuery(AUDIT_LOGS, {
+  const { data, loading, refetch } = useQuery(AUDIT_LOGS, {
     fetchPolicy: "cache-and-network",
     variables: {
       filter: {
@@ -1013,7 +1017,7 @@ function AuditCard() {
   );
 
   return (
-    <Card title={t("set.tabAudit")}>
+    <Card title={t("set.tabAudit")} action={<RefreshBtn onClick={() => void refetch()} loading={loading} />}>
       <FilterBar search={search} onSearch={setFilter(setSearch)}>
         <select value={actor} onChange={(e) => setFilter(setActor)(e.target.value)} className={filterCtl}>
           <option value="">{t("audit.allActors")}</option>

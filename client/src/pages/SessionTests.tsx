@@ -9,6 +9,7 @@ import { useAuth } from "../store/auth";
 import { canManageContent } from "../lib/perm";
 import { FilterBar } from "../components/FilterBar";
 import { HeaderButton } from "../components/HeaderButton";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { SortableTh, nextSort } from "../components/SortableTh";
@@ -36,7 +37,7 @@ export default function SessionTests() {
   const { user } = useAuth();
   const { panel, openPanel } = useNav();
   const manage = canManageContent(user?.role);
-  const { data, loading } = useQuery(SESSION_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch } = useQuery(SESSION_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
   const [deleteSessionTest] = useMutation(DELETE_SESSION_TEST, {
     refetchQueries: [{ query: SESSION_TESTS, variables: { projectId: null } }],
   });
@@ -95,9 +96,12 @@ export default function SessionTests() {
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold">{t("st.title")}</h2>
-            <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "sessiontest", mode: "create" })}>
-              {t("st.newSession")}
-            </HeaderButton>
+            <div className="flex items-center gap-2">
+              <RefreshBtn onClick={() => void refetch()} loading={loading} />
+              <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "sessiontest", mode: "create" })}>
+                {t("st.newSession")}
+              </HeaderButton>
+            </div>
           </div>
           <div className="px-5 py-4">
             <FilterBar

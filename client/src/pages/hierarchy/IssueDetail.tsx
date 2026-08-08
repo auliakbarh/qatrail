@@ -25,6 +25,7 @@ import { withToast, useToast, copyWithToast } from "../../store/toast";
 import { AttachmentList } from "../../components/AttachmentList";
 import { CommentsCard } from "../../components/CommentsCard";
 import { WatchButton } from "../../components/WatchButton";
+import { RefreshBtn } from "../../components/RefreshBtn";
 import { JiraTicketLinks } from "../../components/JiraTicketLinks";
 import { IconBtn } from "../../components/IconBtn";
 
@@ -43,7 +44,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const { openPanel } = useNav();
   const { up } = useDrill();
   const { user } = useAuth();
-  const { data, loading } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch: reload } = useQuery(ISSUE, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [modal, setModal] = useState<null | "reject" | "clarify" | "clarifyRespond" | "reopen" | "reopenClosed">(null);
   const [jiraKey, setJiraKey] = useState("");
@@ -104,6 +105,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
             <h2 className="text-sm font-semibold">{i.title}</h2>
           </div>
           <div className="flex items-center gap-1.5">
+            <RefreshBtn onClick={() => void reload()} loading={loading} />
             <WatchButton target="ISSUE" targetId={id} />
             {/* Read the steps the finding came from without leaving the issue. */}
             <button

@@ -9,6 +9,7 @@ import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
+import { RefreshBtn } from "../../components/RefreshBtn";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
 import { withToast } from "../../store/toast";
@@ -24,7 +25,7 @@ export function ProjectList() {
   const manage = canManageContent(user?.role);
   // Retired projects come down with the rest and are filtered here, so the
   // status picker costs no round trip.
-  const { data, loading } = useQuery(PROJECTS, {
+  const { data, loading, refetch } = useQuery(PROJECTS, {
     variables: { includeInactive: true },
     fetchPolicy: "cache-and-network",
   });
@@ -66,9 +67,12 @@ export function ProjectList() {
       <div className="rounded border border-border">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold">{t("dash.projects")}</h2>
-          <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "project", mode: "create" })}>
-            {t("dash.addProject")}
-          </HeaderButton>
+          <div className="flex items-center gap-2">
+            <RefreshBtn onClick={() => void refetch()} loading={loading} />
+            <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "project", mode: "create" })}>
+              {t("dash.addProject")}
+            </HeaderButton>
+          </div>
         </div>
         <div className="px-5 py-4">
           <FilterBar

@@ -7,6 +7,7 @@ import { USER_TESTS, DELETE_USER_TEST } from "../graphql/usertest";
 import { useNav } from "../store/nav";
 import { FilterBar } from "../components/FilterBar";
 import { HeaderButton } from "../components/HeaderButton";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { SortableTh, nextSort } from "../components/SortableTh";
@@ -29,7 +30,7 @@ export default function UserTests() {
   const { panel, openPanel } = useNav();
   const { user } = useAuth();
   const act = canAct(user?.role);
-  const { data, loading } = useQuery(USER_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch } = useQuery(USER_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
   const [deleteUserTest] = useMutation(DELETE_USER_TEST, { refetchQueries: [{ query: USER_TESTS, variables: { projectId: null } }] });
 
   const [search, setSearch] = useState("");
@@ -75,9 +76,12 @@ export default function UserTests() {
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold">{t("ut.title")}</h2>
-            <HeaderButton allowed={act} icon={Plus} onClick={() => openPanel({ kind: "usertest", mode: "create" })}>
-              {t("ut.newItem")}
-            </HeaderButton>
+            <div className="flex items-center gap-2">
+              <RefreshBtn onClick={() => void refetch()} loading={loading} />
+              <HeaderButton allowed={act} icon={Plus} onClick={() => openPanel({ kind: "usertest", mode: "create" })}>
+                {t("ut.newItem")}
+              </HeaderButton>
+            </div>
           </div>
           <div className="px-5 py-4">
             <FilterBar

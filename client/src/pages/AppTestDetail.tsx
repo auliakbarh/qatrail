@@ -20,6 +20,7 @@ import { SortableTh, nextSort } from "../components/SortableTh";
 import { usePageState, paged, Pager } from "../components/Pager";
 import { CommentsCard } from "../components/CommentsCard";
 import { WatchButton } from "../components/WatchButton";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
@@ -49,7 +50,7 @@ export default function AppTestDetail() {
   const manage = canManageContent(user?.role); // QA/admin: assign, record, close
   const canPostJira = canManageAppTest(user?.role); // engineer/admin: post to JIRA
 
-  const { data, loading } = useQuery(APP_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch: reload } = useQuery(APP_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: tcData } = useQuery(ASSIGNED_TEST_CASES, { variables: { appTestId: id }, fetchPolicy: "cache-and-network" });
   const refetch = { refetchQueries: [{ query: APP_TEST, variables: { id } }, { query: ASSIGNED_TEST_CASES, variables: { appTestId: id } }] };
   const [unassign] = useMutation(UNASSIGN_TEST_CASE, refetch);
@@ -163,6 +164,7 @@ export default function AppTestDetail() {
               <span className="inline-flex rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">{a.status}</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <RefreshBtn onClick={() => void reload()} loading={loading} />
               <WatchButton target="APP_TEST" targetId={id} />
               {tickets.length > 0 && healthData?.health?.jiraConfigured && (
                 <IconBtn title={posting ? t("jira.posting") : t("at.postToJira")} allowed={canPostJira}

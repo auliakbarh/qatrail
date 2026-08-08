@@ -9,6 +9,7 @@ import { CoverageBar } from "../../components/CoverageBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
+import { RefreshBtn } from "../../components/RefreshBtn";
 import { TestCaseCsvActions } from "../../components/TestCaseCsvActions";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
@@ -25,7 +26,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
   const manage = canManageContent(user?.role);
   // Retired features come down too and are filtered here — no round trip for the
   // status picker.
-  const { data, loading } = useQuery(FEATURES, {
+  const { data, loading, refetch } = useQuery(FEATURES, {
     variables: { projectId, includeInactive: true },
     fetchPolicy: "cache-and-network",
   });
@@ -63,6 +64,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-sm font-semibold">{t("dash.features")}</h2>
         <div className="flex flex-wrap items-center gap-1.5">
+          <RefreshBtn onClick={() => void refetch()} loading={loading} />
           <TestCaseCsvActions scope="project" projectId={projectId} manage={manage} />
           <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "feature", mode: "create" })}>
             {t("dash.addFeature")}

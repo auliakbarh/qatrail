@@ -9,6 +9,7 @@ import { downloadCsv } from "../lib/csv";
 import { withToast } from "../store/toast";
 import { DeleteConfirm } from "./DeleteConfirm";
 import { BulkRetestModal } from "./BulkRetestModal";
+import { RefreshBtn } from "./RefreshBtn";
 import { cn, fmtDateTime } from "../lib/utils";
 import { useAuth } from "../store/auth";
 import { canAct } from "../lib/perm";
@@ -151,6 +152,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         <Filter label={t("issue.colProdIssue")} value={fProd} onChange={setFProd} options={["YES", "NO"]} />
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs text-muted-foreground">{t("issue.count", { n: total })}</span>
+          <RefreshBtn onClick={() => void refetch()} loading={loading} />
           <button onClick={exportCsv} className="flex h-8 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted">
             <Download className="h-3.5 w-3.5" /> {t("export.csv")}
           </button>

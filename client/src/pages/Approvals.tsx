@@ -20,6 +20,7 @@ import { IconBtn } from "../components/IconBtn";
 import { TextPromptModal } from "../components/TextPromptModal";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../lib/list";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt, cn } from "../lib/utils";
 import { waitedFor } from "../lib/approval";
@@ -94,11 +95,11 @@ export default function Approvals() {
     { query: PENDING_APPROVAL_COUNT },
     "TestCases",
   ];
-  const { data, loading } = useQuery(PENDING_TEST_CASES, {
+  const { data, loading, refetch } = useQuery(PENDING_TEST_CASES, {
     variables: { projectId: null },
     fetchPolicy: "cache-and-network",
   });
-  const { data: reqData, loading: reqLoading } = useQuery(PENDING_APPROVAL_REQUESTS, {
+  const { data: reqData, loading: reqLoading, refetch: refetchReq } = useQuery(PENDING_APPROVAL_REQUESTS, {
     variables: { projectId: null },
     fetchPolicy: "cache-and-network",
   });
@@ -187,14 +188,17 @@ export default function Approvals() {
               <h2 className="text-sm font-semibold">{t("tca.title")}</h2>
               <p className="mt-0.5 text-xs text-muted-foreground">{t("tca.subtitle")}</p>
             </div>
-            {picked.length > 0 && (
-              <button
-                onClick={() => void bulkApprove()}
-                className="flex h-7 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
-              >
-                <Check className="h-3.5 w-3.5" /> {t("tca.approveSelected", { n: picked.length })}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <RefreshBtn onClick={() => { void refetch(); void refetchReq(); }} loading={loading || reqLoading} />
+              {picked.length > 0 && (
+                <button
+                  onClick={() => void bulkApprove()}
+                  className="flex h-7 items-center gap-1.5 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
+                >
+                  <Check className="h-3.5 w-3.5" /> {t("tca.approveSelected", { n: picked.length })}
+                </button>
+              )}
+            </div>
           </div>
           <div className="px-5 py-4">
             <FilterBar

@@ -8,6 +8,7 @@ import { FilterBar } from "../../components/FilterBar";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
+import { RefreshBtn } from "../../components/RefreshBtn";
 import { TestCaseCsvActions } from "../../components/TestCaseCsvActions";
 import { SortableTh, nextSort } from "../../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../../lib/list";
@@ -41,7 +42,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const manage = canManageContent(user?.role);
   // Retired cases come down with the rest and are filtered here, so the toggle
   // below costs no round trip.
-  const { data, loading } = useQuery(TEST_CASES, {
+  const { data, loading, refetch } = useQuery(TEST_CASES, {
     variables: { featureId, includeInactive: true },
     fetchPolicy: "cache-and-network",
   });
@@ -88,6 +89,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <h2 className="text-sm font-semibold">{t("dash.testCases")}</h2>
         <div className="flex flex-wrap items-center gap-1.5">
+          <RefreshBtn onClick={() => void refetch()} loading={loading} />
           <TestCaseCsvActions scope="feature" projectId={projectId ?? undefined} featureId={featureId} manage={manage} />
           <HeaderButton allowed={manage} icon={Plus} onClick={() => openPanel({ kind: "testcase", mode: "create" })}>
             {t("dash.addTestCase")}

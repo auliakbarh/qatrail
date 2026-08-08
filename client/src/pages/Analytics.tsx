@@ -10,6 +10,7 @@ import { Printer, ChevronDown, ChevronRight } from "lucide-react";
 import { FilterBar } from "../components/FilterBar";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { DateRangePicker } from "../components/DateRangePicker";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { searchRows, sortRows } from "../lib/list";
 import { printAnalyticsReport } from "../lib/printReport";
 import { useAuth } from "../store/auth";
@@ -53,7 +54,7 @@ export default function Analytics() {
   const { data: projData } = useQuery(PROJECTS);
   const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
   const { data: sessData } = useQuery(SESSION_TESTS, { variables: { projectId: projectId || null }, skip: !projectId });
-  const { data, loading } = useQuery(ANALYTICS, {
+  const { data, loading, refetch } = useQuery(ANALYTICS, {
     variables: {
       projectId: projectId || null,
       featureId: featureId || null,
@@ -157,6 +158,7 @@ export default function Analytics() {
         )}
         <div className="ml-auto flex items-center gap-2">
           <DateRangePicker from={from} to={to} onChange={(f, tt) => { setFrom(f); setTo(tt); }} />
+          <RefreshBtn onClick={() => void refetch()} loading={loading} />
           <button
             onClick={exportPdf}
             disabled={!a}

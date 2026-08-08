@@ -27,6 +27,7 @@ import { DeleteConfirm } from "../components/DeleteConfirm";
 import { CoverageBar } from "../components/CoverageBar";
 import { CommentsCard } from "../components/CommentsCard";
 import { WatchButton } from "../components/WatchButton";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { SortableTh, nextSort } from "../components/SortableTh";
 import { usePageState, paged, Pager } from "../components/Pager";
@@ -61,7 +62,7 @@ export default function SessionTestDetail() {
   const { panel, openPanel } = useNav();
   const manage = canManageContent(user?.role);
 
-  const { data, loading } = useQuery(SESSION_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch: reload } = useQuery(SESSION_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: tcData } = useQuery(SESSION_TEST_CASES, { variables: { sessionTestId: id }, fetchPolicy: "cache-and-network" });
   const { data: recData } = useQuery(SESSION_TEST_RECORDS, { variables: { sessionTestId: id }, fetchPolicy: "cache-and-network" });
   const { data: anData } = useQuery(ANALYTICS, { variables: { sessionTestId: id }, fetchPolicy: "cache-and-network" });
@@ -188,6 +189,7 @@ export default function SessionTestDetail() {
               <span className="inline-flex rounded border border-border px-1.5 py-0.5 text-xs font-medium text-muted-foreground">{s.kindLabel}</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <RefreshBtn onClick={() => void reload()} loading={loading} />
               <WatchButton target="SESSION_TEST" targetId={id} />
               {tickets.length > 0 && healthData?.health?.jiraConfigured && (
                 <IconBtn title={posting ? t("jira.posting") : t("at.postToJira")} allowed={manage}

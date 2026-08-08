@@ -26,6 +26,7 @@ import { usePageState, paged, Pager } from "../../components/Pager";
 import { AttachmentList } from "../../components/AttachmentList";
 import { CommentsCard } from "../../components/CommentsCard";
 import { WatchButton } from "../../components/WatchButton";
+import { RefreshBtn } from "../../components/RefreshBtn";
 import { TextPromptModal } from "../../components/TextPromptModal";
 import { Modal } from "../../components/Modal";
 import { withToast, denied } from "../../store/toast";
@@ -220,7 +221,7 @@ export function TestCaseDetail({ id }: { id: string }) {
   // Suggest a testing session before a run is filed straight against the case:
   // scoped runs are what a sign-off report can be built from.
   const [suggestSession, setSuggestSession] = useState(false);
-  const { data, loading } = useQuery(TEST_CASE, { variables: { id } });
+  const { data, loading, refetch } = useQuery(TEST_CASE, { variables: { id } });
   const [tab, setTab] = useState<"records" | "issues">("records");
   const [setActive] = useMutation(SET_TEST_CASE_ACTIVE, {
     refetchQueries: [{ query: TEST_CASE, variables: { id } }, "TestCases", { query: PENDING_APPROVAL_COUNT }],
@@ -253,6 +254,7 @@ export function TestCaseDetail({ id }: { id: string }) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <RefreshBtn onClick={() => void refetch()} loading={loading} />
             <WatchButton target="TEST_CASE" targetId={tc.id} />
             {/* Retiring and moving only mean something for a case that is in the
                 catalogue. While it's still in review, edit and delete are the

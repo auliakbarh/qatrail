@@ -9,6 +9,7 @@ import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { CommentsCard } from "../components/CommentsCard";
 import { WatchButton } from "../components/WatchButton";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { UserTestForm } from "./forms/UserTestForm";
@@ -32,7 +33,7 @@ export default function UserTestDetail() {
   const { user } = useAuth();
   const act = canAct(user?.role);
 
-  const { data, loading } = useQuery(USER_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch } = useQuery(USER_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const [deleteUserTest] = useMutation(DELETE_USER_TEST);
   const [del, setDel] = useState(false);
 
@@ -65,6 +66,7 @@ export default function UserTestDetail() {
               <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{u.environment}</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <RefreshBtn onClick={() => void refetch()} loading={loading} />
               <WatchButton target="USER_TEST" targetId={id} />
               <IconBtn allowed={act} title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
               <IconBtn allowed={act} title={t("c.delete")} onClick={() => setDel(true)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>

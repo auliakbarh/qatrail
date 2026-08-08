@@ -10,6 +10,7 @@ import { useNav } from "../store/nav";
 import { useAuth } from "../store/auth";
 import { FilterBar } from "../components/FilterBar";
 import { HeaderButton } from "../components/HeaderButton";
+import { RefreshBtn } from "../components/RefreshBtn";
 import { IconBtn } from "../components/IconBtn";
 import { DeleteConfirm } from "../components/DeleteConfirm";
 import { Modal } from "../components/Modal";
@@ -38,7 +39,7 @@ export default function AppTests() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { panel, openPanel } = useNav();
-  const { data, loading } = useQuery(APP_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch } = useQuery(APP_TESTS, { variables: { projectId: null }, fetchPolicy: "cache-and-network" });
   const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [deleteAppTest] = useMutation(DELETE_APP_TEST, { refetchQueries: [{ query: APP_TESTS, variables: { projectId: null } }] });
 
@@ -103,9 +104,12 @@ export default function AppTests() {
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold">{t("at.title")}</h2>
-            <HeaderButton allowed={canCreate(user?.role)} icon={Plus} onClick={() => openPanel({ kind: "apptest", mode: "create" })}>
-              {t("at.newApp")}
-            </HeaderButton>
+            <div className="flex items-center gap-2">
+              <RefreshBtn onClick={() => void refetch()} loading={loading} />
+              <HeaderButton allowed={canCreate(user?.role)} icon={Plus} onClick={() => openPanel({ kind: "apptest", mode: "create" })}>
+                {t("at.newApp")}
+              </HeaderButton>
+            </div>
           </div>
           <div className="px-5 py-4">
             <FilterBar
