@@ -339,6 +339,9 @@ export const typeDefs = /* GraphQL */ `
     sessionTestId: ID
     testCaseId: ID
     isProductionIssue: Boolean
+    # Drop the findings the assignee is done with (fixed → NEED_REVIEW, or CLOSED).
+    # An explicit status filter wins over it.
+    hideDone: Boolean
   }
   type IssuePage {
     items: [Issue!]!

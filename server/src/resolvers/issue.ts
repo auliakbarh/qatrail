@@ -103,7 +103,7 @@ export const issueResolvers = {
       _: unknown,
       args: {
         scope?: string;
-        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; sessionTestId?: string; testCaseId?: string; isProductionIssue?: boolean | null };
+        filter?: { search?: string; status?: string; priority?: string; type?: string; appTestId?: string; sessionTestId?: string; testCaseId?: string; isProductionIssue?: boolean | null; hideDone?: boolean };
         sort?: string;
         dir?: string;
         page?: number;
@@ -118,7 +118,10 @@ export const issueResolvers = {
         where.assigneeId = userId;
         where.archived = false;
       }
+      // Picking a status explicitly beats the hide-done default, so the toggle can
+      // never make a status somebody selected come back empty.
       if (f.status) where.status = f.status;
+      else if (f.hideDone) where.status = { notIn: ["NEED_REVIEW", "CLOSED"] };
       if (f.priority) where.priority = f.priority;
       if (f.type) where.type = f.type;
       if (f.appTestId) where.appTestId = f.appTestId;

@@ -307,6 +307,7 @@ const en = {
   "issue.none": "No issues",
   "issue.colIssue": "Issue",
   "issue.colProdIssue": "Prod issue",
+  "issue.hideDone": "Hide fixed / closed",
   // issue table group labels + sla labels
   "it.grpStatus": "STATUS",
   "it.grpPriority": "PRIORITY",
@@ -1526,6 +1527,7 @@ const id: typeof en = {
   "issue.none": "Tidak ada isu",
   "issue.colIssue": "Isu",
   "issue.colProdIssue": "Prod issue",
+  "issue.hideDone": "Sembunyikan sudah fix / closed",
   "it.grpStatus": "STATUS",
   "it.grpPriority": "PRIORITAS",
   "it.grpType": "TIPE",

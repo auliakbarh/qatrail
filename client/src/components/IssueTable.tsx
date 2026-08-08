@@ -12,7 +12,7 @@ import { BulkRetestModal } from "./BulkRetestModal";
 import { RefreshBtn } from "./RefreshBtn";
 import { cn, fmtDateTime } from "../lib/utils";
 import { useAuth } from "../store/auth";
-import { canAct } from "../lib/perm";
+import { canManageContent } from "../lib/perm";
 import { TableSkeleton } from "./Skeleton";
 
 function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
@@ -74,6 +74,9 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const [fPriority, setFPriority] = useState("");
   const [fType, setFType] = useState("");
   const [fProd, setFProd] = useState(""); // "" all | "YES" | "NO"
+  // "Assigned to me" is a work queue: what the assignee already fixed (NEED_REVIEW)
+  // or that is closed is off by default. The full issue list stays unfiltered.
+  const [hideDone, setHideDone] = useState(scope === "assigned");
   const [sortKey, setSortKey] = useState("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
@@ -84,7 +87,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     return () => clearTimeout(id);
   }, [searchInput]);
   // Any filter/sort change resets to page 1 + clears selection.
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, sortKey, sortDir, fAppTest, fSession, fTestCase]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [search, fStatus, fPriority, fType, fProd, hideDone, sortKey, sortDir, fAppTest, fSession, fTestCase]);
 
   const filterVars = {
     search: search || null,
@@ -95,6 +98,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
     sessionTestId: fSession || null,
     testCaseId: fTestCase || null,
     isProductionIssue: fProd ? fProd === "YES" : null,
+    hideDone,
   };
   const { data, loading, refetch } = useQuery(ISSUES_PAGED, {
     variables: { scope, filter: filterVars, sort: sortKey, dir: sortDir, page, pageSize: PAGE_SIZE },
@@ -134,8 +138,10 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
   const rows = data?.issuesPaged?.items ?? [];
   const total = data?.issuesPaged?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  // Viewers get no bulk actions, so the select column is dropped for them.
-  const bulk = canAct(user?.role);
+  // Every bulk mutation here (archive/assign/delete/retest) is `requireQA` on the
+  // server, so the select column is dropped for anyone below QA — an engineer on
+  // "Assigned to me" was being shown a Delete button that could only fail.
+  const bulk = canManageContent(user?.role);
   const colCount = (showPeople ? 11 : 9) + (bulk ? 2 : 1); // + checkbox + app-test columns
   const allOnPage = rows.length > 0 && rows.every((r: any) => selected.has(r.id));
   const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(rows.map((r: any) => r.id)));
@@ -151,9 +157,13 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
         <Filter label={t("c.priority")} value={fPriority} onChange={setFPriority} options={PRIORITIES} />
         <Filter label={t("c.type")} value={fType} onChange={setFType} options={["DEFECT", "BUG"]} />
         <Filter label={t("issue.colProdIssue")} value={fProd} onChange={setFProd} options={["YES", "NO"]} />
-        {(searchInput || fStatus || fPriority || fType || fProd) && (
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input type="checkbox" checked={hideDone} disabled={!!fStatus} onChange={(e) => setHideDone(e.target.checked)} className="cursor-pointer disabled:opacity-40" />
+          {t("issue.hideDone")}
+        </label>
+        {(searchInput || fStatus || fPriority || fType || fProd || hideDone !== (scope === "assigned")) && (
           <button
-            onClick={() => { setSearchInput(""); setFStatus(""); setFPriority(""); setFType(""); setFProd(""); }}
+            onClick={() => { setSearchInput(""); setFStatus(""); setFPriority(""); setFType(""); setFProd(""); setHideDone(scope === "assigned"); }}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
             {t("c.resetFilters")}
