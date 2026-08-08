@@ -39,9 +39,7 @@ function SlaBadge({ s }: { s: string }) {
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
-// IN_REVIEW exists in the enum but no transition in workflow.ts ever writes it,
-// so offering it here is a filter that can only ever return nothing.
-const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "CLOSED", "REOPENED", "HOLD"];
+const STATUSES = ["OPEN", "IN_PROGRESS", "NEED_REVIEW", "IN_REVIEW", "CLOSED", "REOPENED", "HOLD"];
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 
 function Filter({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
@@ -203,7 +201,7 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
           </span>
           {/* Only issues waiting for review can be retested — no button when the
               selection holds none, rather than a dialog that can only refuse. */}
-          {rows.some((r: any) => selected.has(r.id) && r.status === "NEED_REVIEW") && (
+          {rows.some((r: any) => selected.has(r.id) && (r.status === "NEED_REVIEW" || r.status === "IN_REVIEW")) && (
             <button onClick={() => setRetestOpen(true)} className="rounded border border-border px-2 py-1 hover:bg-muted">{t("retest.action")}</button>
           )}
           <button onClick={() => setConfirmDel(true)} className="rounded bg-destructive px-2 py-1 font-medium text-white hover:bg-destructive/90">{t("c.delete")}</button>

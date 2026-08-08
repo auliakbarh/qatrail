@@ -121,7 +121,7 @@ export const issueResolvers = {
       // Picking a status explicitly beats the hide-done default, so the toggle can
       // never make a status somebody selected come back empty.
       if (f.status) where.status = f.status;
-      else if (f.hideDone) where.status = { notIn: ["NEED_REVIEW", "CLOSED"] };
+      else if (f.hideDone) where.status = { notIn: ["NEED_REVIEW", "IN_REVIEW", "CLOSED"] };
       if (f.priority) where.priority = f.priority;
       if (f.type) where.type = f.type;
       if (f.appTestId) where.appTestId = f.appTestId;

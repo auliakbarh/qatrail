@@ -76,6 +76,11 @@ async function transition(
 // the new clock can notify again; the postmortem keeps the original resolve date.
 const REOPEN_CLEARS = { resolvedAt: null, slaResolveNotifiedAt: null } as const;
 
+// The engineer is done and the verdict is QA's to give: the fix is waiting for
+// anyone (NEED_REVIEW), or a QA has claimed it and is retesting (IN_REVIEW).
+// Both accept a verdict — claiming is optional, never a step you must take first.
+const AWAITING_VERDICT = ["NEED_REVIEW", "IN_REVIEW"];
+
 // The verdict on a retest: PASS closes the issue, FAIL hands it back to the
 // assignee. Shared by the single review and the bulk retest — `recomputeAppTest`
 // deliberately stays with the caller so a batch can run it once per app test.
@@ -85,14 +90,14 @@ async function applyReview(ctx: Context, user: any, issue: any, pass: boolean, n
       ctx,
       issue,
       { status: "CLOSED", closedAt: new Date() },
-      { kind: "status", fromVal: "NEED_REVIEW", toVal: "CLOSED", byId: user.id, note: note ?? undefined },
+      { kind: "status", fromVal: issue.status, toVal: "CLOSED", byId: user.id, note: note ?? undefined },
     );
   }
   const updated = await transition(
     ctx,
     issue,
     { status: "REOPENED", ...REOPEN_CLEARS },
-    { kind: "status", fromVal: "NEED_REVIEW", toVal: "REOPENED", byId: user.id, note: note ?? undefined },
+    { kind: "status", fromVal: issue.status, toVal: "REOPENED", byId: user.id, note: note ?? undefined },
   );
   await notify(issue.assigneeId, "ASSIGNED", `Issue reopened: ${issue.title}`, issue.id);
   return updated;
@@ -255,11 +260,33 @@ export const workflowResolvers = {
       return updated;
     },
 
+    // QA claims a fix before retesting it. NEED_REVIEW means "waiting for whoever
+    // gets to it"; IN_REVIEW means "this QA is on it", so a second QA doesn't
+    // retest the same fix and the engineer can see verification has started.
+    async issueStartReview(_: unknown, args: { id: string }, ctx: Context) {
+      const user = await actor(ctx);
+      const issue = await getIssue(ctx, args.id);
+      assertReporterOrQA(user, issue);
+      if (issue.status !== "NEED_REVIEW") {
+        throw new Error(`Can only start a retest from NEED_REVIEW (current: ${issue.status})`);
+      }
+      const updated = await transition(
+        ctx,
+        issue,
+        { status: "IN_REVIEW" },
+        { kind: "status", fromVal: issue.status, toVal: "IN_REVIEW", byId: user.id },
+      );
+      await notify(issue.assigneeId, "STATUS_CHANGED", `Retest started: ${issue.title}`, issue.id);
+      return updated;
+    },
+
     async issueReview(_: unknown, args: { id: string; pass: boolean; note?: string }, ctx: Context) {
       const user = await actor(ctx);
       const issue = await getIssue(ctx, args.id);
       assertReporterOrQA(user, issue);
-      if (issue.status !== "NEED_REVIEW") throw new Error(`Can only review from NEED_REVIEW`);
+      if (!AWAITING_VERDICT.includes(issue.status)) {
+        throw new Error(`Can only review from ${AWAITING_VERDICT.join(" or ")} (current: ${issue.status})`);
+      }
       const updated = await applyReview(ctx, user, issue, args.pass, args.note);
       if (issue.appTestId) await recomputeAppTest(issue.appTestId);
       return updated;
@@ -294,7 +321,7 @@ export const workflowResolvers = {
         // Everything below is somebody else's state — an engineer may have moved
         // the issue a second ago, or the case may have gone back for review — so
         // an unusable row is skipped, never fatal for the rest of the batch.
-        if (!issue || issue.status !== "NEED_REVIEW" || !canReviewIssue(user, issue)) {
+        if (!issue || !AWAITING_VERDICT.includes(issue.status) || !canReviewIssue(user, issue)) {
           skipped++;
           continue;
         }

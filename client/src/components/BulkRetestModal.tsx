@@ -48,8 +48,11 @@ export function BulkRetestModal({
   const [saving, setSaving] = useState(false);
   const [retest] = useMutation(BULK_RETEST);
 
-  const eligible = issues.filter((i) => i.status === "NEED_REVIEW");
-  const ineligible = issues.filter((i) => i.status !== "NEED_REVIEW");
+  // Same set the server accepts a verdict from (AWAITING_VERDICT in workflow.ts):
+  // waiting for anyone, or already claimed by a QA.
+  const canVerdict = (s: string) => s === "NEED_REVIEW" || s === "IN_REVIEW";
+  const eligible = issues.filter((i) => canVerdict(i.status));
+  const ineligible = issues.filter((i) => !canVerdict(i.status));
 
   const rowOf = (id: string): Row => rows[id] ?? blank();
   const patch = (id: string, p: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...rowOf(id), ...p } }));

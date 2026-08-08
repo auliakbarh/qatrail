@@ -339,7 +339,8 @@ export const typeDefs = /* GraphQL */ `
     sessionTestId: ID
     testCaseId: ID
     isProductionIssue: Boolean
-    # Drop the findings the assignee is done with (fixed → NEED_REVIEW, or CLOSED).
+    # Drop the findings the assignee is done with (fixed → NEED_REVIEW / IN_REVIEW,
+    # or CLOSED).
     # An explicit status filter wins over it.
     hideDone: Boolean
   }
@@ -895,6 +896,9 @@ export const typeDefs = /* GraphQL */ `
     issueResume(id: ID!): Issue!
     # QA actions
     issueClarifyRespond(id: ID!, note: String): Issue!
+    # Claim a fix for retest (NEED_REVIEW → IN_REVIEW). Optional: a verdict is
+    # accepted from either status, this only says a QA has picked it up.
+    issueStartReview(id: ID!): Issue!
     issueReview(id: ID!, pass: Boolean!, note: String): Issue!
     # Retest several issues waiting for review at once: one record each (carrying
     # the issue's own scope) plus the review it implies. Not all-or-nothing —

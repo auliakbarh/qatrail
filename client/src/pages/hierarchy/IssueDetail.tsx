@@ -11,6 +11,7 @@ import {
   ISSUE_HOLD,
   ISSUE_RESUME,
   ISSUE_CLARIFY_RESPOND,
+  ISSUE_START_REVIEW,
   ISSUE_REVIEW,
   ISSUE_REOPEN,
   SET_ISSUE_ARCHIVED,
@@ -68,6 +69,7 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
   const [hold] = useMutation(ISSUE_HOLD, refetch);
   const [resume] = useMutation(ISSUE_RESUME, refetch);
   const [clarifyRespond] = useMutation(ISSUE_CLARIFY_RESPOND, refetch);
+  const [startReview] = useMutation(ISSUE_START_REVIEW, refetch);
   const [review] = useMutation(ISSUE_REVIEW, refetch);
   const [reopen] = useMutation(ISSUE_REOPEN, refetch);
   const [setArchived] = useMutation(SET_ISSUE_ARCHIVED, refetch);
@@ -276,8 +278,15 @@ export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string
           {i.review === "NEED_CLARIFY" && (
             <ActBtn allowed={canQA} primary onClick={guard(canQA, () => setModal("clarifyRespond"))}>{t("act.respondClarify")}</ActBtn>
           )}
-          {i.status === "NEED_REVIEW" && (
+          {(i.status === "NEED_REVIEW" || i.status === "IN_REVIEW") && (
             <>
+              {/* Claiming is optional — the verdict is accepted from either status.
+                  It only tells the engineer and the other QAs that this one is taken. */}
+              {i.status === "NEED_REVIEW" && (
+                <ActBtn allowed={canQA} onClick={guard(canQA, () => withToast(startReview({ variables: { id } }), t("t.reviewStarted"), t("t.reviewStartFail")))}>
+                  {t("act.startReview")}
+                </ActBtn>
+              )}
               {/* The retest carries the issue's own scope, so the record lands on the same
                   app test / session the finding came from — not as a scope-less run. */}
               <ActBtn allowed={canQA} primary onClick={guard(canQA, () => openPanel({ kind: "record", mode: "create", initial: { retestIssueId: id, appTestId: i.appTestId, sessionTestId: i.sessionTestId } }))}>

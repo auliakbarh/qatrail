@@ -78,4 +78,25 @@ describe.skipIf(!enabled)("issue lifecycle (integration)", () => {
     // Un-resolved again, or the SLA sweep (resolvedAt: null) never looks at it.
     expect(reopened.resolvedAt).toBeNull();
   });
+
+  it("QA claims the fix: NEED_REVIEW → IN_REVIEW → CLOSED", async () => {
+    const tc = await prisma.testCase.findFirst({ where: { name: `${TAG}-tc` } });
+    const issue = await prisma.issue.create({
+      data: {
+        testCaseId: tc!.id, type: "DEFECT", title: `${TAG}-issue3`, description: "d", environment: "STAGING",
+        platform: "WEB", testAccount: "acct", testedAt: new Date(), steps: "s", actualResult: "a",
+        expectedResult: "e", priority: "LOW", reporterId: qaId, assigneeId: engId,
+      },
+    });
+    await M.issueAccept(null, { id: issue.id }, ctxFor(engId));
+    await M.issueSolve(null, { id: issue.id, postmortem: { rootCause: "rc", resolution: "fix" } }, ctxFor(engId));
+
+    const claimed = await M.issueStartReview(null, { id: issue.id }, ctxFor(qaId));
+    expect(claimed.status).toBe("IN_REVIEW");
+    // Claiming twice is not a queue — only NEED_REVIEW can be picked up.
+    await expect(M.issueStartReview(null, { id: issue.id }, ctxFor(qaId))).rejects.toThrow(/NEED_REVIEW/);
+    // The verdict still lands from IN_REVIEW, not just from NEED_REVIEW.
+    const closed = await M.issueReview(null, { id: issue.id, pass: true }, ctxFor(qaId));
+    expect(closed.status).toBe("CLOSED");
+  });
 });
