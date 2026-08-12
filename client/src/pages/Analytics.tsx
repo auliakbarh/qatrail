@@ -15,6 +15,7 @@ import { searchRows, sortRows } from "../lib/list";
 import { printAnalyticsReport } from "../lib/printReport";
 import { useAuth } from "../store/auth";
 import { Skeleton } from "../components/Skeleton";
+import { Badge } from "../components/Badge";
 
 function fmtMins(m: number | null): string {
   if (m == null) return "—";
@@ -424,14 +425,10 @@ function KeyCoverageTable({ rows, projectName }: { rows: any[]; projectName: (id
                 </td>
                 <td className="px-3 py-2 tabular-nums text-muted-foreground">{k.min}%</td>
                 <td className="px-3 py-2 tabular-nums text-muted-foreground">{k.passed}/{k.total}</td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                      k.ready ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
-                    }`}
-                  >
+                <td className="px-3 py-2 text-center">
+                  <Badge variant={k.ready ? "primary" : "outline"} className="text-[10px]">
                     {k.ready ? t("dash.ready") : t("dash.below")}
-                  </span>
+                  </Badge>
                 </td>
               </tr>
                 ))}

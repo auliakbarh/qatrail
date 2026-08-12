@@ -26,6 +26,7 @@ import { fmtDateTime as fmt, cn } from "../lib/utils";
 import { waitedFor } from "../lib/approval";
 import { TableSkeleton } from "../components/Skeleton";
 import { usePageState, paged, Pager } from "../components/Pager";
+import { Badge } from "../components/Badge";
 
 // Lists show the human key next to the name, the way every other table does.
 const label = (key?: string | null, name?: string | null) => (name ? (key ? `${key} · ${name}` : name) : "—");
@@ -303,10 +304,8 @@ export default function Approvals() {
                           {/* What kind of thing this is, in its own column: a
                               DELETE on a project must never read like a DELETE on
                               one test case. */}
-                          <td className="px-3 py-2">
-                            <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                              {t(`tcr.scope.${tc.scope}`)}
-                            </span>
+                          <td className="px-3 py-2 text-center">
+                            <Badge variant="outline" className="text-[10px]">{t(`tcr.scope.${tc.scope}`)}</Badge>
                           </td>
                           <td className="px-3 py-2">
                             <button
@@ -324,19 +323,13 @@ export default function Approvals() {
                           <td className="px-3 py-2 text-xs text-muted-foreground" title={fmt(tc.waitingSince)}>
                             {waitedFor(tc.waitingSince, t)}
                           </td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={cn(
-                                "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
-                                tc.type === "REJECTED" || tc.type === "DELETE"
-                                  ? "bg-destructive text-white"
-                                  : tc.type === "NEW" || tc.type === "EDIT"
-                                    ? "bg-[var(--warn)] text-white"
-                                    : "border border-border text-muted-foreground",
-                              )}
+                          <td className="px-3 py-2 text-center">
+                            <Badge
+                              variant={tc.type === "REJECTED" || tc.type === "DELETE" ? "destructive" : "outline"}
+                              className={tc.type === "NEW" || tc.type === "EDIT" ? "bg-[var(--warn)] border-transparent text-white" : ""}
                             >
                               {t(`tcr.kind.${tc.type}`)}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex justify-end gap-1">

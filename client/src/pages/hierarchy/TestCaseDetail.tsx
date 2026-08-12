@@ -33,16 +33,7 @@ import { withToast, denied } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { TableSkeleton, DetailSkeleton } from "../../components/Skeleton";
-
-function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
-  const cls = {
-    muted: "bg-muted text-muted-foreground",
-    primary: "bg-primary text-primary-foreground",
-    destructive: "bg-destructive text-white",
-    outline: "border border-border text-muted-foreground",
-  }[variant];
-  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", cls)}>{children}</span>;
-}
+import { Badge } from "../../components/Badge";
 
 // Approval state of the case: what it means, and what to do about it. Everyone
 // sees the state; only an eligible approver sees the buttons.
@@ -248,11 +239,7 @@ export function TestCaseDetail({ id }: { id: string }) {
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">{tc.key}</span>
             <h2 className="text-sm font-semibold">{tc.name}</h2>
-            {!tc.active && (
-              <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {t("tc.inactive")}
-              </span>
-            )}
+            {!tc.active && <Badge variant="outline" className="text-[10px]">{t("tc.inactive")}</Badge>}
           </div>
           <div className="flex items-center gap-2">
             <RefreshBtn onClick={() => void refetch()} loading={loading} />
@@ -451,7 +438,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.id")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.datetime")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.qa")}</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.result")}</th>
+            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("c.result")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.note")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.attach")}</th>
@@ -471,9 +458,9 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{r.key}</td>
               <td className="px-3 py-2 text-xs">{fmt(r.executedAt)}</td>
               <td className="px-3 py-2">{r.executedBy.name}</td>
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <Badge variant={r.result === "PASS" ? "primary" : "destructive"}>{r.result}</Badge>
+              <td className="px-3 py-2 text-center">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Badge variant={r.result === "PASS" ? "primary" : r.result === "FAIL" ? "destructive" : "warn"}>{r.result}</Badge>
                   {r.retestIssueId && (
                     <button
                       onClick={() => goIssue(r.retestIssueId)}
@@ -534,9 +521,9 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
             <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.id")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("issue.colIssue")}</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.type")}</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.priority")}</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.status")}</th>
+            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("c.type")}</th>
+            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("c.priority")}</th>
+            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("c.status")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>
             <th className="px-3 py-2"></th>
@@ -554,13 +541,13 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
               <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
               <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
               <td className="px-3 py-2 font-medium">
-                <button onClick={() => goIssue(i.id)} className="hover:underline">
+                <button onClick={() => goIssue(i.id)} className="text-left hover:underline">
                   {i.title}
                 </button>
               </td>
-              <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
-              <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
-              <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
+              <td className="px-3 py-2 text-center"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
+              <td className="px-3 py-2 text-center"><Badge variant="outline">{i.priority}</Badge></td>
+              <td className="px-3 py-2 text-center"><Badge>{i.status}</Badge></td>
               <td className="px-3 py-2 text-xs">
                 {i.appTestId
                   ? <button onClick={() => navigate(`/app-tests/${i.appTestId}`)} className="font-mono text-primary hover:underline">{i.appTestKey}</button>

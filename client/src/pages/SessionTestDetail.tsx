@@ -48,6 +48,7 @@ import { IssueForm } from "./forms/IssueForm";
 import { useIssueQueue } from "../lib/useIssueQueue";
 import { DetailSkeleton } from "../components/Skeleton";
 import { ReviewCard } from "../components/ReviewCard";
+import { Badge } from "../components/Badge";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -191,8 +192,8 @@ export default function SessionTestDetail() {
                 <ArrowLeft className="h-3.5 w-3.5" />
               </button>
               <span className="font-mono text-xs text-muted-foreground">{s.key}</span>
-              <span className="inline-flex rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">{t(`st.status.${s.status}`)}</span>
-              <span className="inline-flex rounded border border-border px-1.5 py-0.5 text-xs font-medium text-muted-foreground">{s.kindLabel}</span>
+              <Badge variant="primary">{t(`st.status.${s.status}`)}</Badge>
+              <Badge variant="outline">{s.kindLabel}</Badge>
             </div>
             <div className="flex items-center gap-1.5">
               <RefreshBtn onClick={() => void reload()} loading={loading} />
@@ -365,7 +366,7 @@ export default function SessionTestDetail() {
                     <SortableTh label={t("at.tcNo")} colKey="tcKey" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.tcTitle")} colKey="tcName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.feature")} colKey="featureName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("st.apps")} colKey="appNames" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateDone")} colKey="doneTestAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -400,7 +401,7 @@ export default function SessionTestDetail() {
                             <button onClick={() => openTestCase(r)} className="text-left hover:underline">{r.tcName}</button>
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.featureName}</td>
-                          <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{r.status}</span></td>
+                          <td className="px-3 py-2 text-center"><Badge>{r.status}</Badge></td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">{r.appNames || "—"}</td>
                           <td className="px-3 py-2 tabular-nums">
                             {r.issueCount > 0
@@ -439,7 +440,7 @@ export default function SessionTestDetail() {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2">{t("st.recordNo")}</th>
-                  <th className="px-3 py-2">{t("c.result")}</th>
+                  <th className="px-3 py-2 text-center">{t("c.result")}</th>
                   <th className="px-3 py-2">{t("rec.qa")}</th>
                   <th className="px-3 py-2">{t("iss.testedAt")}</th>
                   <th className="px-3 py-2">{t("c.note")}</th>
@@ -451,7 +452,7 @@ export default function SessionTestDetail() {
                 {paged(records, recPg).map((r: any) => (
                   <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 font-mono text-xs">{r.key}</td>
-                    <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{r.result}</span></td>
+                    <td className="px-3 py-2 text-center"><Badge variant={r.result === "PASS" ? "primary" : r.result === "FAIL" ? "destructive" : "muted"}>{r.result}</Badge></td>
                     <td className="px-3 py-2 text-muted-foreground">{r.executedBy?.name}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(r.executedAt)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{r.note ?? "—"}</td>

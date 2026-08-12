@@ -11,20 +11,11 @@ import { withToast } from "../store/toast";
 import { DeleteConfirm } from "./DeleteConfirm";
 import { BulkRetestModal } from "./BulkRetestModal";
 import { RefreshBtn } from "./RefreshBtn";
-import { cn, fmtDateTime } from "../lib/utils";
+import { fmtDateTime } from "../lib/utils";
 import { useAuth } from "../store/auth";
 import { canManageContent } from "../lib/perm";
 import { TableSkeleton } from "./Skeleton";
-
-function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
-  const c = {
-    muted: "bg-muted text-muted-foreground",
-    primary: "bg-primary text-primary-foreground",
-    destructive: "bg-destructive text-white",
-    outline: "border border-border text-muted-foreground",
-  }[variant];
-  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", c)}>{children}</span>;
-}
+import { Badge } from "./Badge";
 
 function SlaBadge({ s }: { s: string }) {
   const { t } = useTranslation();
@@ -35,7 +26,7 @@ function SlaBadge({ s }: { s: string }) {
     BREACHED: "bg-destructive text-white",
   };
   const labels: Record<string, string> = { MET: t("sla.met"), AT_RISK: t("sla.atRisk"), BREACHED: t("sla.breached") };
-  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", map[s] ?? "bg-muted")}>{labels[s] ?? s}</span>;
+  return <Badge className={map[s] ?? "bg-muted"}>{labels[s] ?? s}</Badge>;
 }
 
 const small = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -220,11 +211,11 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
               <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
               <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <SortableTh label={t("issue.colIssue")} colKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label={t("c.type")} colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label={t("c.priority")} colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("issue.colProdIssue")}</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.sla")}</th>
+              <SortableTh className="text-center" label={t("c.type")} colKey="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh className="text-center" label={t("c.priority")} colKey="priority" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("issue.colProdIssue")}</th>
+              <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("c.sla")}</th>
               <SortableTh label={t("c.created")} colKey="createdAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
               {showPeople && <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.assignee")}</th>}
@@ -244,15 +235,15 @@ export function IssueTable({ scope }: { scope: "all" | "assigned" }) {
                 <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{(pg.page - 1) * pageSize + idx + 1}</td>
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i.key}</td>
                 <td className="px-3 py-2 font-medium">{i.title}</td>
-                <td className="px-3 py-2"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
-                <td className="px-3 py-2"><Badge variant="outline">{i.priority}</Badge></td>
-                <td className="px-3 py-2"><Badge>{i.status}</Badge></td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 text-center"><Badge variant={i.type === "DEFECT" ? "destructive" : "outline"}>{i.type}</Badge></td>
+                <td className="px-3 py-2 text-center"><Badge variant="outline">{i.priority}</Badge></td>
+                <td className="px-3 py-2 text-center"><Badge>{i.status}</Badge></td>
+                <td className="px-3 py-2 text-center">
                   {i.isProductionIssue
                     ? <Badge variant="destructive">{t("iss.prodIssueBadge")}</Badge>
                     : <span className="text-xs text-muted-foreground">—</span>}
                 </td>
-                <td className="px-3 py-2"><SlaBadge s={i.slaStatus} /></td>
+                <td className="px-3 py-2 text-center"><SlaBadge s={i.slaStatus} /></td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDateTime(i.createdAt)}</td>
                 <td className="px-3 py-2 text-xs" onClick={(e) => e.stopPropagation()}>
                   {i.appTestId

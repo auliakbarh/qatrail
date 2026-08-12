@@ -22,6 +22,7 @@ import { fmtDateTime as fmt } from "../lib/utils";
 import { AppTestForm } from "./forms/AppTestForm";
 import { MoveAppTestProjectForm } from "./forms/MoveAppTestProjectForm";
 import { TableSkeleton } from "../components/Skeleton";
+import { Badge } from "../components/Badge";
 
 const canCreate = (r?: string) => r === "ENGINEER" || r === "ADMIN" || r === "SUPER_ADMIN";
 
@@ -159,9 +160,9 @@ export default function AppTests() {
                     <SortableTh label={t("iss.platform")} colKey="platform" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("form.appVersion")} colKey="appVersion" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("form.backendVersion")} colKey="backendVersion" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.progress")} colKey="passPercent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("at.progressStatus")}</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("at.progressStatus")}</th>
                     <SortableTh label={t("at.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateCreated")} colKey="dateCreated" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateDone")} colKey="doneTestAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -196,14 +197,12 @@ export default function AppTests() {
                             <td className="px-3 py-2 text-muted-foreground">{a.platform}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.appVersion ?? "—"}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.backendVersion ?? "—"}</td>
-                            <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{a.status}</span></td>
+                            <td className="px-3 py-2 text-center"><Badge>{a.status}</Badge></td>
                             <td className="px-3 py-2 tabular-nums">{a.passPercent}%</td>
-                            <td className="px-3 py-2">
-                              <span className={a.passPercent === 100
-                                ? "inline-flex rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground"
-                                : "inline-flex rounded border border-border px-1.5 py-0.5 text-xs font-medium text-muted-foreground"}>
+                            <td className="px-3 py-2 text-center">
+                              <Badge variant={a.passPercent === 100 ? "primary" : "outline"}>
                                 {a.passPercent === 100 ? t("dash.ready") : t("dash.below")}
-                              </span>
+                              </Badge>
                             </td>
                             <td className="px-3 py-2 tabular-nums">{a.issueCount}</td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(a.dateCreated)}</td>

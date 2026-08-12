@@ -19,6 +19,7 @@ import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { SessionTestForm } from "./forms/SessionTestForm";
 import { TableSkeleton } from "../components/Skeleton";
+import { Badge } from "../components/Badge";
 
 
 // Flatten a session into a row with sortable/searchable scalar fields.
@@ -145,7 +146,7 @@ export default function SessionTests() {
                     <SortableTh label={t("st.sessionNo")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("st.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.project")} colKey="projectName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("st.passPercent")} colKey="passPercent" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.creator")} colKey="creatorName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -176,7 +177,7 @@ export default function SessionTests() {
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{s.kindLabel}</td>
                           <td className="px-3 py-2 text-muted-foreground">{s.projectName}</td>
-                          <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{t(`st.status.${s.status}`)}</span></td>
+                          <td className="px-3 py-2 text-center"><Badge>{t(`st.status.${s.status}`)}</Badge></td>
                           <td className="px-3 py-2 tabular-nums">
                             {s.passPercent}%
                             <span className="ml-1 text-xs text-muted-foreground">/ {s.minPassPercent}%</span>

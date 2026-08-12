@@ -18,22 +18,16 @@ import { canManageContent } from "../../lib/perm";
 import { cn } from "../../lib/utils";
 import { TableSkeleton } from "../../components/Skeleton";
 import { usePageState, paged, Pager } from "../../components/Pager";
+import { Badge } from "../../components/Badge";
 
 function ResultBadge({ result }: { result: string | null }) {
   const { t } = useTranslation();
+  // BLOCKED is not a verdict, so it gets its own colour rather than reading as a
+  // failure — hence the class override on top of the shared badge.
   const cls =
-    result === "PASS"
-      ? "bg-primary text-primary-foreground"
-      : result === "FAIL"
-        ? "bg-destructive text-white"
-        : result === "BLOCKED"
-          ? "bg-[var(--warn)] text-white"
-          : "bg-muted text-muted-foreground";
-  return (
-    <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", cls)}>
-      {result ?? t("dash.notRun")}
-    </span>
-  );
+    result === "BLOCKED" ? "bg-[var(--warn)] text-white" : "";
+  const variant = result === "PASS" ? "primary" : result === "FAIL" ? "destructive" : "muted";
+  return <Badge variant={variant} className={cls}>{result ?? t("dash.notRun")}</Badge>;
 }
 
 export function TestCaseList({ featureId }: { featureId: string }) {
@@ -138,9 +132,9 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.testCase")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortableTh label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortableTh label={t("tc.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortableTh label={t("dash.latest")} colKey="latestResult" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh className="text-center" label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh className="text-center" label={t("tc.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh className="text-center" label={t("dash.latest")} colKey="latestResult" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.records")} colKey="recordCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <th className="px-3 py-2"></th>
@@ -181,31 +175,26 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                   </td>
                   {/* Status has a column of its own: a badge tucked under the
                       name is easy to miss when scanning. */}
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
-                          tc.active ? "bg-muted text-muted-foreground" : "border border-border text-muted-foreground",
-                        )}
-                      >
+                  <td className="px-3 py-2 text-center">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      <Badge variant={tc.active ? "muted" : "outline"} className="text-[10px]">
                         {tc.active ? t("tc.active") : t("tc.inactive")}
-                      </span>
+                      </Badge>
                       {/* A change is queued: say so instead of letting the row look settled. */}
                       {tc.pendingRequest && (
-                        <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">
+                        <Badge variant="warn" className="text-[10px]">
                           <Clock className="h-2.5 w-2.5" />
                           {t(`tcr.kind.${tc.pendingRequest.kind}`)}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 text-center">
                     {tc.kind
-                      ? <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", tc.kind === "POSITIVE" ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground")}>{tc.kind === "POSITIVE" ? t("tc.kindPositive") : t("tc.kindNegative")}</span>
+                      ? <Badge variant={tc.kind === "POSITIVE" ? "primary" : "outline"}>{tc.kind === "POSITIVE" ? t("tc.kindPositive") : t("tc.kindNegative")}</Badge>
                       : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 text-center">
                     <ResultBadge result={tc.latestResult} />
                   </td>
                   <td className="px-3 py-2 tabular-nums">{tc.recordCount}</td>

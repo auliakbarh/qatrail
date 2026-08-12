@@ -5,7 +5,7 @@ import { Plus, FolderOpen, Pencil, Trash2, ChevronDown, ChevronRight, Copy, Powe
 import { PROJECTS, DELETE_PROJECT, CLONE_PROJECT, SET_PROJECT_ACTIVE, PENDING_APPROVAL_COUNT } from "../../graphql/hierarchy";
 import { useNav, useDrill } from "../../store/nav";
 import { FilterBar } from "../../components/FilterBar";
-import { CoverageBar } from "../../components/CoverageBar";
+import { Badge } from "../../components/Badge";
 import { DeleteConfirm } from "../../components/DeleteConfirm";
 import { IconBtn } from "../../components/IconBtn";
 import { HeaderButton } from "../../components/HeaderButton";
@@ -114,18 +114,19 @@ export function ProjectList() {
                   <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                   <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label={t("dash.project")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                  <SortableTh label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortableTh className="text-center" label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label={t("dash.squad")} colKey="squad" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortableTh label={t("list.features")} colKey="featureCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("dash.passPct")}</th>
+                  <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("list.passStatus")}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {loading && rows.length === 0 && <TableSkeleton cols={8} />}
+                {loading && rows.length === 0 && <TableSkeleton cols={9} />}
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
                       {t("dash.noProjects")}
                     </td>
                   </tr>
@@ -134,7 +135,7 @@ export function ProjectList() {
                   <Fragment key={label || "all"}>
                     {groupKey && (
                       <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                        <td colSpan={8} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                        <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                             {label} · {groupRows_.length}
@@ -159,28 +160,26 @@ export function ProjectList() {
                     </td>
                     {/* Status is its own column — a badge under the name is easy
                         to miss when scanning. */}
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-1">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
-                            p.active ? "bg-muted text-muted-foreground" : "border border-border text-muted-foreground",
-                          )}
-                        >
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex flex-wrap items-center justify-center gap-1">
+                        <Badge variant={p.active ? "muted" : "outline"} className="text-[10px]">
                           {p.active ? t("tc.active") : t("tc.inactive")}
-                        </span>
+                        </Badge>
                         {p.pendingRequest && (
-                          <span className="inline-flex items-center gap-1 rounded bg-[var(--warn)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--warn)]">
+                          <Badge variant="warn" className="text-[10px]">
                             <Clock className="h-2.5 w-2.5" />
                             {t(`tcr.kind.${p.pendingRequest.kind}`)}
-                          </span>
+                          </Badge>
                         )}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{p.squad ?? "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{p.featureCount}</td>
-                    <td className="px-3 py-2">
-                      <CoverageBar percent={p.coverage.percent} min={p.minPassPercent} ready={p.ready} bar={false} />
+                    <td className="px-3 py-2 tabular-nums">{p.coverage.percent}%</td>
+                    <td className="px-3 py-2 text-center">
+                      <Badge variant={p.ready ? "primary" : "outline"} title={t("coverage.min", { min: p.minPassPercent })}>
+                        {p.ready ? t("dash.ready") : t("dash.below")}
+                      </Badge>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">

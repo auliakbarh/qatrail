@@ -33,6 +33,7 @@ import { IssueForm } from "./forms/IssueForm";
 import { useIssueQueue } from "../lib/useIssueQueue";
 import { DetailSkeleton } from "../components/Skeleton";
 import { ReviewCard } from "../components/ReviewCard";
+import { Badge } from "../components/Badge";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -166,7 +167,7 @@ export default function AppTestDetail() {
                 <ArrowLeft className="h-3.5 w-3.5" />
               </button>
               <span className="font-mono text-xs text-muted-foreground">{a.key}</span>
-              <span className="inline-flex rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">{a.status}</span>
+              <Badge variant="primary">{a.status}</Badge>
             </div>
             <div className="flex items-center gap-1.5">
               <RefreshBtn onClick={() => void reload()} loading={loading} />
@@ -246,7 +247,7 @@ export default function AppTestDetail() {
                   <tr key={b.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 font-mono text-xs">
                       #{builds.length - i}
-                      {i === 0 && <span className="ml-1.5 inline-flex rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">{t("at.buildCurrent")}</span>}
+                      {i === 0 && <Badge variant="primary" className="ml-1.5 text-[10px]">{t("at.buildCurrent")}</Badge>}
                     </td>
                     <td className="px-3 py-2">
                       <a href={b.downloadLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">{t("at.openLink")}</a>
@@ -323,7 +324,7 @@ export default function AppTestDetail() {
                     <SortableTh label={t("at.tcNo")} colKey="tcKey" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.tcTitle")} colKey="tcName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.feature")} colKey="featureName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortableTh label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.qaAssigner")} colKey="qaName" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateAssigned")} colKey="assignedAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -359,7 +360,7 @@ export default function AppTestDetail() {
                             <button onClick={() => openTestCase(r)} className="text-left hover:underline">{r.tcName}</button>
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.featureName}</td>
-                          <td className="px-3 py-2"><span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{r.status}</span></td>
+                          <td className="px-3 py-2 text-center"><Badge>{r.status}</Badge></td>
                           <td className="px-3 py-2 tabular-nums">
                             {r.issueCount > 0
                               ? <button onClick={() => navigate(`/issues?appTest=${id}&testCase=${r.testCase.id}`)} className="text-primary hover:underline">{r.issueCount}</button>

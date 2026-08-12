@@ -30,16 +30,7 @@ import { RefreshBtn } from "../../components/RefreshBtn";
 import { JiraTicketLinks } from "../../components/JiraTicketLinks";
 import { IconBtn } from "../../components/IconBtn";
 import { DetailSkeleton } from "../../components/Skeleton";
-
-function Badge({ children, variant = "muted" }: { children: any; variant?: "muted" | "primary" | "destructive" | "outline" }) {
-  const cls = {
-    muted: "bg-muted text-muted-foreground",
-    primary: "bg-primary text-primary-foreground",
-    destructive: "bg-destructive text-white",
-    outline: "border border-border text-muted-foreground",
-  }[variant];
-  return <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", cls)}>{children}</span>;
-}
+import { Badge } from "../../components/Badge";
 
 export function IssueDetail({ id, testCaseId }: { id: string; testCaseId: string }) {
   const { t } = useTranslation();

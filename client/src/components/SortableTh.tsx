@@ -1,4 +1,5 @@
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { cn } from "../lib/utils";
 import type { SortDir } from "../lib/list";
 
 // Clickable table header cell that drives sorting. Click a column to sort by it;
@@ -21,10 +22,12 @@ export function SortableTh({
   const active = sortKey === colKey;
   const Icon = !active ? ChevronsUpDown : sortDir === "asc" ? ChevronUp : ChevronDown;
   return (
-    <th className={`px-3 py-2 text-left text-xs font-medium text-muted-foreground ${className}`}>
+    // cn(), not a template string: a status column passes text-center and has to
+    // win over the default text-left.
+    <th className={cn("px-3 py-2 text-left text-xs font-medium text-muted-foreground", className)}>
       <button
         onClick={() => onSort(colKey)}
-        className={`inline-flex items-center gap-1 hover:text-foreground ${active ? "text-foreground" : ""}`}
+        className={cn("inline-flex items-center gap-1 hover:text-foreground", active && "text-foreground")}
       >
         {label}
         <Icon className={`h-3 w-3 ${active ? "opacity-100" : "opacity-40"}`} />
