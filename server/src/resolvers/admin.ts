@@ -83,6 +83,9 @@ export const adminResolvers = {
   },
   User: {
     approvedAt: (u: any) => u.approvedAt?.toISOString() ?? null,
+    // An SSO-provisioned account never had a password, so there is no current
+    // one to confirm — that's the whole reason the flag is exposed.
+    hasPassword: (u: any) => !!u.passwordHash,
   },
   Setting: {
     maintenanceStartAt: (s: any) => s.maintenanceStartAt?.toISOString?.() ?? s.maintenanceStartAt ?? null,

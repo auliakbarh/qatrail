@@ -12,18 +12,23 @@ export default function ForcePasswordChange() {
   const { t } = useTranslation();
   const client = useApolloClient();
   const navigate = useNavigate();
-  const { setUser, signOut } = useAuth();
+  const { user, setUser, signOut } = useAuth();
+  // An SSO account never had a password, so there is nothing to confirm — it
+  // sets the first one, and the repeat field is what guards against a typo.
+  const needsCurrent = user?.hasPassword !== false;
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [changePassword, { loading }] = useMutation(CHANGE_PASSWORD);
   const unmet = unmetPasswordRules(next);
+  const mismatch = !needsCurrent && confirm.length > 0 && confirm !== next;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
-      await changePassword({ variables: { currentPassword: cur, newPassword: next } });
+      await changePassword({ variables: { currentPassword: needsCurrent ? cur : null, newPassword: next } });
       const res = await client.query({ query: ME, fetchPolicy: "network-only" });
       setUser(res.data?.me ?? null);
     } catch (err: any) {
@@ -39,17 +44,26 @@ export default function ForcePasswordChange() {
           <p className="mt-1 text-sm text-muted-foreground">{t("pw.mustChange")}</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("pw.currentDefault")}</label>
-            <PasswordInput required value={cur} onChange={(e) => setCur(e.target.value)} />
-          </div>
+          {needsCurrent && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("pw.currentDefault")}</label>
+              <PasswordInput required value={cur} onChange={(e) => setCur(e.target.value)} />
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t("pw.new")}</label>
             <PasswordInput required value={next} onChange={(e) => setNext(e.target.value)} />
             {next && unmet.length > 0 && <p className="text-xs text-destructive">{t("c.missing", { list: unmet.map((r) => t(`pw.${r}`)).join(", ") })}</p>}
           </div>
+          {!needsCurrent && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("pw.confirm")}</label>
+              <PasswordInput required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              {mismatch && <p className="text-xs text-destructive">{t("pw.mismatch")}</p>}
+            </div>
+          )}
           {error && <p className="text-xs text-destructive">{error}</p>}
-          <button type="submit" disabled={loading || unmet.length > 0 || !cur} className="w-full rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+          <button type="submit" disabled={loading || unmet.length > 0 || (needsCurrent ? !cur : confirm !== next)} className="w-full rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             {loading ? t("c.saving") : t("pw.change")}
           </button>
           <div className="text-center">

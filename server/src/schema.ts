@@ -35,6 +35,9 @@ export const typeDefs = /* GraphQL */ `
     active: Boolean!
     # PASSWORD | SSO | BOTH.
     authProvider: String!
+    # False on an SSO account that never had one: setting the first password
+    # asks for no current password, because there is none.
+    hasPassword: Boolean!
     # When an admin first let this account in. Null on an SSO row = never
     # approved, which is the pending-approval state.
     approvedAt: String
@@ -870,7 +873,8 @@ export const typeDefs = /* GraphQL */ `
   type Mutation {
     login(email: String!, password: String!): AuthPayload!
     microsoftLogin(idToken: String!): AuthPayload!
-    changePassword(currentPassword: String!, newPassword: String!): Boolean!
+    # currentPassword is optional only for an account that has none (SSO).
+    changePassword(currentPassword: String, newPassword: String!): Boolean!
     forgotPassword(email: String!): Boolean!
     resetPassword(token: String!, newPassword: String!): Boolean!
 

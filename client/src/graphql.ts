@@ -9,6 +9,7 @@ export const ME = gql`
       role
       mustChangePassword
       active
+      hasPassword
     }
   }
 `;
@@ -40,6 +41,7 @@ export const LOGIN = gql`
         role
         mustChangePassword
         active
+        hasPassword
       }
     }
   }
@@ -49,13 +51,13 @@ export const MICROSOFT_LOGIN = gql`
   mutation MicrosoftLogin($idToken: String!) {
     microsoftLogin(idToken: $idToken) {
       token
-      user { id email name role mustChangePassword active }
+      user { id email name role mustChangePassword active hasPassword }
     }
   }
 `;
 
 export const CHANGE_PASSWORD = gql`
-  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+  mutation ChangePassword($currentPassword: String, $newPassword: String!) {
     changePassword(currentPassword: $currentPassword, newPassword: $newPassword)
   }
 `;

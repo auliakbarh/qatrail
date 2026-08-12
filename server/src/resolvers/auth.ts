@@ -136,19 +136,29 @@ export const authResolvers = {
 
     async changePassword(
       _: unknown,
-      args: { currentPassword: string; newPassword: string },
+      args: { currentPassword?: string | null; newPassword: string },
       ctx: Context,
     ) {
       const userId = requireAuth(ctx);
       const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
-      if (!user?.passwordHash || !(await verifyPassword(args.currentPassword, user.passwordHash))) {
+      if (!user) throw new Error("User not found");
+      // An SSO account has no password to confirm — requiring one would lock it
+      // out of ever setting one. The verified session is the proof of identity.
+      // Every other account must prove the current password.
+      if (user.passwordHash && !(await verifyPassword(args.currentPassword ?? "", user.passwordHash))) {
         throw new Error("Current password is incorrect");
       }
       assertStrongPassword(args.newPassword);
       const passwordHash = await hashPassword(args.newPassword);
       await ctx.prisma.user.update({
         where: { id: userId },
-        data: { passwordHash, mustChangePassword: false },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          // An SSO-only account that just set its first password can sign in
+          // both ways now — the admin list would otherwise still read "SSO".
+          ...(user.passwordHash ? {} : { authProvider: "BOTH" }),
+        },
       });
       return true;
     },

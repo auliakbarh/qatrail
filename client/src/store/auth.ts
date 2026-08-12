@@ -8,6 +8,8 @@ export interface AuthUser {
   role: "SUPER_ADMIN" | "ADMIN" | "QA_LEAD" | "QA" | "ENGINEER" | "VIEWER";
   mustChangePassword: boolean;
   active: boolean;
+  // False on an SSO account: no current password to ask for.
+  hasPassword?: boolean;
 }
 
 interface AuthState {

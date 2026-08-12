@@ -97,8 +97,12 @@ function Card({ title, action, children }: { title: string; action?: any; childr
 
 function ChangePasswordCard() {
   const { t } = useTranslation();
+  // Same rule as ForcePasswordChange: an SSO account has no current password to
+  // confirm, so it sets the first one behind a repeat field instead.
+  const needsCurrent = useAuth((s) => s.user?.hasPassword) !== false;
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [changePassword, { loading }] = useMutation(CHANGE_PASSWORD);
   const unmet = unmetPasswordRules(next);
@@ -107,10 +111,11 @@ function ChangePasswordCard() {
     e.preventDefault();
     setMsg(null);
     try {
-      await changePassword({ variables: { currentPassword: cur, newPassword: next } });
+      await changePassword({ variables: { currentPassword: needsCurrent ? cur : null, newPassword: next } });
       setMsg({ ok: true, text: t("pw.changed") });
       setCur("");
       setNext("");
+      setConfirm("");
     } catch {
       setMsg({ ok: false, text: t("pw.changeFail") });
     }
@@ -119,19 +124,27 @@ function ChangePasswordCard() {
   return (
     <Card title={t("pw.change")}>
       <form onSubmit={submit} className="max-w-sm space-y-4">
-        <Field label={t("pw.current")}>
-          <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} />
-        </Field>
+        {needsCurrent && (
+          <Field label={t("pw.current")}>
+            <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} />
+          </Field>
+        )}
         <Field label={t("pw.new")}>
           <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} />
           {next && unmet.length > 0 && (
             <p className="text-xs text-destructive">{t("c.missing", { list: unmet.map((r) => t(`pw.${r}`)).join(", ") })}</p>
           )}
         </Field>
+        {!needsCurrent && (
+          <Field label={t("pw.confirm")}>
+            <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            {confirm && confirm !== next && <p className="text-xs text-destructive">{t("pw.mismatch")}</p>}
+          </Field>
+        )}
         {msg && <p className={cn("text-xs", msg.ok ? "text-green-600" : "text-destructive")}>{msg.text}</p>}
         <button
           type="submit"
-          disabled={loading || unmet.length > 0 || !cur}
+          disabled={loading || unmet.length > 0 || (needsCurrent ? !cur : confirm !== next)}
           className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {loading ? t("c.saving") : t("pw.change")}
