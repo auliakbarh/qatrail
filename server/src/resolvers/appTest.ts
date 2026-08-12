@@ -4,7 +4,7 @@ import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireEngineerOrQA,
 import { cloneTestCaseInto } from "../clone.js";
 import { assertAllApproved } from "./testcase.js";
 import { needsApproval, openRequest } from "./approvalRequest.js";
-import { canReviewTest, LIVE_TEST_CASE, testReviewRequired } from "../approval.js";
+import { canReviewTest, canSubmitTestReview, LIVE_TEST_CASE, testReviewRequired } from "../approval.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notify, notifyQaAdmins, notifyWatchers } from "../notify.js";
@@ -368,6 +368,9 @@ export const appTestResolvers = {
       if (!(await testReviewRequired())) throw reviewOff();
       if (at.closedAt) throw bad("This app test is already closed.", "APP_TEST_CLOSED");
       if (at.reviewState === "IN_REVIEW") throw bad("This app test is already waiting for a review.", "REVIEW_PENDING");
+      if (!canSubmitTestReview(user, at.reviewState, at.reviewRequestedById)) {
+        throw bad("Only the QA who submitted this report can send it back for review.", "FORBIDDEN");
+      }
       await ctx.prisma.appTest.update({
         where: { id: at.id },
         data: {

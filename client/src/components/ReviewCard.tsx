@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, Clock, Send, Undo2 } from "lucide-react";
 import { Modal } from "./Modal";
 import { fmtDateTime as fmt } from "../lib/utils";
+import { useAuth } from "../store/auth";
 
 // Peer review of an app test / testing session report (Setting.testReviewMode).
 // One component for both, because the two flows are the same one: the QA who ran
@@ -33,6 +34,7 @@ export function ReviewCard({
   onReview: (approve: boolean, note?: string) => void;
 }) {
   const { t } = useTranslation();
+  const me = useAuth((s) => s.user?.id);
   const [changes, setChanges] = useState(false);
   const [note, setNote] = useState("");
 
@@ -70,9 +72,11 @@ export function ReviewCard({
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Submit: the tester hands a finished round over. Sent-back rounds
-              submit again after the gaps are filled. */}
-          {canSubmit && !closed && state !== "IN_REVIEW" && state !== "APPROVED" && (
+          {/* Submit: the tester hands a finished round over. A sent-back round
+              submits again after the gaps are filled — but only by the QA who
+              submitted it, never the reviewer who sent it back. */}
+          {canSubmit && !closed && state !== "IN_REVIEW" && state !== "APPROVED" &&
+            (state !== "CHANGES_REQUESTED" || !target.reviewRequestedBy || target.reviewRequestedBy.id === me) && (
             <button
               onClick={onSubmit}
               className="inline-flex h-7 items-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"

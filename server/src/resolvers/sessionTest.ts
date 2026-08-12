@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { assertAllApproved } from "./testcase.js";
-import { canReviewTest, LIVE_TEST_CASE, testReviewRequired } from "../approval.js";
+import { canReviewTest, canSubmitTestReview, LIVE_TEST_CASE, testReviewRequired } from "../approval.js";
 import type { TestReviewState } from "../appTestStatus.js";
 import { sessionTestCoverage } from "../coverage.js";
 import { env } from "../env.js";
@@ -399,6 +399,9 @@ export const sessionTestResolvers = {
       if (!(await testReviewRequired())) throw reviewOff();
       if (st.closedAt) throw bad("This session is already closed.", "SESSION_CLOSED");
       if (st.reviewState === "IN_REVIEW") throw bad("This session is already waiting for a review.", "REVIEW_PENDING");
+      if (!canSubmitTestReview(user, st.reviewState, st.reviewRequestedById)) {
+        throw bad("Only the QA who submitted this report can send it back for review.", "FORBIDDEN");
+      }
       await ctx.prisma.sessionTest.update({
         where: { id: st.id },
         data: {

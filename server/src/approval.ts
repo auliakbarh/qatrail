@@ -76,6 +76,15 @@ export function canReviewTest(reviewer: Actor, requesterId?: string | null): boo
   return reviewer.id !== requesterId;
 }
 
+// A sent-back report is handed back to the QA who submitted it, nobody else —
+// otherwise the reviewer resubmits it themself, becomes the requester, and
+// canReviewTest then hands the review to the QA who actually ran the round.
+// Only a sent-back round is owned: a first submission is open to any QA.
+export function canSubmitTestReview(user: Actor, state: string | null, requesterId?: string | null): boolean {
+  if (state !== "CHANGES_REQUESTED" || !requesterId) return true;
+  return user.id === requesterId;
+}
+
 // Roles that could approve a case from this creator — used to fan the
 // "needs approval" notification out to the right people.
 export function approverRolesFor(creatorRole: string, mode: ApprovalMode = "LEAD"): string[] {

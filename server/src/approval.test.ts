@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canApproveTestCase,
   canReviewTest,
+  canSubmitTestReview,
   approvalOnCreate,
   editKeepsApproval,
   isApproverRole,
@@ -77,6 +78,18 @@ describe("canReviewTest", () => {
     expect(canReviewTest(u("q1", "QA"), "q1")).toBe(false);
     expect(canReviewTest(u("e1", "ENGINEER"), "q1")).toBe(false);
     expect(canReviewTest(u("v1", "VIEWER"), "q1")).toBe(false);
+  });
+});
+
+describe("canSubmitTestReview", () => {
+  it("leaves a first submission open to any QA", () => {
+    expect(canSubmitTestReview(u("q2", "QA"), null, null)).toBe(true);
+    expect(canSubmitTestReview(u("q2", "QA"), "APPROVED", "q1")).toBe(true);
+  });
+
+  it("hands a sent-back report back to its own submitter only", () => {
+    expect(canSubmitTestReview(u("q1", "QA"), "CHANGES_REQUESTED", "q1")).toBe(true);
+    expect(canSubmitTestReview(u("q2", "QA_LEAD"), "CHANGES_REQUESTED", "q1")).toBe(false);
   });
 });
 
