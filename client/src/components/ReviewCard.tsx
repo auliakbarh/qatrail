@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Clock, Send, Undo2 } from "lucide-react";
 import { Modal } from "./Modal";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { useAuth } from "../store/auth";
+import { REVIEW_ACTIVITY } from "../graphql/admin";
 
 // Peer review of an app test / testing session report (Setting.testReviewMode).
 // One component for both, because the two flows are the same one: the QA who ran
@@ -21,12 +23,14 @@ export interface ReviewTarget {
 }
 
 export function ReviewCard({
+  id,
   target,
   closed,
   canSubmit,
   onSubmit,
   onReview,
 }: {
+  id: string;
   target: ReviewTarget;
   closed: boolean;
   canSubmit: boolean;
@@ -37,6 +41,18 @@ export function ReviewCard({
   const me = useAuth((s) => s.user?.id);
   const [changes, setChanges] = useState(false);
   const [note, setNote] = useState("");
+  // Every round, not just the latest: a resubmit clears the note on the row, so
+  // the history is read off the audit trail instead.
+  const { data: act, refetch } = useQuery(REVIEW_ACTIVITY, {
+    variables: { id },
+    skip: !target.reviewRequired,
+  });
+  const rounds: any[] = act?.reviewActivity ?? [];
+  // The card's own actions are what change the history, so refresh it here —
+  // after a beat, because the audit row the list reads is written
+  // fire-and-forget once the mutation's response is already on its way out.
+  const then = (p: unknown) =>
+    void Promise.resolve(p).then(() => setTimeout(() => void refetch(), 700));
 
   if (!target.reviewRequired) return null;
   const state = target.reviewState ?? null;
@@ -78,7 +94,7 @@ export function ReviewCard({
           {canSubmit && !closed && state !== "IN_REVIEW" && state !== "APPROVED" &&
             (state !== "CHANGES_REQUESTED" || !target.reviewRequestedBy || target.reviewRequestedBy.id === me) && (
             <button
-              onClick={onSubmit}
+              onClick={() => then(onSubmit())}
               className="inline-flex h-7 items-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Send className="h-3.5 w-3.5" />
@@ -88,7 +104,7 @@ export function ReviewCard({
           {target.canReview && (
             <>
               <button
-                onClick={() => onReview(true)}
+                onClick={() => then(onReview(true))}
                 className="inline-flex h-7 items-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -106,6 +122,32 @@ export function ReviewCard({
         </div>
       </div>
 
+      {rounds.length > 0 && (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <div className="mb-2 font-medium">{t("rev.activity")}</div>
+          <ul className="space-y-1.5">
+            {rounds.map((r) => {
+              const detail = (n: string) => r.details?.find((d: any) => d.name === n)?.value;
+              const sent = r.action.startsWith("submit");
+              const approved = detail("approve") === "true";
+              // Older rows predate the approve detail; a send-back is the only
+              // verdict that carries a note, so that is what tells them apart.
+              const rejected = !sent && (detail("approve") === "false" || (!detail("approve") && !!detail("note")));
+              return (
+                <li key={r.id} className="flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="text-muted-foreground">{fmt(r.at)}</span>
+                  <span className="font-medium">{r.actor ?? "—"}</span>
+                  <span>
+                    {sent ? t("rev.evSubmitted") : rejected ? t("rev.evSentBack") : approved ? t("rev.evApproved") : t("rev.evReviewed")}
+                  </span>
+                  {detail("note") && <span className="w-full rounded bg-background/60 px-2 py-1.5">{detail("note")}</span>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       <Modal
         open={changes}
         onClose={() => setChanges(false)}
@@ -117,7 +159,7 @@ export function ReviewCard({
             </button>
             <button
               disabled={!note.trim()}
-              onClick={() => { setChanges(false); onReview(false, note.trim()); }}
+              onClick={() => { setChanges(false); then(onReview(false, note.trim())); }}
               className="h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {t("rev.send")}

@@ -243,6 +243,7 @@ export default function SessionTestDetail() {
 
         {/* Peer review of this report — hidden unless an admin switched it on */}
         <ReviewCard
+          id={id}
           target={s}
           closed={!!s.closedAt}
           canSubmit={manage}

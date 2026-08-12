@@ -72,5 +72,11 @@ export const AUDIT_LOGS = gql`
   }
 `;
 
+export const REVIEW_ACTIVITY = gql`
+  query ReviewActivity($id: ID!) {
+    reviewActivity(id: $id) { id action actor at details { name value } }
+  }
+`;
+
 export const FORGOT_PASSWORD = gql`mutation($email: String!){ forgotPassword(email:$email) }`;
 export const RESET_PASSWORD = gql`mutation($token: String!, $newPassword: String!){ resetPassword(token:$token,newPassword:$newPassword) }`;

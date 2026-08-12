@@ -207,6 +207,7 @@ export default function AppTestDetail() {
 
         {/* Peer review of this report — hidden unless an admin switched it on */}
         <ReviewCard
+          id={id}
           target={a}
           closed={a.status === "CLOSED"}
           canSubmit={manage}

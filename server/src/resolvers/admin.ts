@@ -1,5 +1,5 @@
 import type { Context } from "../context.js";
-import { requireAdmin } from "../context.js";
+import { requireAdmin, requireAuth } from "../context.js";
 import { hashPassword } from "../auth.js";
 import { generatePassword } from "../genPassword.js";
 import { sendDiscordTest } from "../discord.js";
@@ -26,6 +26,24 @@ interface AuditLogFilter {
   from?: string | null; // ISO; an unparseable or inverted range is ignored
   to?: string | null;
 }
+
+// `details` is stored as free-form Json; only hand back well-shaped pairs so a
+// hand-edited row can't break the field's non-null contract.
+const auditRow = (r: any) => ({
+  ...r,
+  at: r.at.toISOString(),
+  details: (Array.isArray(r.details) ? r.details : []).filter(
+    (d: any) => d && typeof d.name === "string" && typeof d.value === "string",
+  ),
+});
+
+// The four mutations that make up a review round, in the order they happen.
+const REVIEW_ACTIONS = [
+  "submitAppTestReview",
+  "reviewAppTest",
+  "submitSessionTestReview",
+  "reviewSessionTest",
+];
 
 interface PublicApiClientInput {
   appId: string;
@@ -128,6 +146,18 @@ export const adminResolvers = {
       await requireAdmin(ctx);
       return ctx.prisma.slaTarget.findMany();
     },
+    // Every review round of one app test / session. AppTest and SessionTest keep
+    // only the latest one (a resubmit clears the previous note), so the history
+    // has to come off the trail.
+    async reviewActivity(_: unknown, args: { id: string }, ctx: Context) {
+      requireAuth(ctx);
+      const rows = await ctx.prisma.auditLog.findMany({
+        where: { entityId: args.id, action: { in: REVIEW_ACTIONS } },
+        orderBy: { at: "desc" },
+        take: 50,
+      });
+      return rows.map(auditRow);
+    },
     // The one list that is paged, searched and sorted on the server: the trail
     // is never pruned, so it outgrows the client-side approach every other list
     // uses. Filtering a page in the browser would only ever search that page.
@@ -187,13 +217,7 @@ export const adminResolvers = {
         actors: actorGroups.map((g) => g.actor).filter((a): a is string => !!a),
         // `details` is stored as free-form Json; only hand back well-shaped pairs
         // so a hand-edited row can't break the field's non-null contract.
-        rows: rows.map((r) => ({
-          ...r,
-          at: r.at.toISOString(),
-          details: (Array.isArray(r.details) ? r.details : []).filter(
-            (d: any) => d && typeof d.name === "string" && typeof d.value === "string",
-          ),
-        })),
+        rows: rows.map(auditRow),
       };
     },
   },

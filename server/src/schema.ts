@@ -833,6 +833,11 @@ export const typeDefs = /* GraphQL */ `
     slaTargets: [SlaTargetType!]!
     # Paged on the server, unlike every other list: the trail is never pruned.
     auditLogs(filter: AuditLogFilter, offset: Int, limit: Int, sortKey: String, sortDir: String): AuditLogPage!
+    # The review rounds of one app test or session, newest first — read off the
+    # audit trail, because AppTest/SessionTest only keep the latest round. Any
+    # authed user, unlike auditLogs: it is the same names, dates and notes the
+    # review card already shows.
+    reviewActivity(id: ID!): [AuditLog!]!
     publicApiClients: [PublicApiClient!]!
   }
 

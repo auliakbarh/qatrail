@@ -128,6 +128,9 @@ const server = new ApolloServer({
                 }
                 if (vars.jiraKey) extra.push({ name: "jiraKey", value: String(vars.jiraKey) });
                 if (typeof vars.archived === "boolean") extra.push({ name: "archived", value: String(vars.archived) });
+                // A review verdict is the whole point of the row — without it,
+                // "reviewAppTest" can't tell an approval from a send-back.
+                if (typeof vars.approve === "boolean") extra.push({ name: "approve", value: String(vars.approve) });
                 void notifyDiscord(field, actor, { name, note, url, extra });
                 // Persist the same event to the audit trail (fire-and-forget).
                 // `details` is the embed's own field list — one source, so what
