@@ -74,8 +74,32 @@ enum AppTestStatus {
   OPEN
   ASSIGNED
   IN_TESTING
+  IN_REVIEW
   PASSED
   CLOSED
+}
+
+// Who may approve a test case (Setting.testCaseApprovalMode):
+//   LEAD     = the rank rule (approver rank >= creator rank, QA_LEAD and up)
+//   PEER_360 = any QA and up, whatever the creator's rank — never their own case
+enum ApprovalMode {
+  LEAD
+  PEER_360
+}
+
+// Whether an app test / testing session must be reviewed by another QA before
+// it may reach PASSED or be closed (Setting.testReviewMode).
+enum TestReviewMode {
+  NONE
+  PEER_360
+}
+
+// Peer-review state of one app test / testing session. Null = never submitted.
+// (Issue review has its own, older ReviewState — different lifecycle.)
+enum TestReviewState {
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
 }
 
 enum CommentTarget {
@@ -177,12 +201,16 @@ model User {
   comments       Comment[]
 
   appTests             AppTest[]      @relation("appTestCreator")
+  appTestsReviewRequested AppTest[]   @relation("appTestReviewRequester")
+  appTestsReviewed        AppTest[]   @relation("appTestReviewer")
   appTestBuilds        AppTestBuild[] @relation("appTestBuildCreator")
   appTestCasesAssigned AppTestCase[]  @relation("appTestCaseAssigner")
   userTests            UserTest[]     @relation("userTestCreator")
   watches              Watch[]
 
   sessionTests             SessionTest[]     @relation("sessionTestCreator")
+  sessionTestsReviewRequested SessionTest[]  @relation("sessionTestReviewRequester")
+  sessionTestsReviewed        SessionTest[]  @relation("sessionTestReviewer")
   sessionTestCasesAssigned SessionTestCase[] @relation("sessionTestCaseAssigner")
 
   publicApiClients PublicApiClient[] @relation("publicApiClientCreator")
@@ -513,6 +541,18 @@ model AppTest {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  // Peer review before PASSED/CLOSED. Only read when Setting.testReviewMode is
+  // on, so rows predating the feature need no backfill: null simply means "not
+  // submitted", and with the setting off nothing looks at it.
+  reviewState         TestReviewState?
+  reviewRequestedById String?
+  reviewRequestedBy   User?        @relation("appTestReviewRequester", fields: [reviewRequestedById], references: [id])
+  reviewRequestedAt   DateTime?
+  reviewedById        String?
+  reviewedBy          User?        @relation("appTestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt          DateTime?
+  reviewNote          String? // what the reviewer asked the tester to complete
+
   assigned    AppTestCase[]
   records     RecordTest[]
   issues      Issue[]
@@ -547,6 +587,16 @@ model SessionTest {
   closedAt       DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+
+  // Peer review before PASSED/CLOSED — same shape as AppTest, see there.
+  reviewState         TestReviewState?
+  reviewRequestedById String?
+  reviewRequestedBy   User?        @relation("sessionTestReviewRequester", fields: [reviewRequestedById], references: [id])
+  reviewRequestedAt   DateTime?
+  reviewedById        String?
+  reviewedBy          User?        @relation("sessionTestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt          DateTime?
+  reviewNote          String?
 
   apps    SessionTestApp[]
   cases   SessionTestCase[]
@@ -727,6 +777,13 @@ model Setting {
   // (edit/move/copy/delete/activate/deactivate) are configured separately.
   autoApproveNewHours    Int?
   autoApproveChangeHours Int?
+  // Who may approve a test case: the rank rule, or 360 peer review (any QA and
+  // up, never their own case). Orthogonal to the hours above — those decide
+  // *when* a case is approved without a human, this decides *who* may decide.
+  testCaseApprovalMode   ApprovalMode   @default(LEAD)
+  // Whether an app test / testing session needs another QA's review before it
+  // may reach PASSED or be closed. NONE = the existing flow.
+  testReviewMode         TestReviewMode @default(NONE)
   // Microsoft SSO for an email with no User row: false = refuse (an admin must
   // create the account first), true = create it as an INACTIVE VIEWER, which an
   // admin then approves by activating it. Off by default — auto-provision is a

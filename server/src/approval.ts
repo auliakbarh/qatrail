@@ -1,7 +1,7 @@
 // Who may approve a test case. One place, pure, so the UI hint and the server
 // gate can't drift apart.
 //
-// Rules:
+// Rules (mode LEAD, the default):
 //   - QA_LEAD and up may approve at all.
 //   - An approver must match or outrank the creator: an ADMIN's case needs
 //     another ADMIN (or SUPER_ADMIN), never a QA_LEAD.
@@ -9,8 +9,14 @@
 //   - A case created by a SUPER_ADMIN is approved on creation, so it never needs
 //     one of these checks.
 //
+// Mode PEER_360 keeps only the last rule: every QA and up reviews everyone
+// else's case, whatever the ranks. The mode is an admin setting, so it is
+// passed in — these functions stay pure and directly testable.
+//
 // The creator's rank comes from their *current* role — a demoted creator's old
 // case becomes easier to approve. Accepted: no role snapshot column.
+
+import { prisma } from "./db.js";
 
 // The live catalogue, as a Prisma where-fragment: reviewed (APPROVED), not
 // retired, and under a feature and project that are themselves live. Retiring a
@@ -38,9 +44,11 @@ export interface Actor {
   role: string;
 }
 
-// Approve rights exist from QA_LEAD up.
-export function isApproverRole(role?: string | null): boolean {
-  return RANK[role ?? ""] >= RANK.QA_LEAD;
+export type ApprovalMode = "LEAD" | "PEER_360";
+
+// Approve rights exist from QA_LEAD up — from QA up under 360 review.
+export function isApproverRole(role?: string | null, mode: ApprovalMode = "LEAD"): boolean {
+  return RANK[role ?? ""] >= (mode === "PEER_360" ? RANK.QA : RANK.QA_LEAD);
 }
 
 // A new test case is live immediately only when a SUPER_ADMIN wrote it.
@@ -54,16 +62,25 @@ export function editKeepsApproval(editorRole: string): boolean {
   return editorRole === "SUPER_ADMIN";
 }
 
-export function canApproveTestCase(approver: Actor, creator: Actor): boolean {
-  if (!isApproverRole(approver.role)) return false;
-  if (RANK[approver.role] < RANK[creator.role ?? ""]) return false;
+export function canApproveTestCase(approver: Actor, creator: Actor, mode: ApprovalMode = "LEAD"): boolean {
+  if (!isApproverRole(approver.role, mode)) return false;
+  if (mode !== "PEER_360" && RANK[approver.role] < RANK[creator.role ?? ""]) return false;
   return approver.id !== creator.id;
+}
+
+// Peer review of an app test / testing session report (Setting.testReviewMode):
+// any QA and up may review, except the QA who asked for the review. Shared by
+// both paths so the two can't drift.
+export function canReviewTest(reviewer: Actor, requesterId?: string | null): boolean {
+  if (RANK[reviewer.role] < RANK.QA) return false;
+  return reviewer.id !== requesterId;
 }
 
 // Roles that could approve a case from this creator — used to fan the
 // "needs approval" notification out to the right people.
-export function approverRolesFor(creatorRole: string): string[] {
-  const floor = Math.max(RANK.QA_LEAD, RANK[creatorRole] ?? RANK.QA_LEAD);
+export function approverRolesFor(creatorRole: string, mode: ApprovalMode = "LEAD"): string[] {
+  const floor =
+    mode === "PEER_360" ? RANK.QA : Math.max(RANK.QA_LEAD, RANK[creatorRole] ?? RANK.QA_LEAD);
   return Object.keys(RANK).filter((r) => RANK[r] >= floor);
 }
 
@@ -81,4 +98,41 @@ export function autoApprovesNow(hours?: number | null): boolean {
 export function autoApproveCutoff(hours: number | null | undefined, now: Date): Date | null {
   if (hours == null || hours <= 0) return null;
   return new Date(now.getTime() - hours * 3600_000);
+}
+
+// --- The modes, read from the admin Setting ----------------------------------
+// The rules above take their mode as an argument and stay pure; this is the one
+// place that reads it. Cached ~10s like the SLA targets, because field resolvers
+// (TestCase.canApprove, AppTest.status) ask once per row. updateSetting drops
+// the cache, so an admin's change lands immediately rather than within 10s.
+
+export type TestReviewMode = "NONE" | "PEER_360";
+
+let _modes: { approval: ApprovalMode; review: TestReviewMode } | null = null;
+let _modesAt = 0;
+
+export async function approvalModes(): Promise<{ approval: ApprovalMode; review: TestReviewMode }> {
+  const now = Date.now();
+  if (_modes && now - _modesAt < 10_000) return _modes;
+  const s = await prisma.setting.findUnique({ where: { id: "singleton" } });
+  _modes = {
+    approval: (s?.testCaseApprovalMode as ApprovalMode) ?? "LEAD",
+    review: (s?.testReviewMode as TestReviewMode) ?? "NONE",
+  };
+  _modesAt = now;
+  return _modes;
+}
+
+export function clearModeCache(): void {
+  _modes = null;
+}
+
+/** Shorthand: the test-case approval mode alone. */
+export async function approvalMode(): Promise<ApprovalMode> {
+  return (await approvalModes()).approval;
+}
+
+/** True when an app test / session needs another QA's review before PASSED. */
+export async function testReviewRequired(): Promise<boolean> {
+  return (await approvalModes()).review === "PEER_360";
 }

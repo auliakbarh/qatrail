@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   canApproveTestCase,
+  canReviewTest,
   approvalOnCreate,
   editKeepsApproval,
   isApproverRole,
@@ -46,6 +47,39 @@ describe("canApproveTestCase", () => {
   });
 });
 
+describe("canApproveTestCase — PEER_360 (360 review)", () => {
+  it("lets a plain QA approve anyone else's case, whatever their rank", () => {
+    for (const creator of ["QA", "QA_LEAD", "ADMIN", "SUPER_ADMIN"]) {
+      expect(canApproveTestCase(u("q1", "QA"), u("c1", creator), "PEER_360")).toBe(true);
+    }
+  });
+
+  it("still refuses the author's own case", () => {
+    expect(canApproveTestCase(u("q1", "QA"), u("q1", "QA"), "PEER_360")).toBe(false);
+    expect(canApproveTestCase(u("a1", "ADMIN"), u("a1", "ADMIN"), "PEER_360")).toBe(false);
+  });
+
+  it("still refuses everyone below QA", () => {
+    for (const role of ["ENGINEER", "VIEWER"]) {
+      expect(canApproveTestCase(u("x", role), u("q1", "QA"), "PEER_360")).toBe(false);
+    }
+  });
+});
+
+describe("canReviewTest", () => {
+  it("lets any QA and up review someone else's report", () => {
+    for (const role of ["QA", "QA_LEAD", "ADMIN", "SUPER_ADMIN"]) {
+      expect(canReviewTest(u("x", role), "q1")).toBe(true);
+    }
+  });
+
+  it("refuses the QA who asked for the review, and everyone below QA", () => {
+    expect(canReviewTest(u("q1", "QA"), "q1")).toBe(false);
+    expect(canReviewTest(u("e1", "ENGINEER"), "q1")).toBe(false);
+    expect(canReviewTest(u("v1", "VIEWER"), "q1")).toBe(false);
+  });
+});
+
 describe("approvalOnCreate", () => {
   it("approves a SUPER_ADMIN's own case, everything else waits", () => {
     expect(approvalOnCreate("SUPER_ADMIN")).toBe("APPROVED");
@@ -83,6 +117,12 @@ describe("isApproverRole / approverRolesFor", () => {
     expect(isApproverRole("QA_LEAD")).toBe(true);
     expect(isApproverRole("QA")).toBe(false);
     expect(isApproverRole(null)).toBe(false);
+  });
+
+  it("360 review drops the floor to QA on both", () => {
+    expect(isApproverRole("QA", "PEER_360")).toBe(true);
+    expect(isApproverRole("ENGINEER", "PEER_360")).toBe(false);
+    expect(approverRolesFor("ADMIN", "PEER_360").sort()).toEqual(["ADMIN", "QA", "QA_LEAD", "SUPER_ADMIN"]);
   });
 
   it("fan-out floor rises with the creator's rank", () => {

@@ -476,6 +476,8 @@ function ApprovalSettingCard() {
           input: {
             autoApproveNewHours: v.autoApproveNewHours ?? null,
             autoApproveChangeHours: v.autoApproveChangeHours ?? null,
+            testCaseApprovalMode: v.testCaseApprovalMode ?? "LEAD",
+            testReviewMode: v.testReviewMode ?? "NONE",
           },
         },
       }),
@@ -489,6 +491,31 @@ function ApprovalSettingCard() {
     <Card title={t("set.approvalTitle")}>
       <div className="max-w-lg space-y-4">
         <p className="text-xs text-muted-foreground">{t("set.approvalHelp")}</p>
+        {/* Who may approve a test case — orthogonal to the hours below, which
+            decide when a case is approved without a human at all. */}
+        <Field label={t("set.approvalModeLabel")}>
+          <select
+            className={`${inputCls} w-auto`}
+            value={v.testCaseApprovalMode ?? "LEAD"}
+            onChange={(e) => set({ testCaseApprovalMode: e.target.value })}
+          >
+            <option value="LEAD">{t("set.approvalModeLead")}</option>
+            <option value="PEER_360">{t("set.approvalMode360")}</option>
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">{t("set.approvalModeHelp")}</p>
+        </Field>
+        {/* Peer review of app test / session reports before PASSED or close. */}
+        <Field label={t("set.testReviewLabel")}>
+          <select
+            className={`${inputCls} w-auto`}
+            value={v.testReviewMode ?? "NONE"}
+            onChange={(e) => set({ testReviewMode: e.target.value })}
+          >
+            <option value="NONE">{t("set.testReviewNone")}</option>
+            <option value="PEER_360">{t("set.testReview360")}</option>
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">{t("set.testReviewHelp")}</p>
+        </Field>
         <HoursField
           label={t("set.autoNewLabel")}
           help={t("set.autoNewHelp")}

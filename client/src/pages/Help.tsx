@@ -159,6 +159,7 @@ export default function Help() {
               ]}
             />
             <P><Trans i18nKey="help.approval.p3" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.approval.p360" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p5" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.approval.p6" components={{ b: <B /> }} /></P>
@@ -198,6 +199,7 @@ export default function Help() {
             <P><Trans i18nKey="help.apptest.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.p5" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.builds" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.apptest.review" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.apptest.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
@@ -207,6 +209,7 @@ export default function Help() {
             <P><Trans i18nKey="help.session.p3" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.session.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.session.p5" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.session.review" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.session.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
@@ -276,6 +279,8 @@ export default function Help() {
                 t("help.settings.2"),
                 t("help.settings.3"),
                 t("help.settings.4"),
+                t("help.settings.5"),
+                t("help.settings.6"),
               ]}
             />
             <P>{t("help.settings.p2")}</P>

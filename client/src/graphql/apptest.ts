@@ -6,6 +6,8 @@ const APP_TEST_FIELDS = `
   coverage { total passed percent } passPercent issueCount assignedCount
   doneTestAt createdAt updatedAt
   createdBy { id name }
+  reviewState reviewNote reviewRequestedAt reviewedAt reviewRequired canReview
+  reviewRequestedBy { id name } reviewedBy { id name }
 `;
 
 export const APP_TESTS = gql`
@@ -77,6 +79,16 @@ export const UNASSIGN_TEST_CASE = gql`
 export const CLOSE_APP_TEST = gql`
   mutation CloseAppTestTesting($appTestId: ID!) {
     closeAppTestTesting(appTestId: $appTestId) { id status }
+  }
+`;
+export const SUBMIT_APP_TEST_REVIEW = gql`
+  mutation SubmitAppTestReview($id: ID!) {
+    submitAppTestReview(id: $id) { id status reviewState }
+  }
+`;
+export const REVIEW_APP_TEST = gql`
+  mutation ReviewAppTest($id: ID!, $approve: Boolean!, $note: String) {
+    reviewAppTest(id: $id, approve: $approve, note: $note) { id status reviewState }
   }
 `;
 export const POST_APP_TEST_TO_JIRA = gql`

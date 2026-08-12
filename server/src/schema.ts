@@ -12,11 +12,17 @@ export const typeDefs = /* GraphQL */ `
   enum WorkStatus { OPEN IN_PROGRESS NEED_REVIEW IN_REVIEW CLOSED REOPENED HOLD }
   enum ReviewState { PENDING ACCEPTED NEED_CLARIFY REJECTED }
   enum TestResult { PASS FAIL BLOCKED }
-  enum AppTestStatus { OPEN ASSIGNED IN_TESTING PASSED CLOSED }
+  enum AppTestStatus { OPEN ASSIGNED IN_TESTING IN_REVIEW PASSED CLOSED }
+  # Peer review of an app test / session report. Null = never submitted.
+  enum TestReviewState { IN_REVIEW CHANGES_REQUESTED APPROVED }
+  # Who may approve a test case: the rank rule, or 360 peer review.
+  enum ApprovalMode { LEAD PEER_360 }
+  # Whether an app test / session needs another QA's review before PASSED/close.
+  enum TestReviewMode { NONE PEER_360 }
   enum CommentTarget { ISSUE APP_TEST USER_TEST SESSION_TEST TEST_CASE }
   enum TestCaseKind { POSITIVE NEGATIVE }
   enum SessionKind { SIT UAT OTHER }
-  enum SessionTestStatus { OPEN IN_TESTING PASSED CLOSED }
+  enum SessionTestStatus { OPEN IN_TESTING IN_REVIEW PASSED CLOSED }
   # What happens to a moved app test's assignments (admin-only project move).
   enum MoveAssignmentMode { DROP CLONE }
 
@@ -254,6 +260,12 @@ export const typeDefs = /* GraphQL */ `
     # activate / deactivate.
     autoApproveNewHours: Int
     autoApproveChangeHours: Int
+    # Who may approve a test case. LEAD = the rank rule (QA_LEAD and up, never
+    # below the creator's rank); PEER_360 = any QA and up, never their own case.
+    testCaseApprovalMode: ApprovalMode!
+    # NONE = existing flow; PEER_360 = an app test / session needs another QA's
+    # review before it can reach PASSED or be closed.
+    testReviewMode: TestReviewMode!
     # Microsoft SSO for an unknown email: false = refuse, true = create the user
     # as an inactive VIEWER that an admin must activate before it can sign in.
     ssoAutoProvision: Boolean!
@@ -326,6 +338,8 @@ export const typeDefs = /* GraphQL */ `
     discordWebhookUrl: String
     autoApproveNewHours: Int
     autoApproveChangeHours: Int
+    testCaseApprovalMode: ApprovalMode
+    testReviewMode: TestReviewMode
     ssoAutoProvision: Boolean
     ssoAllowedDomains: [String!]
   }
@@ -590,6 +604,15 @@ export const typeDefs = /* GraphQL */ `
     createdAt: String!
     updatedAt: String!
     builds: [AppTestBuild!]!
+    # Peer review of the report before PASSED / close (Setting.testReviewMode).
+    reviewState: TestReviewState
+    reviewNote: String
+    reviewRequestedBy: User
+    reviewRequestedAt: String
+    reviewedBy: User
+    reviewedAt: String
+    reviewRequired: Boolean!   # is peer review switched on at all
+    canReview: Boolean!        # may the current user decide this one
   }
 
   # One submitted build of an app test (newest = the app test's current link).
@@ -684,6 +707,15 @@ export const typeDefs = /* GraphQL */ `
     closedAt: String
     createdAt: String!
     updatedAt: String!
+    # Peer review of the report before PASSED / close (Setting.testReviewMode).
+    reviewState: TestReviewState
+    reviewNote: String
+    reviewRequestedBy: User
+    reviewRequestedAt: String
+    reviewedBy: User
+    reviewedAt: String
+    reviewRequired: Boolean!   # is peer review switched on at all
+    canReview: Boolean!        # may the current user decide this one
   }
 
   # One app under test in a session. Versions are a snapshot taken when the app
@@ -929,6 +961,10 @@ export const typeDefs = /* GraphQL */ `
     assignFeatureTestCases(appTestId: ID!, featureId: ID!): AppTest!
     unassignTestCase(appTestId: ID!, testCaseId: ID!): AppTest!
     closeAppTestTesting(appTestId: ID!): AppTest!
+    # Peer review of the app test's report: QA hands it over, another QA
+    # approves it or sends it back with a note saying what is missing.
+    submitAppTestReview(id: ID!): AppTest!
+    reviewAppTest(id: ID!, approve: Boolean!, note: String): AppTest!
     postAppTestToJira(id: ID!): AppTest!
     "Post the session's details to every linked ticket; a re-post edits the same comment."
     postSessionTestToJira(id: ID!): SessionTest!
@@ -946,6 +982,8 @@ export const typeDefs = /* GraphQL */ `
     setSessionTestCaseApps(sessionTestCaseId: ID!, appIds: [ID!]!): SessionTest!
     unassignSessionTestCase(sessionTestId: ID!, testCaseId: ID!): SessionTest!
     closeSessionTest(id: ID!, summary: String!): SessionTest!
+    submitSessionTestReview(id: ID!): SessionTest!
+    reviewSessionTest(id: ID!, approve: Boolean!, note: String): SessionTest!
 
     createUserTest(input: UserTestInput!): UserTest!
     updateUserTest(id: ID!, input: UserTestInput!): UserTest!

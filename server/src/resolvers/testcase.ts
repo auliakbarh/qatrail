@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA, requireApprover } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
-import { approvalOnCreate, canApproveTestCase, editKeepsApproval, isApproverRole, autoApprovesNow, LIVE_TEST_CASE } from "../approval.js";
+import { approvalMode, approvalOnCreate, canApproveTestCase, editKeepsApproval, isApproverRole, autoApprovesNow, LIVE_TEST_CASE } from "../approval.js";
 import { notify, notifyTestCaseApprovers } from "../notify.js";
 import {
   needsApproval,
@@ -179,7 +179,8 @@ export const testCaseResolvers = {
     // grouped count if this ever spans thousands of rows.
     async pendingApprovalCount(_: unknown, __: unknown, ctx: Context) {
       const userId = requireAuth(ctx);
-      if (!isApproverRole(ctx.role)) return 0;
+      const mode = await approvalMode();
+      if (!isApproverRole(ctx.role, mode)) return 0;
       const me = { id: userId, role: ctx.role! };
       const [cases, requests] = await Promise.all([
         ctx.prisma.testCase.findMany({
@@ -192,8 +193,8 @@ export const testCaseResolvers = {
         }),
       ]);
       return (
-        cases.filter((r) => canApproveTestCase(me, { id: r.createdById, role: r.createdBy.role })).length +
-        requests.filter((r) => canApproveTestCase(me, { id: r.requestedById, role: r.requestedBy.role })).length
+        cases.filter((r) => canApproveTestCase(me, { id: r.createdById, role: r.createdBy.role }, mode)).length +
+        requests.filter((r) => canApproveTestCase(me, { id: r.requestedById, role: r.requestedBy.role }, mode)).length
       );
     },
     async testCase(_: unknown, args: { id: string }, ctx: Context) {
@@ -307,7 +308,7 @@ export const testCaseResolvers = {
       });
       if (!tc) throw new Error("Test case not found");
       if (tc.approval === "APPROVED") return tc;
-      if (!canApproveTestCase(user, tc.createdBy)) throw forbidden();
+      if (!canApproveTestCase(user, tc.createdBy, await approvalMode())) throw forbidden();
       const now = new Date();
       const updated = await ctx.prisma.testCase.update({
         where: { id: tc.id },
@@ -330,7 +331,8 @@ export const testCaseResolvers = {
         where: { id: { in: args.ids }, approval: { in: ["PENDING", "REJECTED"] } },
         include: { createdBy: { select: { id: true, role: true } } },
       });
-      const allowed = rows.filter((tc) => canApproveTestCase(user, tc.createdBy));
+      const mode = await approvalMode();
+      const allowed = rows.filter((tc) => canApproveTestCase(user, tc.createdBy, mode));
       if (allowed.length) {
         const now = new Date();
         await ctx.prisma.testCase.updateMany({
@@ -377,7 +379,7 @@ export const testCaseResolvers = {
         include: { createdBy: { select: { id: true, role: true } } },
       });
       if (!tc) throw new Error("Test case not found");
-      if (!canApproveTestCase(user, tc.createdBy)) throw forbidden();
+      if (!canApproveTestCase(user, tc.createdBy, await approvalMode())) throw forbidden();
       const updated = await ctx.prisma.testCase.update({
         where: { id: tc.id },
         data: { approval: "REJECTED", reviewedAt: new Date(), reviewedById: user.id, rejectReason: reason },
@@ -542,9 +544,10 @@ export const testCaseResolvers = {
     pendingRequest: (t: any, _: unknown, ctx: Context) =>
       ctx.prisma.approvalRequest.findFirst({ where: { target: "TEST_CASE", targetId: t.id, state: "PENDING" } }),
     async canApprove(t: any, _: unknown, ctx: Context) {
-      if (!ctx.userId || !isApproverRole(ctx.role) || t.approval === "APPROVED") return false;
+      const mode = await approvalMode();
+      if (!ctx.userId || !isApproverRole(ctx.role, mode) || t.approval === "APPROVED") return false;
       const creator = await ctx.prisma.user.findUnique({ where: { id: t.createdById }, select: { id: true, role: true } });
-      return !!creator && canApproveTestCase({ id: ctx.userId, role: ctx.role! }, creator);
+      return !!creator && canApproveTestCase({ id: ctx.userId, role: ctx.role! }, creator, mode);
     },
     steps: (t: any, _: unknown, ctx: Context) =>
       ctx.prisma.testCaseStep.findMany({ where: { testCaseId: t.id }, orderBy: { order: "asc" } }),

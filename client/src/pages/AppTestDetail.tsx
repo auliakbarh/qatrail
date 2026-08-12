@@ -3,13 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Pencil, Trash2, Plus, ClipboardCheck, XCircle, ChevronDown, ChevronRight, Send, FolderInput, PlayCircle } from "lucide-react";
-import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST, POST_APP_TEST_TO_JIRA } from "../graphql/apptest";
+import { APP_TEST, ASSIGNED_TEST_CASES, DELETE_APP_TEST, UNASSIGN_TEST_CASE, CLOSE_APP_TEST, POST_APP_TEST_TO_JIRA, SUBMIT_APP_TEST_REVIEW, REVIEW_APP_TEST } from "../graphql/apptest";
 import { AppTestBuildForm } from "./forms/AppTestBuildForm";
 import { HEALTH } from "../graphql";
 import { JiraTicketLinks } from "../components/JiraTicketLinks";
 import { useNav, drillPath } from "../store/nav";
 import { useAuth } from "../store/auth";
-import { canManageContent, canManageAppTest } from "../lib/perm";
+import { canManageContent, canManageAppTest, canAct } from "../lib/perm";
 import { FilterBar } from "../components/FilterBar";
 import { HeaderButton } from "../components/HeaderButton";
 import { IconBtn } from "../components/IconBtn";
@@ -32,6 +32,7 @@ import { BulkRecordForm } from "./forms/BulkRecordForm";
 import { IssueForm } from "./forms/IssueForm";
 import { useIssueQueue } from "../lib/useIssueQueue";
 import { DetailSkeleton } from "../components/Skeleton";
+import { ReviewCard } from "../components/ReviewCard";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -49,7 +50,8 @@ export default function AppTestDetail() {
   const { user } = useAuth();
   const { panel, openPanel } = useNav();
   const manage = canManageContent(user?.role); // QA/admin: assign, record, close
-  const canPostJira = canManageAppTest(user?.role); // engineer/admin: post to JIRA
+  const canPostJira = canAct(user?.role); // either side of the app test may post its report
+  const canBuild = canManageAppTest(user?.role); // engineer/admin: submit builds
 
   const { data, loading, refetch: reload } = useQuery(APP_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const { data: tcData } = useQuery(ASSIGNED_TEST_CASES, { variables: { appTestId: id }, fetchPolicy: "cache-and-network" });
@@ -59,6 +61,8 @@ export default function AppTestDetail() {
   const [deleteAppTest] = useMutation(DELETE_APP_TEST);
   const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [postToJira, { loading: posting }] = useMutation(POST_APP_TEST_TO_JIRA);
+  const [submitReview] = useMutation(SUBMIT_APP_TEST_REVIEW, refetch);
+  const [review] = useMutation(REVIEW_APP_TEST, refetch);
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("tcKey");
@@ -200,11 +204,26 @@ export default function AppTestDetail() {
           {a.note && <div className="border-t border-border px-5 py-3 text-xs"><span className="text-muted-foreground">{t("c.note")}: </span>{a.note}</div>}
         </div>
 
+        {/* Peer review of this report — hidden unless an admin switched it on */}
+        <ReviewCard
+          target={a}
+          closed={a.status === "CLOSED"}
+          canSubmit={manage}
+          onSubmit={() => withToast(submitReview({ variables: { id } }), t("t.reviewSubmitted"), t("c.somethingWrong"))}
+          onReview={(approve, note) =>
+            withToast(
+              review({ variables: { id, approve, note: note ?? null } }),
+              approve ? t("t.reviewApproved") : t("t.reviewSentBack"),
+              t("c.somethingWrong"),
+            )
+          }
+        />
+
         {/* Builds — newest first; the app test's link always mirrors build #1 of this list */}
         <div className="rounded border border-border">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h3 className="text-sm font-semibold">{t("at.builds")} ({builds.length})</h3>
-            <HeaderButton allowed={canPostJira} icon={Plus} onClick={() => openPanel({ kind: "apptestbuild", mode: "create" })}>
+            <HeaderButton allowed={canBuild} icon={Plus} onClick={() => openPanel({ kind: "apptestbuild", mode: "create" })}>
               {t("at.newBuild")}
             </HeaderButton>
           </div>

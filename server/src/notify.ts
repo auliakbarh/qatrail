@@ -1,7 +1,7 @@
 import { prisma } from "./db.js";
 import { logger } from "./logger.js";
 import { publishNotification } from "./pubsub.js";
-import { approverRolesFor } from "./approval.js";
+import { approvalMode, approverRolesFor } from "./approval.js";
 
 const log = logger.child({ mod: "notify" });
 
@@ -106,7 +106,7 @@ export async function notifyTestCaseApprovers(
   testCaseId: string | null,
 ): Promise<void> {
   const users = await prisma.user.findMany({
-    where: { active: true, role: { in: approverRolesFor(creator.role) as any } },
+    where: { active: true, role: { in: approverRolesFor(creator.role, await approvalMode()) as any } },
     select: { id: true },
   });
   await Promise.all(

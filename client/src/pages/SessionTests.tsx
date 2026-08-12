@@ -127,7 +127,7 @@ export default function SessionTests() {
               </select>
               <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={selCls}>
                 <option value="">{t("c.status")}: {t("c.all")}</option>
-                {["OPEN", "IN_TESTING", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
+                {["OPEN", "IN_TESTING", "IN_REVIEW", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
               {(search || fKind || fProject || fCreator || fStatus || groupKey) && (
                 <button

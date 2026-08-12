@@ -4,8 +4,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
 import { appTestCoverage, sessionTestCoverage } from "../coverage.js";
-import { deriveStatus } from "../appTestStatus.js";
+import { deriveStatus, type TestReviewState } from "../appTestStatus.js";
 import { deriveSessionStatus } from "../resolvers/sessionTest.js";
+import { testReviewRequired } from "../approval.js";
 import { parseKey, type EntityKind } from "./keys.js";
 import { requirePublicApiKey, PublicApiError, type PublicApiRequest } from "./auth.js";
 import { mapAppTest, mapSessionTest, mapIssue, mapIssueSummary } from "./map.js";
@@ -63,6 +64,8 @@ async function appTestPayload(raw: string) {
     assignedCount,
     coveragePercent: coverage.percent,
     activity,
+    reviewRequired: await testReviewRequired(),
+    reviewState: at.reviewState as TestReviewState,
   });
   return mapAppTest(at as any, { status, coverage, openIssueCount });
 }
@@ -87,6 +90,8 @@ async function sessionTestPayload(raw: string) {
     coveragePercent: coverage.percent,
     minPassPercent: st.minPassPercent,
     activity,
+    reviewRequired: await testReviewRequired(),
+    reviewState: st.reviewState as TestReviewState,
   });
   return mapSessionTest(st as any, { status, coverage, openIssueCount });
 }

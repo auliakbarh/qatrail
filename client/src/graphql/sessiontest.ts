@@ -10,6 +10,8 @@ const SESSION_FIELDS = `
   coverage { total passed percent }
   closedAt createdAt updatedAt
   createdBy { id name }
+  reviewState reviewNote reviewRequestedAt reviewedAt reviewRequired canReview
+  reviewRequestedBy { id name } reviewedBy { id name }
 `;
 
 export const SESSION_TESTS = gql`
@@ -114,6 +116,16 @@ export const UNASSIGN_SESSION_TEST_CASE = gql`
 export const CLOSE_SESSION_TEST = gql`
   mutation CloseSessionTest($id: ID!, $summary: String!) {
     closeSessionTest(id: $id, summary: $summary) { id status summary closedAt }
+  }
+`;
+export const SUBMIT_SESSION_TEST_REVIEW = gql`
+  mutation SubmitSessionTestReview($id: ID!) {
+    submitSessionTestReview(id: $id) { id status reviewState }
+  }
+`;
+export const REVIEW_SESSION_TEST = gql`
+  mutation ReviewSessionTest($id: ID!, $approve: Boolean!, $note: String) {
+    reviewSessionTest(id: $id, approve: $approve, note: $note) { id status reviewState }
   }
 `;
 export const MOVE_APP_TEST_PROJECT = gql`

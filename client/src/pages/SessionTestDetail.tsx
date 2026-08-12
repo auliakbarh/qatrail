@@ -14,6 +14,8 @@ import {
   ASSIGN_SESSION_TEST_CASES,
   SESSION_ASSIGNABLE_TEST_CASES,
   POST_SESSION_TEST_TO_JIRA,
+  SUBMIT_SESSION_TEST_REVIEW,
+  REVIEW_SESSION_TEST,
 } from "../graphql/sessiontest";
 import { ANALYTICS } from "../graphql/analytics";
 import { HEALTH } from "../graphql";
@@ -45,6 +47,7 @@ import { BulkRecordForm } from "./forms/BulkRecordForm";
 import { IssueForm } from "./forms/IssueForm";
 import { useIssueQueue } from "../lib/useIssueQueue";
 import { DetailSkeleton } from "../components/Skeleton";
+import { ReviewCard } from "../components/ReviewCard";
 
 function Info({ label, value }: { label: string; value: any }) {
   return (
@@ -74,6 +77,8 @@ export default function SessionTestDetail() {
     ],
   };
   const [unassign] = useMutation(UNASSIGN_SESSION_TEST_CASE, refetch);
+  const [submitReview] = useMutation(SUBMIT_SESSION_TEST_REVIEW, refetch);
+  const [review] = useMutation(REVIEW_SESSION_TEST, refetch);
   const [assignCases] = useMutation(ASSIGN_SESSION_TEST_CASES, {
     refetchQueries: [
       ...refetch.refetchQueries,
@@ -234,6 +239,21 @@ export default function SessionTestDetail() {
           {s.note && <div className="border-t border-border px-5 py-3 text-xs"><span className="text-muted-foreground">{t("c.note")}: </span>{s.note}</div>}
           {s.summary && <div className="border-t border-border px-5 py-3 text-xs"><span className="text-muted-foreground">{t("st.summary")}: </span>{s.summary}</div>}
         </div>
+
+        {/* Peer review of this report — hidden unless an admin switched it on */}
+        <ReviewCard
+          target={s}
+          closed={!!s.closedAt}
+          canSubmit={manage}
+          onSubmit={() => withToast(submitReview({ variables: { id } }), t("t.reviewSubmitted"), t("c.somethingWrong"))}
+          onReview={(approve, note) =>
+            withToast(
+              review({ variables: { id, approve, note: note ?? null } }),
+              approve ? t("t.reviewApproved") : t("t.reviewSentBack"),
+              t("c.somethingWrong"),
+            )
+          }
+        />
 
         {/* Apps under test */}
         <div className="rounded border border-border">

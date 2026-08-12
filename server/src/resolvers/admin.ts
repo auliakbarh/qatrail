@@ -6,6 +6,7 @@ import { sendDiscordTest } from "../discord.js";
 import { testJira } from "../jira.js";
 import { requireSuperAdmin } from "../context.js";
 import { generateKey, hashKey } from "../publicApi/keys.js";
+import { clearModeCache } from "../approval.js";
 
 interface UserInput {
   email: string;
@@ -113,6 +114,8 @@ export const adminResolvers = {
           discordWebhookUrl: null,
           autoApproveNewHours: null,
           autoApproveChangeHours: null,
+          testCaseApprovalMode: "LEAD",
+          testReviewMode: "NONE",
           ssoAutoProvision: false,
           ssoAllowedDomains: [],
         }
@@ -268,6 +271,8 @@ export const adminResolvers = {
         "discordWebhookUrl",
         "autoApproveNewHours",
         "autoApproveChangeHours",
+        "testCaseApprovalMode",
+        "testReviewMode",
         "ssoAutoProvision",
         "ssoAllowedDomains",
       ]) {
@@ -306,11 +311,15 @@ export const adminResolvers = {
         if (!url) throw new Error("Set a Discord webhook URL before enabling notifications.");
       }
 
-      return ctx.prisma.setting.upsert({
+      const saved = await ctx.prisma.setting.upsert({
         where: { id: "singleton" },
         update: data,
         create: { id: "singleton", ...data },
       });
+      // approval.ts caches the two modes for ~10s so field resolvers don't hit
+      // the DB per row; drop it so an admin's change lands on the next request.
+      clearModeCache();
+      return saved;
     },
 
     async testDiscord(_: unknown, args: { url: string }, ctx: Context) {

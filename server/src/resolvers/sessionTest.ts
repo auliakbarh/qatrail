@@ -2,33 +2,43 @@ import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { assertAllApproved } from "./testcase.js";
-import { LIVE_TEST_CASE } from "../approval.js";
+import { canReviewTest, LIVE_TEST_CASE, testReviewRequired } from "../approval.js";
+import type { TestReviewState } from "../appTestStatus.js";
 import { sessionTestCoverage } from "../coverage.js";
 import { env } from "../env.js";
 import { toADF, upsertCommentsFor, sessionTestMarkdown } from "../jira.js";
-import { notifyQaAdmins, notifyWatchers } from "../notify.js";
+import { notify, notifyQaAdmins, notifyWatchers } from "../notify.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
-export type SessionTestStatus = "OPEN" | "IN_TESTING" | "PASSED" | "CLOSED";
+export type SessionTestStatus = "OPEN" | "IN_TESTING" | "IN_REVIEW" | "PASSED" | "CLOSED";
 
 // Pure status derivation (unit-testable, no DB). Unlike AppTest this is never
 // stored — a session's status is always recomputed from its own runs.
 //   closed                              -> CLOSED
+//   waiting on a peer                   -> IN_REVIEW
 //   no test case                        -> OPEN
 //   pass% >= agreed target              -> PASSED
 //   any record/issue                    -> IN_TESTING
 //   else                                -> OPEN
+// Peer review (reviewRequired) works exactly as it does for an app test: hitting
+// the agreed target is not a sign-off until another QA approves the report.
 export function deriveSessionStatus(s: {
   closed: boolean;
   caseCount: number;
   coveragePercent: number;
   minPassPercent: number;
   activity: number;
+  reviewRequired?: boolean;
+  reviewState?: TestReviewState;
 }): SessionTestStatus {
   if (s.closed) return "CLOSED";
+  if (s.reviewRequired && s.reviewState === "IN_REVIEW") return "IN_REVIEW";
   if (s.caseCount === 0) return "OPEN";
-  if (s.coveragePercent >= s.minPassPercent) return "PASSED";
+  if (s.coveragePercent >= s.minPassPercent) {
+    if (!s.reviewRequired || s.reviewState === "APPROVED") return "PASSED";
+    return "IN_TESTING";
+  }
   return s.activity > 0 ? "IN_TESTING" : "OPEN";
 }
 
@@ -55,6 +65,7 @@ interface SessionTestAppInput {
 
 const bad = (message: string, code = "BAD_USER_INPUT") =>
   new GraphQLError(message, { extensions: { code } });
+const reviewOff = () => bad("Peer review of testing sessions is turned off.", "REVIEW_DISABLED");
 
 // Creator or admin may edit. Delete adds an emptiness rule (see deleteSessionTest).
 async function getOwned(ctx: Context, id: string, user: { id: string; role: string }) {
@@ -363,6 +374,11 @@ export const sessionTestResolvers = {
       }
       const summary = args.summary.trim();
       if (!summary) throw bad("A summary is required to close a session.");
+      // With peer review on, closing is the sign-off — another QA has to have
+      // approved the report first.
+      if ((await testReviewRequired()) && st.reviewState !== "APPROVED") {
+        throw bad("Another QA has to approve this session's report before it can be closed.", "REVIEW_REQUIRED");
+      }
       const updated = await ctx.prisma.sessionTest.update({
         where: { id: st.id },
         data: { summary, closedAt: new Date() },
@@ -371,6 +387,61 @@ export const sessionTestResolvers = {
       await notifyQaAdmins("SESSION_TEST_CLOSED", msg, undefined, user.id, st.id);
       await notifyWatchers("SESSION_TEST", st.id, "SESSION_TEST_CLOSED", msg, { sessionTestId: st.id }, user.id);
       return updated;
+    },
+
+    // --- Peer review of the session's report (Setting.testReviewMode) --------
+    // Same two steps as an app test: the QA who ran the session hands it over,
+    // another QA approves it or sends it back with what is still missing.
+    async submitSessionTestReview(_: unknown, args: { id: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const st = await ctx.prisma.sessionTest.findUnique({ where: { id: args.id } });
+      if (!st) throw new Error("Session test not found");
+      if (!(await testReviewRequired())) throw reviewOff();
+      if (st.closedAt) throw bad("This session is already closed.", "SESSION_CLOSED");
+      if (st.reviewState === "IN_REVIEW") throw bad("This session is already waiting for a review.", "REVIEW_PENDING");
+      await ctx.prisma.sessionTest.update({
+        where: { id: st.id },
+        data: {
+          reviewState: "IN_REVIEW",
+          reviewRequestedById: user.id,
+          reviewRequestedAt: new Date(),
+          reviewNote: null,
+          reviewedById: null,
+          reviewedAt: null,
+        },
+      });
+      const msg = `Review requested on ST-${st.number}`;
+      await notifyQaAdmins("SESSION_TEST_REVIEW_REQUESTED", msg, undefined, user.id, st.id);
+      await notifyWatchers("SESSION_TEST", st.id, "SESSION_TEST_REVIEW_REQUESTED", msg, { sessionTestId: st.id }, user.id);
+      return ctx.prisma.sessionTest.findUnique({ where: { id: st.id } });
+    },
+    async reviewSessionTest(_: unknown, args: { id: string; approve: boolean; note?: string | null }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const st = await ctx.prisma.sessionTest.findUnique({ where: { id: args.id } });
+      if (!st) throw new Error("Session test not found");
+      if (!(await testReviewRequired())) throw reviewOff();
+      if (st.reviewState !== "IN_REVIEW") throw bad("This session is not waiting for a review.", "REVIEW_NOT_PENDING");
+      if (!canReviewTest(user, st.reviewRequestedById)) {
+        throw bad("A report is reviewed by another QA, never by the one who asked for the review.", "FORBIDDEN");
+      }
+      const note = (args.note ?? "").trim();
+      if (!args.approve && !note) throw bad("Say what the tester still has to complete.");
+      await ctx.prisma.sessionTest.update({
+        where: { id: st.id },
+        data: {
+          reviewState: args.approve ? "APPROVED" : "CHANGES_REQUESTED",
+          reviewedById: user.id,
+          reviewedAt: new Date(),
+          reviewNote: note || null,
+        },
+      });
+      const msg = args.approve
+        ? `Session report approved: ST-${st.number}`
+        : `Session report sent back: ST-${st.number} — ${note}`;
+      const kind = args.approve ? "SESSION_TEST_REVIEW_APPROVED" : "SESSION_TEST_CHANGES_REQUESTED";
+      if (st.reviewRequestedById) await notify(st.reviewRequestedById, kind, msg, null, null, null, st.id);
+      await notifyWatchers("SESSION_TEST", st.id, kind, msg, { sessionTestId: st.id }, user.id);
+      return ctx.prisma.sessionTest.findUnique({ where: { id: st.id } });
     },
 
     // Post the session's own details to each linked ticket. Per-case results are
@@ -398,6 +469,8 @@ export const sessionTestResolvers = {
         coveragePercent: caseCount > 0 ? cov.percent : 0,
         minPassPercent: st.minPassPercent,
         activity: caseCount > 0 ? recordCount + issueCount : 0,
+        reviewRequired: await testReviewRequired(),
+        reviewState: st.reviewState as TestReviewState,
       });
 
       const adf = toADF(
@@ -467,7 +540,20 @@ export const sessionTestResolvers = {
         coveragePercent,
         minPassPercent: s.minPassPercent,
         activity,
+        reviewRequired: await testReviewRequired(),
+        reviewState: s.reviewState as TestReviewState,
       });
+    },
+    reviewRequestedAt: (s: any) => s.reviewRequestedAt?.toISOString() ?? null,
+    reviewedAt: (s: any) => s.reviewedAt?.toISOString() ?? null,
+    reviewRequestedBy: (s: any, _: unknown, ctx: Context) =>
+      s.reviewRequestedById ? ctx.prisma.user.findUnique({ where: { id: s.reviewRequestedById } }) : null,
+    reviewedBy: (s: any, _: unknown, ctx: Context) =>
+      s.reviewedById ? ctx.prisma.user.findUnique({ where: { id: s.reviewedById } }) : null,
+    reviewRequired: () => testReviewRequired(),
+    async canReview(s: any, _: unknown, ctx: Context) {
+      if (!ctx.userId || s.reviewState !== "IN_REVIEW" || !(await testReviewRequired())) return false;
+      return canReviewTest({ id: ctx.userId, role: ctx.role! }, s.reviewRequestedById);
     },
   },
 

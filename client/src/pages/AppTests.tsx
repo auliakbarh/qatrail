@@ -139,7 +139,7 @@ export default function AppTests() {
               </select>
               <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={selCls}>
                 <option value="">{t("c.status")}: {t("c.all")}</option>
-                {["OPEN", "ASSIGNED", "IN_TESTING", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
+                {["OPEN", "ASSIGNED", "IN_TESTING", "IN_REVIEW", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
               {(search || fEnv || fPlat || fAppVer || fBeVer || fStatus || groupKey) && (
                 <button

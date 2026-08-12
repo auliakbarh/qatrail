@@ -1,7 +1,7 @@
 import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
 import { requireAuth, requireApprover } from "../context.js";
-import { canApproveTestCase, isApproverRole, autoApprovesNow } from "../approval.js";
+import { approvalMode, canApproveTestCase, isApproverRole, autoApprovesNow } from "../approval.js";
 import { cloneTestCaseInto, cloneFeatureInto, cloneProjectDeep } from "../clone.js";
 import { notify, notifyTestCaseApprovers } from "../notify.js";
 import { moveAppTestToProject } from "./appTest.js";
@@ -201,7 +201,7 @@ export async function approveRequest(ctx: Context, actor: { id: string; role: st
   });
   if (!req) throw new Error("Request not found");
   if (req.state !== "PENDING") return req;
-  if (!canApproveTestCase(actor, req.requestedBy)) {
+  if (!canApproveTestCase(actor, req.requestedBy, await approvalMode())) {
     throw new GraphQLError("You may not review this change — it needs an approver of the requester's level or higher, and never the requester.", {
       extensions: { code: "FORBIDDEN" },
     });
@@ -320,7 +320,7 @@ export const approvalRequestResolvers = {
       });
       if (!req) throw new Error("Request not found");
       if (req.state !== "PENDING") return req;
-      if (!canApproveTestCase(user, req.requestedBy)) {
+      if (!canApproveTestCase(user, req.requestedBy, await approvalMode())) {
         throw new GraphQLError("You may not review this change.", { extensions: { code: "FORBIDDEN" } });
       }
       const label = await targetLabel(ctx, req.target as Target, req.targetId);
@@ -364,12 +364,13 @@ export const approvalRequestResolvers = {
     // Only the requester can withdraw, and only while nobody has decided.
     canCancel: (r: any, _: unknown, ctx: Context) => r.state === "PENDING" && r.requestedById === ctx.userId,
     async canApprove(r: any, _: unknown, ctx: Context) {
-      if (!ctx.userId || !isApproverRole(ctx.role) || r.state !== "PENDING") return false;
+      const mode = await approvalMode();
+      if (!ctx.userId || !isApproverRole(ctx.role, mode) || r.state !== "PENDING") return false;
       const requester = await ctx.prisma.user.findUnique({
         where: { id: r.requestedById },
         select: { id: true, role: true },
       });
-      return !!requester && canApproveTestCase({ id: ctx.userId, role: ctx.role! }, requester);
+      return !!requester && canApproveTestCase({ id: ctx.userId, role: ctx.role! }, requester, mode);
     },
   },
 };

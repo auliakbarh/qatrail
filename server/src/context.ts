@@ -1,7 +1,7 @@
 import { GraphQLError } from "graphql";
 import { prisma } from "./db.js";
 import { verifyToken } from "./auth.js";
-import { isApproverRole } from "./approval.js";
+import { approvalMode, isApproverRole } from "./approval.js";
 import { maintenanceActive } from "./maintenance.js";
 
 export interface Context {
@@ -71,12 +71,23 @@ export async function requireQA(ctx: Context) {
   return user!;
 }
 
-// Test case review: QA_LEAD and up. Whether this approver may approve *this*
-// case still depends on the creator — see canApproveTestCase in approval.ts.
+// Test case review: QA_LEAD and up — QA and up under 360 review. Whether this
+// approver may approve *this* case still depends on the creator — see
+// canApproveTestCase in approval.ts.
 export async function requireApprover(ctx: Context) {
   const userId = requireAuth(ctx);
   const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
-  if (!isApproverRole(user?.role)) throw new Error("Forbidden: QA lead only");
+  if (!isApproverRole(user?.role, await approvalMode())) throw new Error("Forbidden: QA lead only");
+  return user!;
+}
+
+// Both sides of an app test: engineers submit builds, QA runs and reports them.
+// Used by the JIRA report button, which either may post.
+const ENGINEER_OR_QA = new Set(["ENGINEER", "QA", "QA_LEAD", "ADMIN", "SUPER_ADMIN"]);
+export async function requireEngineerOrQA(ctx: Context) {
+  const userId = requireAuth(ctx);
+  const user = await ctx.prisma.user.findUnique({ where: { id: userId } });
+  if (!ENGINEER_OR_QA.has(user?.role ?? "")) throw new Error("Forbidden: engineer or QA only");
   return user!;
 }
 

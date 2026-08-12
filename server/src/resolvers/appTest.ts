@@ -1,17 +1,20 @@
 import { GraphQLError } from "graphql";
 import type { Context } from "../context.js";
-import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireQA } from "../context.js";
+import { requireAdmin, requireAuth, requireEngineerOrAdmin, requireEngineerOrQA, requireQA } from "../context.js";
 import { cloneTestCaseInto } from "../clone.js";
 import { assertAllApproved } from "./testcase.js";
 import { needsApproval, openRequest } from "./approvalRequest.js";
-import { LIVE_TEST_CASE } from "../approval.js";
+import { canReviewTest, LIVE_TEST_CASE, testReviewRequired } from "../approval.js";
 import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
-import { notifyQaAdmins, notifyWatchers } from "../notify.js";
+import { notify, notifyQaAdmins, notifyWatchers } from "../notify.js";
 import { env } from "../env.js";
 import { toADF, upsertCommentsFor, appTestMarkdown } from "../jira.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
+
+const bad = (message: string, code = "BAD_USER_INPUT") => new GraphQLError(message, { extensions: { code } });
+const reviewOff = () => bad("Peer review of app tests is turned off.", "REVIEW_DISABLED");
 
 interface AppTestInput {
   projectId: string;
@@ -254,6 +257,14 @@ export const appTestResolvers = {
           appVersion: build.appVersion,
           backendVersion: build.backendVersion,
           closedAt: null, // resume testing on the same round
+          // A new build is a new round: whatever a peer approved was the report
+          // of the build before it.
+          reviewState: null,
+          reviewRequestedById: null,
+          reviewRequestedAt: null,
+          reviewedById: null,
+          reviewedAt: null,
+          reviewNote: null,
           builds: { create: { ...build, createdById: user.id } },
         },
       });
@@ -334,15 +345,88 @@ export const appTestResolvers = {
     },
     async closeAppTestTesting(_: unknown, args: { appTestId: string }, ctx: Context) {
       await requireQA(ctx);
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: args.appTestId } });
+      if (!at) throw new Error("App test not found");
+      // With peer review on, closing is a sign-off like PASSED: another QA has
+      // to have approved the report first.
+      if ((await testReviewRequired()) && at.reviewState !== "APPROVED") {
+        throw new GraphQLError("Another QA has to approve this app test's report before it can be closed.", {
+          extensions: { code: "REVIEW_REQUIRED" },
+        });
+      }
       await ctx.prisma.appTest.update({ where: { id: args.appTestId }, data: { closedAt: new Date() } });
       await recomputeAppTest(args.appTestId);
       return ctx.prisma.appTest.findUnique({ where: { id: args.appTestId } });
+    },
+    // --- Peer review of the app test's own report (Setting.testReviewMode) ----
+    // QA hands the finished round to another QA; only their approval lets it
+    // reach PASSED or be closed.
+    async submitAppTestReview(_: unknown, args: { id: string }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: args.id } });
+      if (!at) throw new Error("App test not found");
+      if (!(await testReviewRequired())) throw reviewOff();
+      if (at.closedAt) throw bad("This app test is already closed.", "APP_TEST_CLOSED");
+      if (at.reviewState === "IN_REVIEW") throw bad("This app test is already waiting for a review.", "REVIEW_PENDING");
+      await ctx.prisma.appTest.update({
+        where: { id: at.id },
+        data: {
+          reviewState: "IN_REVIEW",
+          reviewRequestedById: user.id,
+          reviewRequestedAt: new Date(),
+          // A new round starts clean: the previous reviewer's remarks belong to
+          // the round that was sent back, not to this one.
+          reviewNote: null,
+          reviewedById: null,
+          reviewedAt: null,
+        },
+      });
+      await recomputeAppTest(at.id);
+      const msg = `Review requested on APP-${at.number}`;
+      await notifyQaAdmins("APP_TEST_REVIEW_REQUESTED", msg, at.id, user.id);
+      await notifyWatchers("APP_TEST", at.id, "APP_TEST_REVIEW_REQUESTED", msg, { appTestId: at.id }, user.id);
+      return ctx.prisma.appTest.findUnique({ where: { id: at.id } });
+    },
+    // approve = the report stands (PASSED/close unlocked); otherwise it goes back
+    // to the tester with a note saying what is missing.
+    async reviewAppTest(_: unknown, args: { id: string; approve: boolean; note?: string | null }, ctx: Context) {
+      const user = await requireQA(ctx);
+      const at = await ctx.prisma.appTest.findUnique({ where: { id: args.id } });
+      if (!at) throw new Error("App test not found");
+      if (!(await testReviewRequired())) throw reviewOff();
+      if (at.reviewState !== "IN_REVIEW") throw bad("This app test is not waiting for a review.", "REVIEW_NOT_PENDING");
+      if (!canReviewTest(user, at.reviewRequestedById)) {
+        throw new GraphQLError("A report is reviewed by another QA, never by the one who asked for the review.", {
+          extensions: { code: "FORBIDDEN" },
+        });
+      }
+      const note = (args.note ?? "").trim();
+      if (!args.approve && !note) throw bad("Say what the tester still has to complete.");
+      await ctx.prisma.appTest.update({
+        where: { id: at.id },
+        data: {
+          reviewState: args.approve ? "APPROVED" : "CHANGES_REQUESTED",
+          reviewedById: user.id,
+          reviewedAt: new Date(),
+          reviewNote: note || null,
+        },
+      });
+      await recomputeAppTest(at.id);
+      const msg = args.approve
+        ? `App test report approved: APP-${at.number}`
+        : `App test report sent back: APP-${at.number} — ${note}`;
+      const kind = args.approve ? "APP_TEST_REVIEW_APPROVED" : "APP_TEST_CHANGES_REQUESTED";
+      if (at.reviewRequestedById) await notify(at.reviewRequestedById, kind, msg, null, at.id);
+      await notifyWatchers("APP_TEST", at.id, kind, msg, { appTestId: at.id }, user.id);
+      return ctx.prisma.appTest.findUnique({ where: { id: at.id } });
     },
     // Post a formatted comment (app-test details + poster identity) to each
     // linked JIRA ticket. Re-posting edits the comment we left there before, so
     // pressing the button twice does not stack duplicates on the ticket.
     async postAppTestToJira(_: unknown, args: { id: string }, ctx: Context) {
-      const user = await requireEngineerOrAdmin(ctx);
+      // Either side of the app test may post its report: the engineer who
+      // submitted the build, or the QA who ran it.
+      const user = await requireEngineerOrQA(ctx);
       const at = await ctx.prisma.appTest.findUnique({
         where: { id: args.id },
         include: { createdBy: true, project: true },
@@ -395,6 +479,19 @@ export const appTestResolvers = {
     assignedCount: (a: any, _: unknown, ctx: Context) => ctx.prisma.appTestCase.count({ where: { appTestId: a.id } }),
     builds: (a: any, _: unknown, ctx: Context) =>
       ctx.prisma.appTestBuild.findMany({ where: { appTestId: a.id }, orderBy: { createdAt: "desc" } }),
+    reviewRequestedAt: (a: any) => a.reviewRequestedAt?.toISOString() ?? null,
+    reviewedAt: (a: any) => a.reviewedAt?.toISOString() ?? null,
+    reviewRequestedBy: (a: any, _: unknown, ctx: Context) =>
+      a.reviewRequestedById ? ctx.prisma.user.findUnique({ where: { id: a.reviewRequestedById } }) : null,
+    reviewedBy: (a: any, _: unknown, ctx: Context) =>
+      a.reviewedById ? ctx.prisma.user.findUnique({ where: { id: a.reviewedById } }) : null,
+    // What the current user may do about the review, so the page doesn't
+    // re-derive the rule (the server is still the gate).
+    reviewRequired: () => testReviewRequired(),
+    async canReview(a: any, _: unknown, ctx: Context) {
+      if (!ctx.userId || a.reviewState !== "IN_REVIEW" || !(await testReviewRequired())) return false;
+      return canReviewTest({ id: ctx.userId, role: ctx.role! }, a.reviewRequestedById);
+    },
   },
 
   AppTestBuild: {

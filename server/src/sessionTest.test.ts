@@ -25,6 +25,22 @@ describe("deriveSessionStatus", () => {
     expect(deriveSessionStatus({ ...base, coveragePercent: 90, activity: 3 })).toBe("PASSED");
     expect(deriveSessionStatus({ ...base, coveragePercent: 89, activity: 3 })).toBe("IN_TESTING");
   });
+
+  describe("with peer review on", () => {
+    const met = { ...base, coveragePercent: 95, activity: 3, reviewRequired: true };
+    it("the agreed target is not a sign-off until a peer approves", () => {
+      expect(deriveSessionStatus({ ...met, reviewState: null })).toBe("IN_TESTING");
+      expect(deriveSessionStatus({ ...met, reviewState: "CHANGES_REQUESTED" })).toBe("IN_TESTING");
+      expect(deriveSessionStatus({ ...met, reviewState: "APPROVED" })).toBe("PASSED");
+    });
+    it("IN_REVIEW while a peer has it; CLOSED still wins", () => {
+      expect(deriveSessionStatus({ ...met, reviewState: "IN_REVIEW" })).toBe("IN_REVIEW");
+      expect(deriveSessionStatus({ ...met, closed: true, reviewState: "IN_REVIEW" })).toBe("CLOSED");
+    });
+    it("switching the setting off releases whatever was waiting", () => {
+      expect(deriveSessionStatus({ ...met, reviewRequired: false, reviewState: "IN_REVIEW" })).toBe("PASSED");
+    });
+  });
 });
 
 describe("session findings never carry SLA", () => {
