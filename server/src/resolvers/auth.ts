@@ -128,7 +128,16 @@ export const authResolvers = {
       if (!user.active) throw new Error("This account is not active. Contact an admin.");
 
       const sid = crypto.randomUUID();
-      await ctx.prisma.user.update({ where: { id: user.id }, data: { sessionId: sid } });
+      // A pending first password is an admin-generated temp one, not the user's:
+      // Entra already proved who they are, so asking them to type it is a wall
+      // with no lock. Drop it — they land on the set-password screen with no
+      // current-password field, and a password they never chose stops being a
+      // way in. An account with its own password (mustChangePassword false)
+      // signs straight in.
+      user = await ctx.prisma.user.update({
+        where: { id: user.id },
+        data: { sessionId: sid, ...(user.mustChangePassword && user.passwordHash ? { passwordHash: null } : {}) },
+      });
       const token = signToken({ userId: user.id, email: user.email, name: user.name, sid });
       audit("microsoftLogin");
       return { token, user };
