@@ -39,13 +39,23 @@ export function ImportTestCasesForm({ scope, projectId, featureId }: { scope: Sc
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setRows(null); setPreview(null); setFileError(null);
     const file = e.target.files?.[0];
+    // Clear the input so re-picking the *same* filename after fixing the file still
+    // fires onChange — otherwise a corrected re-upload silently does nothing.
+    e.target.value = "";
     if (!file) return;
     const text = await file.text();
     const parsed = parseImport(text, scope);
     if ("error" in parsed) { setFileError(parsed.error); return; }
     setRows(parsed.rows);
-    const { data } = await runImport({ variables: vars(true, parsed.rows) });
-    setPreview(data?.importTestCases ?? null);
+    // A rejected dry run (network, size, permission) must say so — an unhandled
+    // rejection here leaves the panel blank and the confirm button disabled.
+    try {
+      const { data } = await runImport({ variables: vars(true, parsed.rows) });
+      setPreview(data?.importTestCases ?? null);
+    } catch (err) {
+      setRows(null);
+      setFileError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const confirm = async () => {

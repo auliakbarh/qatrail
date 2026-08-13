@@ -75,6 +75,11 @@ export function parseCsvText(text: string): string[][] {
   let field = "";
   let inQuotes = false;
   const src = text.replace(/^﻿/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // Excel on a locale whose list separator is ";" (id-ID, most of Europe) saves
+  // semicolon-separated files with a .csv name. Pick the delimiter from the header
+  // line — headers are plain words, so a plain count is enough.
+  const head = src.split("\n", 1)[0];
+  const delim = [",", ";", "\t"].reduce((a, b) => (head.split(b).length > head.split(a).length ? b : a));
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (inQuotes) {
@@ -83,7 +88,7 @@ export function parseCsvText(text: string): string[][] {
         else inQuotes = false;
       } else field += c;
     } else if (c === '"') inQuotes = true;
-    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === delim) { row.push(field); field = ""; }
     else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
     else field += c;
   }
