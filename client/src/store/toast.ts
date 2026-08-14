@@ -31,9 +31,22 @@ export function denied(message?: string) {
   useToast.getState().push(message ?? i18n.t("c.permissionDenied"), "error");
 }
 
-// Run a mutation with success/failure toasts. On failure the real error is
-// swallowed (masked) — the user sees only `failMsg`, never a backend/client
-// error string. Returns the result on success, or null on failure.
+// A refusal the server meant, as opposed to something that went wrong: the user
+// learns *why* the action was refused — "another QA has to approve this report
+// first" instead of "something went wrong", which is unactionable and reads like
+// a bug. The allow-list is the set of `err.<CODE>` keys in i18n.ts, so writing
+// the wording is what publishes a code; there is no second list to fall out of
+// step. Everything else stays masked — raw Prisma/GraphQL text belongs in the
+// log, and the server's English is not our UI.
+export function refusalMessage(err: any): string | null {
+  const code = err?.graphQLErrors?.[0]?.extensions?.code ?? err?.extensions?.code;
+  if (typeof code !== "string" || !i18n.exists(`err.${code}`)) return null;
+  return i18n.t(`err.${code}`);
+}
+
+// Run a mutation with success/failure toasts. A refusal the server meant is
+// reported as itself; every other error is swallowed (masked) and the user sees
+// only `failMsg`. Returns the result on success, or null on failure.
 export async function withToast<T>(
   op: Promise<T>,
   successMsg: string,
@@ -45,8 +58,8 @@ export async function withToast<T>(
     const r = await op;
     push(successMsg, "success");
     return r;
-  } catch {
-    push(failMsg, "error");
+  } catch (e) {
+    push(refusalMessage(e) ?? failMsg, "error");
     return null;
   }
 }
