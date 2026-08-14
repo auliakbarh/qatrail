@@ -1,5 +1,5 @@
 import type { Context } from "../context.js";
-import { requireAuth, requireQA } from "../context.js";
+import { requireAuth, requireQA, canReadTestSecret } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify, notifyWatchers } from "../notify.js";
@@ -370,9 +370,10 @@ export const issueResolvers = {
       ctx.prisma.statusEvent.findMany({ where: { issueId: i.id }, orderBy: { at: "asc" } }),
     postmortem: (i: any, _: unknown, ctx: Context) =>
       ctx.prisma.postmortem.findUnique({ where: { issueId: i.id } }),
-    // Decrypt on read for authorized users. Returns null when unset or undecryptable.
-    testPassword: (i: any) => {
-      if (!i.testPassword) return null;
+    // Decrypt on read, for the roles `canReadTestSecret` names — same rule as
+    // `UserTest.password`. Returns null when unset, unreadable or undecryptable.
+    testPassword: (i: any, _: unknown, ctx: Context) => {
+      if (!i.testPassword || !canReadTestSecret(ctx.role)) return null;
       try {
         return decryptSecret(i.testPassword, env.secretEncKey);
       } catch {

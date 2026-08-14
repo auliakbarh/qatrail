@@ -1,5 +1,5 @@
 import type { Context } from "../context.js";
-import { requireAuth } from "../context.js";
+import { requireAuth, canReadTestSecret } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify, notifyAll } from "../notify.js";
@@ -71,8 +71,9 @@ export const userTestResolvers = {
     createdBy: (u: any, _: unknown, ctx: Context) => ctx.prisma.user.findUnique({ where: { id: u.createdById } }),
     projectName: async (u: any, _: unknown, ctx: Context) =>
       (await ctx.prisma.project.findUnique({ where: { id: u.projectId }, select: { name: true } }))?.name ?? "",
-    password: (u: any) => {
-      if (!u.password) return null;
+    // Same read rule as `Issue.testPassword` — one helper, not two rules.
+    password: (u: any, _: unknown, ctx: Context) => {
+      if (!u.password || !canReadTestSecret(ctx.role)) return null;
       try {
         return decryptSecret(u.password, env.secretEncKey);
       } catch {

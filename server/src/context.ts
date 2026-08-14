@@ -104,6 +104,16 @@ export async function requireEngineerOrQA(ctx: Context) {
   return user!;
 }
 
+// Who may read a stored test credential — `Issue.testPassword` and
+// `UserTest.password`, the two fields that decrypt on read. The decision: anyone
+// who can act on a test needs it, because reproducing a finding means signing in
+// as the account it was found with — engineers included. A VIEWER never acts, so
+// it never has that reason. Both fields are nullable and the UI already handles
+// null, so an unauthorised read is a null, not an error.
+export function canReadTestSecret(role?: string | null): boolean {
+  return !!role && role !== "VIEWER";
+}
+
 // VIEWER is read-only: it may run only these mutations. Everything else is
 // denied by readOnlyGuard, so a newly added mutation is closed by default.
 const VIEWER_MUTATIONS = new Set([
