@@ -15,7 +15,7 @@ import { env } from "./env.js";
 import { prisma } from "./db.js";
 import { logger } from "./logger.js";
 import { startScheduler } from "./scheduler.js";
-import { notifyDiscord, NOTIFIABLE } from "./discord.js";
+import { notifyDiscord, NOTIFIABLE, announced } from "./discord.js";
 import { publicApiRouter, publicApiErrorHandler } from "./publicApi/router.js";
 
 process.on("uncaughtException", (err) => logger.fatal({ err }, "uncaughtException"));
@@ -112,7 +112,16 @@ const server = new ApolloServer({
                 // mask secrets, summarize arrays). Cap to keep the embed sane.
                 // discordWebhookUrl is a credential — it grants posting rights to
                 // anyone holding it, so it never lands in the trail or an embed.
-                const SKIP = new Set(["name", "title", "testPassword", "discordWebhookUrl"]);
+                const SKIP = new Set([
+                  "name",
+                  "title",
+                  "testPassword",
+                  "discordWebhookUrl",
+                  "password",
+                  "currentPassword",
+                  "newPassword",
+                  "apiToken",
+                ]);
                 for (const [k, v] of Object.entries(input)) {
                   if (extra.length >= 12 || SKIP.has(k) || v == null || v === "") continue;
                   let val: string;
@@ -131,7 +140,8 @@ const server = new ApolloServer({
                 // A review verdict is the whole point of the row — without it,
                 // "reviewAppTest" can't tell an approval from a send-back.
                 if (typeof vars.approve === "boolean") extra.push({ name: "approve", value: String(vars.approve) });
-                void notifyDiscord(field, actor, { name, note, url, extra });
+                // Every NOTIFIABLE field is audited; the QUIET ones skip the chat.
+                if (announced(field)) void notifyDiscord(field, actor, { name, note, url, extra });
                 // Persist the same event to the audit trail (fire-and-forget).
                 // `details` is the embed's own field list — one source, so what
                 // Discord shows and what the trail keeps can never drift.

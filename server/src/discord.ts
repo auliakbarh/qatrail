@@ -44,6 +44,36 @@ const LABELS: Record<string, string> = {
   setIssueArchived: "Issue archive toggled",
   setProductionIssue: "Production issue flag toggled",
   setIssueScope: "Issue app test / session changed",
+  issueReopen: "Issue reopened",
+  bulkArchiveIssues: "Issues archived (bulk)",
+  bulkAssignIssues: "Issues reassigned (bulk)",
+  bulkDeleteIssues: "Issues deleted (bulk)",
+  postIssueToJira: "Issue posted to JIRA",
+  unlinkIssueJira: "Issue unlinked from JIRA",
+  importTestCases: "Test cases imported (CSV)",
+  moveTestCase: "Test case move requested",
+  cloneTestCase: "Test case copy requested",
+  moveFeature: "Feature move requested",
+  cloneFeature: "Feature copy requested",
+  cloneProject: "Project copy requested",
+  createAppTest: "App test created",
+  updateAppTest: "App test updated",
+  addAppTestBuild: "App test build added",
+  deleteAppTest: "App test deleted",
+  assignTestCases: "Test cases assigned to app test",
+  assignFeatureTestCases: "Feature assigned to app test",
+  unassignTestCase: "Test case unassigned from app test",
+  closeAppTestTesting: "App test closed",
+  postAppTestToJira: "App test report posted to JIRA",
+  addSessionTestApp: "App linked to testing session",
+  updateSessionTestApp: "Session app updated",
+  removeSessionTestApp: "App unlinked from testing session",
+  assignSessionTestCases: "Test cases assigned to testing session",
+  setSessionTestCaseApps: "Session test case apps changed",
+  unassignSessionTestCase: "Test case unassigned from testing session",
+  postSessionTestToJira: "Session report posted to JIRA",
+  changePassword: "Password changed",
+  deleteComment: "Comment deleted",
   createUserTest: "User test created",
   createPublicApiClient: "Public API client created",
   updatePublicApiClient: "Public API client updated",
@@ -71,6 +101,45 @@ const LABELS: Record<string, string> = {
 // changes (users, settings, SLA). Excludes login/logout and notification reads.
 // Credentials never ride along: index.ts masks testPassword / discordWebhookUrl.
 export const NOTIFIABLE = new Set(Object.keys(LABELS));
+
+// Audited, but not announced. Not a second field list — `details` and the embed
+// still come from the same place; this only decides whether a chat message is
+// worth anyone's attention. Assignment churn happens dozens of times per round,
+// and a password change is nobody's business but the trail's.
+const QUIET = new Set([
+  "assignTestCases",
+  "assignFeatureTestCases",
+  "unassignTestCase",
+  "assignSessionTestCases",
+  "setSessionTestCaseApps",
+  "unassignSessionTestCase",
+  "updateSessionTestApp",
+  "changePassword",
+]);
+export const announced = (field: string): boolean => !QUIET.has(field);
+
+// Mutations that deliberately write no audit row. `login` is rate-limited in
+// rateLimit.ts instead — logging every attempt would bury the trail in noise —
+// `microsoftLogin` writes its own row from the resolver (the plugin has no actor
+// until login creates one), the password-reset pair is anonymous by definition,
+// notification reads are not state anyone audits, and the two connection tests
+// change nothing. Anything else that mutates belongs in LABELS.
+export const UNLOGGED = new Set([
+  "login",
+  "microsoftLogin",
+  "forgotPassword",
+  "resetPassword",
+  "markNotificationRead",
+  "markAllNotificationsRead",
+  "setWatch",
+  // A comment is its own record: the row carries author and updatedAt, and it
+  // stays visible. Deleting one is the case where the record disappears, and an
+  // admin may delete somebody else's — so `deleteComment` is in LABELS.
+  "addComment",
+  "updateComment",
+  "testDiscord",
+  "testJira",
+]);
 
 // Non-mutation events that reuse the same embed. Deliberately outside LABELS so
 // they never join NOTIFIABLE — nothing here is a GraphQL field.
