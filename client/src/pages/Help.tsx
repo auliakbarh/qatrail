@@ -281,9 +281,11 @@ export default function Help() {
                 t("help.settings.4"),
                 t("help.settings.5"),
                 t("help.settings.6"),
+                t("help.settings.7"),
               ]}
             />
             <P>{t("help.settings.p2")}</P>
+            <P>{t("help.settings.p3")}</P>
           </Doc>
 
           <Doc id="account" title={t("help.sec.account")}>
@@ -327,6 +329,9 @@ export default function Help() {
             </Faq>
             <Faq q={t("help.faq.q5")}>
               {t("help.faq.a5")}
+            </Faq>
+            <Faq q={t("help.faq.q6")}>
+              {t("help.faq.a6")}
             </Faq>
           </Doc>
         </article>
