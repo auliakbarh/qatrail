@@ -11,10 +11,14 @@ import { APP_TESTS, APP_TEST, CREATE_APP_TEST, UPDATE_APP_TEST } from "../../gra
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
 
+// Why this build is being tested. Labels live in i18n as `at.kind<VALUE>`.
+export const APP_TEST_KINDS = ["FEATURE", "COMBINED_FEATURE", "PROD_FIX", "RELEASE_PREP"];
+
 interface Form {
   projectId: string;
   environment: string;
   platform: string;
+  kind: string;
   appVersion: string;
   backendVersion: string;
   downloadLink: string;
@@ -36,6 +40,7 @@ export function AppTestForm({ panel }: { panel: PanelState }) {
       projectId: init.projectId ?? "",
       environment: init.environment ?? "STAGING",
       platform: init.platform ?? "WEB",
+      kind: init.kind ?? "FEATURE",
       appVersion: init.appVersion ?? "",
       backendVersion: init.backendVersion ?? "",
       downloadLink: init.downloadLink ?? "",
@@ -52,6 +57,7 @@ export function AppTestForm({ panel }: { panel: PanelState }) {
         projectId: a.projectId,
         environment: a.environment,
         platform: a.platform,
+        kind: a.kind,
         appVersion: a.appVersion ?? "",
         backendVersion: a.backendVersion ?? "",
         downloadLink: a.downloadLink,
@@ -71,6 +77,7 @@ export function AppTestForm({ panel }: { panel: PanelState }) {
       projectId: v.projectId,
       environment: v.environment,
       platform: v.platform,
+      kind: v.kind,
       appVersion: v.appVersion || null,
       backendVersion: v.backendVersion || null,
       downloadLink: v.downloadLink,
@@ -111,6 +118,11 @@ export function AppTestForm({ panel }: { panel: PanelState }) {
             </select>
           </Field>
         </div>
+        <Field label={t("at.kind")}>
+          <select className={inputCls} {...register("kind")}>
+            {APP_TEST_KINDS.map((k) => <option key={k} value={k}>{t(`at.kind${k}`)}</option>)}
+          </select>
+        </Field>
         <div className="flex gap-2">
           <Field label={t("form.appVersion")} optional>
             <input className={inputCls} list="sug-at-appVersion" {...register("appVersion")} />

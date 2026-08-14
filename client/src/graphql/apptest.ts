@@ -1,7 +1,7 @@
 import { gql } from "@apollo/client";
 
 const APP_TEST_FIELDS = `
-  id key projectId projectName environment platform appVersion backendVersion
+  id key projectId projectName environment platform kind appVersion backendVersion
   downloadLink note jiraTickets status
   coverage { total passed percent } passPercent issueCount assignedCount
   doneTestAt createdAt updatedAt

@@ -20,6 +20,9 @@ interface AppTestInput {
   projectId: string;
   environment: "STAGING" | "PRODUCTION";
   platform: "ANDROID" | "IOS" | "WEB";
+  // Optional in TS only: the SDL requires it, but leaving it undefined lets the
+  // column default (FEATURE) stand on create and keeps the old value on update.
+  kind?: "FEATURE" | "COMBINED_FEATURE" | "PROD_FIX" | "RELEASE_PREP";
   appVersion?: string | null;
   backendVersion?: string | null;
   downloadLink: string;
@@ -40,6 +43,7 @@ function scalarData(input: AppTestInput) {
   return {
     environment: input.environment,
     platform: input.platform,
+    kind: input.kind,
     appVersion: input.appVersion ?? null,
     backendVersion: input.backendVersion ?? null,
     downloadLink: input.downloadLink.trim(),

@@ -21,6 +21,7 @@ export const typeDefs = /* GraphQL */ `
   enum TestReviewMode { NONE PEER_360 }
   enum CommentTarget { ISSUE APP_TEST USER_TEST SESSION_TEST TEST_CASE }
   enum TestCaseKind { POSITIVE NEGATIVE }
+  enum AppTestKind { FEATURE COMBINED_FEATURE PROD_FIX RELEASE_PREP }
   enum SessionKind { SIT UAT OTHER }
   enum SessionTestStatus { OPEN IN_TESTING IN_REVIEW PASSED CLOSED }
   # What happens to a moved app test's assignments (admin-only project move).
@@ -593,6 +594,7 @@ export const typeDefs = /* GraphQL */ `
     createdBy: User!
     environment: Environment!
     platform: Platform!
+    kind: AppTestKind!
     appVersion: String
     backendVersion: String
     downloadLink: String!
@@ -646,6 +648,7 @@ export const typeDefs = /* GraphQL */ `
     projectId: ID!
     environment: Environment!
     platform: Platform!
+    kind: AppTestKind!
     appVersion: String
     backendVersion: String
     downloadLink: String!

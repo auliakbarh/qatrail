@@ -190,6 +190,7 @@ export default function AppTestDetail() {
             <Info label={t("at.project")} value={a.projectName} />
             <Info label={t("iss.environment")} value={a.environment} />
             <Info label={t("iss.platform")} value={a.platform} />
+            <Info label={t("at.kind")} value={t(`at.kind${a.kind}`)} />
             <Info label={t("at.creator")} value={a.createdBy?.name} />
             <Info label={t("form.appVersion")} value={a.appVersion ?? "—"} />
             <Info label={t("form.backendVersion")} value={a.backendVersion ?? "—"} />

@@ -19,7 +19,7 @@ import { SortableTh, nextSort } from "../components/SortableTh";
 import { searchRows, sortRows, groupRows } from "../lib/list";
 import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
-import { AppTestForm } from "./forms/AppTestForm";
+import { AppTestForm, APP_TEST_KINDS } from "./forms/AppTestForm";
 import { MoveAppTestProjectForm } from "./forms/MoveAppTestProjectForm";
 import { TableSkeleton } from "../components/Skeleton";
 import { Badge } from "../components/Badge";
@@ -27,9 +27,10 @@ import { Badge } from "../components/Badge";
 const canCreate = (r?: string) => r === "ENGINEER" || r === "ADMIN" || r === "SUPER_ADMIN";
 
 // Flatten an app test into a row with sortable/searchable scalar fields.
-function toRow(a: any) {
+function toRow(a: any, t: (k: string) => string) {
   return {
     ...a,
+    kindLabel: t(`at.kind${a.kind}`),
     creatorName: a.createdBy?.name ?? "",
     dateCreated: a.createdAt,
     jira: (a.jiraTickets ?? []).join(", "),
@@ -52,6 +53,7 @@ export default function AppTests() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [fEnv, setFEnv] = useState("");
   const [fPlat, setFPlat] = useState("");
+  const [fKind, setFKind] = useState("");
   const [fAppVer, setFAppVer] = useState("");
   const [fBeVer, setFBeVer] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -71,13 +73,14 @@ export default function AppTests() {
     setSortDir(n.dir);
   };
 
-  const all: any[] = (data?.appTests ?? []).map(toRow);
+  const all: any[] = (data?.appTests ?? []).map((a: any) => toRow(a, t));
   const distinct = (k: string) => [...new Set(all.map((r) => r[k]).filter(Boolean))].sort();
 
   const filtered = all.filter(
     (r) =>
       (!fEnv || r.environment === fEnv) &&
       (!fPlat || r.platform === fPlat) &&
+      (!fKind || r.kind === fKind) &&
       (!fAppVer || r.appVersion === fAppVer) &&
       (!fBeVer || r.backendVersion === fBeVer) &&
       (!fStatus || r.status === fStatus),
@@ -118,6 +121,7 @@ export default function AppTests() {
               groupOptions={[
                 { value: "environment", label: t("iss.environment") },
                 { value: "platform", label: t("iss.platform") },
+                { value: "kindLabel", label: t("at.kind") },
                 { value: "creatorName", label: t("at.creator") },
                 { value: "status", label: t("c.status") },
               ]}
@@ -129,6 +133,10 @@ export default function AppTests() {
               <select value={fPlat} onChange={(e) => setFPlat(e.target.value)} className={selCls}>
                 <option value="">{t("iss.platform")}: {t("c.all")}</option>
                 {distinct("platform").map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select value={fKind} onChange={(e) => setFKind(e.target.value)} className={selCls}>
+                <option value="">{t("at.kind")}: {t("c.all")}</option>
+                {APP_TEST_KINDS.map((v) => <option key={v} value={v}>{t(`at.kind${v}`)}</option>)}
               </select>
               <select value={fAppVer} onChange={(e) => setFAppVer(e.target.value)} className={selCls}>
                 <option value="">{t("form.appVersion")}: {t("c.all")}</option>
@@ -142,9 +150,9 @@ export default function AppTests() {
                 <option value="">{t("c.status")}: {t("c.all")}</option>
                 {["OPEN", "ASSIGNED", "IN_TESTING", "IN_REVIEW", "PASSED", "CLOSED"].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
-              {(search || fEnv || fPlat || fAppVer || fBeVer || fStatus || groupKey) && (
+              {(search || fEnv || fPlat || fKind || fAppVer || fBeVer || fStatus || groupKey) && (
                 <button
-                  onClick={() => { setSearch(""); setFEnv(""); setFPlat(""); setFAppVer(""); setFBeVer(""); setFStatus(""); setGroupKey(""); }}
+                  onClick={() => { setSearch(""); setFEnv(""); setFPlat(""); setFKind(""); setFAppVer(""); setFBeVer(""); setFStatus(""); setGroupKey(""); }}
                   className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
                 >
                   {t("c.resetFilters")}
@@ -158,6 +166,7 @@ export default function AppTests() {
                     <SortableTh label={t("at.appNo")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("iss.environment")} colKey="environment" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("iss.platform")} colKey="platform" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("at.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("form.appVersion")} colKey="appVersion" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("form.backendVersion")} colKey="backendVersion" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -172,13 +181,13 @@ export default function AppTests() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && rows.length === 0 && <TableSkeleton cols={14} />}
-                  {!loading && rows.length === 0 && <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">{t("at.empty")}</td></tr>}
+                  {loading && rows.length === 0 && <TableSkeleton cols={15} />}
+                  {!loading && rows.length === 0 && <tr><td colSpan={15} className="py-8 text-center text-muted-foreground">{t("at.empty")}</td></tr>}
                   {groups.map(([label, gr]) => (
                     <Fragment key={label || "all"}>
                       {groupKey && (
                         <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                          <td colSpan={14} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                          <td colSpan={15} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                             <span className="inline-flex items-center gap-1">
                               {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                               {label || "—"} · {gr.length}
@@ -195,6 +204,7 @@ export default function AppTests() {
                             </td>
                             <td className="px-3 py-2 text-muted-foreground">{a.environment}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.platform}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{a.kindLabel}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.appVersion ?? "—"}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.backendVersion ?? "—"}</td>
                             <td className="px-3 py-2 text-center"><Badge>{a.status}</Badge></td>

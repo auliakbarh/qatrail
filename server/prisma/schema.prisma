@@ -136,6 +136,15 @@ enum MoveAssignmentMode {
 }
 
 // Kind of testing session. OTHER carries a free-text label in kindOther.
+// Why this build is being tested. Defaults to FEATURE so rows predating the
+// column stay valid without a backfill.
+enum AppTestKind {
+  FEATURE
+  COMBINED_FEATURE
+  PROD_FIX
+  RELEASE_PREP
+}
+
 enum SessionKind {
   SIT
   UAT
@@ -526,6 +535,7 @@ model AppTest {
   createdBy      User          @relation("appTestCreator", fields: [createdById], references: [id])
   environment    Environment
   platform       Platform
+  kind           AppTestKind   @default(FEATURE)
   appVersion     String?
   backendVersion String?
   downloadLink   String
