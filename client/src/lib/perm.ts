@@ -18,6 +18,13 @@ export function canAct(role?: string): boolean {
   return !!role && role !== "VIEWER";
 }
 
+// Content whose creator owns it — user tests, app tests, testing sessions: the
+// creator or an admin may change it. Mirrors `getOwned` on the server.
+export function canEditOwned(user: { id?: string; role?: string } | null | undefined, createdById?: string): boolean {
+  if (!user?.role) return false;
+  return user.id === createdById || user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+}
+
 // Engineers (and admins) submit/manage app tests — e.g. posting to JIRA.
 export function canManageAppTest(role?: string): boolean {
   return role === "ENGINEER" || role === "ADMIN" || role === "SUPER_ADMIN";

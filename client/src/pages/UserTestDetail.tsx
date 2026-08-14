@@ -14,7 +14,7 @@ import { withToast } from "../store/toast";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { UserTestForm } from "./forms/UserTestForm";
 import { useAuth } from "../store/auth";
-import { canAct } from "../lib/perm";
+import { canEditOwned } from "../lib/perm";
 import { DetailSkeleton } from "../components/Skeleton";
 
 function Info({ label, value }: { label: string; value: any }) {
@@ -32,7 +32,6 @@ export default function UserTestDetail() {
   const navigate = useNavigate();
   const { panel, openPanel } = useNav();
   const { user } = useAuth();
-  const act = canAct(user?.role);
 
   const { data, loading, refetch } = useQuery(USER_TEST, { variables: { id }, fetchPolicy: "cache-and-network" });
   const [deleteUserTest] = useMutation(DELETE_USER_TEST);
@@ -69,8 +68,8 @@ export default function UserTestDetail() {
             <div className="flex items-center gap-1.5">
               <RefreshBtn onClick={() => void refetch()} loading={loading} />
               <WatchButton target="USER_TEST" targetId={id} />
-              <IconBtn allowed={act} title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
-              <IconBtn allowed={act} title={t("c.delete")} onClick={() => setDel(true)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+              <IconBtn allowed={canEditOwned(user, u.createdBy?.id)} title={t("c.edit")} onClick={() => openPanel({ kind: "usertest", mode: "edit", id: u.id })}><Pencil className="h-3.5 w-3.5" /></IconBtn>
+              <IconBtn allowed={canEditOwned(user, u.createdBy?.id)} title={t("c.delete")} onClick={() => setDel(true)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 px-5 py-4 text-sm md:grid-cols-3">

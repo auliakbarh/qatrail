@@ -1,5 +1,5 @@
 import type { Context } from "../context.js";
-import { requireAuth, canReadTestSecret } from "../context.js";
+import { requireAuth, requireQA, canReadTestSecret } from "../context.js";
 import { encryptSecret, decryptSecret } from "../crypto.js";
 import { env } from "../env.js";
 import { notify, notifyAll } from "../notify.js";
@@ -22,6 +22,19 @@ function scalarData(input: UserTestInput) {
   };
 }
 
+const isAdmin = (role: string) => role === "ADMIN" || role === "SUPER_ADMIN";
+
+// Creator or admin, the same shape as appTest.ts / sessionTest.ts — a third
+// ownership pattern would be one more place for the rule to drift.
+async function getOwned(ctx: Context, id: string, user: { id: string; role: string }) {
+  const ut = await ctx.prisma.userTest.findUnique({ where: { id } });
+  if (!ut) throw new Error("User test not found");
+  if (ut.createdById !== user.id && !isAdmin(user.role)) {
+    throw new Error("Forbidden: only the creator may do this");
+  }
+  return ut;
+}
+
 export const userTestResolvers = {
   Query: {
     async userTests(_: unknown, args: { projectId?: string }, ctx: Context) {
@@ -39,23 +52,23 @@ export const userTestResolvers = {
 
   Mutation: {
     async createUserTest(_: unknown, args: { input: UserTestInput }, ctx: Context) {
-      const userId = requireAuth(ctx);
+      // A test account is QA's content, like a test case: engineers use it, they
+      // don't file it. Every other content mutation is behind requireQA too.
+      const user = await requireQA(ctx);
       const ut = await ctx.prisma.userTest.create({
-        data: { ...scalarData(args.input), projectId: args.input.projectId, createdById: userId },
+        data: { ...scalarData(args.input), projectId: args.input.projectId, createdById: user.id },
       });
-      await notifyAll("USER_TEST_CREATED", `New user test: UT-${ut.number}`, { userTestId: ut.id }, userId);
+      await notifyAll("USER_TEST_CREATED", `New user test: UT-${ut.number}`, { userTestId: ut.id }, user.id);
       return ut;
     },
     async updateUserTest(_: unknown, args: { id: string; input: UserTestInput }, ctx: Context) {
-      requireAuth(ctx);
-      const ut = await ctx.prisma.userTest.findUnique({ where: { id: args.id } });
-      if (!ut) throw new Error("User test not found");
+      const user = await requireQA(ctx);
+      const ut = await getOwned(ctx, args.id, user);
       return ctx.prisma.userTest.update({ where: { id: ut.id }, data: scalarData(args.input) });
     },
     async deleteUserTest(_: unknown, args: { id: string }, ctx: Context) {
-      requireAuth(ctx);
-      const ut = await ctx.prisma.userTest.findUnique({ where: { id: args.id } });
-      if (!ut) throw new Error("User test not found");
+      const user = await requireQA(ctx);
+      const ut = await getOwned(ctx, args.id, user);
       // Clean up generic watches/comments (no FK).
       await ctx.prisma.watch.deleteMany({ where: { target: "USER_TEST", targetId: ut.id } });
       await ctx.prisma.comment.deleteMany({ where: { target: "USER_TEST", targetId: ut.id } });
