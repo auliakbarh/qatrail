@@ -255,6 +255,10 @@ export const adminResolvers = {
           name: args.input.name.trim(),
           role: args.input.role,
           active,
+          // Deactivating ends the session on the spot. `contextFromAuthHeader`
+          // already refuses an inactive account, so this is belt and braces —
+          // and it means the row itself says the access is gone.
+          ...(target.active && !active ? { sessionId: null } : {}),
           // Stamped once, the first time an admin activates the account — a later
           // deactivate must not read as "never approved" again.
           ...(active && !target.approvedAt ? { approvedAt: new Date() } : {}),

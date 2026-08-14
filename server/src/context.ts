@@ -12,6 +12,8 @@ export interface Context {
   role?: string | null;
   // True when a valid token was rejected because a newer login superseded it.
   sessionSuperseded?: boolean;
+  // True when the token is fine but the account behind it is deactivated.
+  accountDisabled?: boolean;
 }
 
 export async function contextFromAuthHeader(header?: string | null): Promise<Context> {
@@ -21,11 +23,15 @@ export async function contextFromAuthHeader(header?: string | null): Promise<Con
   if (!payload) return anon;
   const row = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { sessionId: true, role: true },
+    select: { sessionId: true, role: true, active: true },
   });
   // Single active session: token's sid must match the user's current sessionId.
   if (!row) return { ...anon, sessionSuperseded: !!payload.sid };
   if (payload.sid && row.sessionId !== payload.sid) return { ...anon, sessionSuperseded: true };
+  // `login` checks `active`, but that only guards the door on the way in: a token
+  // outlives the account it was issued for (7 days), so an admin deactivating a
+  // user has to end their access now, not whenever the token expires.
+  if (!row.active) return { ...anon, accountDisabled: true };
   return { prisma, userId: payload.userId, userName: payload.name ?? null, role: row.role };
 }
 
@@ -35,6 +41,13 @@ export async function buildContext({ req }: { req: { headers: Record<string, any
 
 export function requireAuth(ctx: Context): string {
   if (!ctx.userId) {
+    // Its own code and message: telling a deactivated user to sign in again
+    // sends them at a login that is guaranteed to refuse them.
+    if (ctx.accountDisabled) {
+      throw new GraphQLError("This account is not active. Contact an admin.", {
+        extensions: { code: "ACCOUNT_DISABLED" },
+      });
+    }
     if (ctx.sessionSuperseded) {
       throw new GraphQLError("Session ended: your account was signed in on another device.", {
         extensions: { code: "SESSION_SUPERSEDED" },
