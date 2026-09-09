@@ -4,11 +4,14 @@ import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
 import { useDrill } from "../store/nav";
+import { groupRows } from "../lib/list";
 import { cn } from "../lib/utils";
 import { Skeleton } from "./Skeleton";
 
-// Collapsible Project → Feature tree in the sidebar. Selecting a node primes
-// nav state and routes to the dashboard, where the drilldown renders it.
+// Collapsible Project → Category → Feature tree in the sidebar. Selecting a node
+// primes nav state and routes to the dashboard, where the drilldown renders it.
+// The category level is Feature.category — a label, so features without one are
+// listed under their own bucket instead of vanishing.
 export function SidebarTree() {
   const { t } = useTranslation();
   const { data } = useQuery(PROJECTS);
@@ -73,6 +76,9 @@ function FeatureBranch({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const { data, loading } = useQuery(FEATURES, { variables: { projectId } });
   const { featureId, goFeature } = useDrill();
+  // Categories start open: the tree exists to show what is in the project, and a
+  // collapsed-by-default level would hide it on arrival.
+  const [closed, setClosed] = useState<Set<string>>(new Set());
   const features = data?.features ?? [];
 
   if (loading)
@@ -83,22 +89,49 @@ function FeatureBranch({ projectId }: { projectId: string }) {
     );
   if (features.length === 0) return <div className="py-1 pl-7 text-[11px] text-muted-foreground">{t("an.noFeatures")}</div>;
 
+  const groups = Object.entries(groupRows(features, "category")).sort(([a], [b]) => a.localeCompare(b));
+  // Nothing is filed yet: one "—" group would just be an extra row to click past.
+  const flat = groups.length === 1;
+  const toggle = (label: string) =>
+    setClosed((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
+
+  const featureBtn = (f: any, indent: string) => (
+    <button
+      key={f.id}
+      onClick={() => {
+        goFeature(f.id, projectId);
+      }}
+      className={cn(
+        "truncate rounded py-1 pr-2 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground",
+        indent,
+        featureId === f.id && "bg-muted font-medium text-foreground",
+      )}
+      title={f.name}
+    >
+      {f.name}
+    </button>
+  );
+
+  if (flat) return <div className="flex flex-col gap-0.5">{features.map((f: any) => featureBtn(f, "pl-7"))}</div>;
+
   return (
     <div className="flex flex-col gap-0.5">
-      {features.map((f: any) => (
-        <button
-          key={f.id}
-          onClick={() => {
-            goFeature(f.id, projectId);
-          }}
-          className={cn(
-            "truncate rounded py-1 pl-7 pr-2 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground",
-            featureId === f.id && "bg-muted font-medium text-foreground",
-          )}
-          title={f.name}
-        >
-          {f.name}
-        </button>
+      {groups.map(([label, gr]) => (
+        <div key={label} className="flex flex-col gap-0.5">
+          <button
+            onClick={() => toggle(label)}
+            className="flex items-center gap-1 rounded py-1 pl-6 pr-2 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            title={label}
+          >
+            {closed.has(label) ? <ChevronRight className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
+            <span className="truncate">{label}</span>
+          </button>
+          {!closed.has(label) && gr.map((f: any) => featureBtn(f, "pl-11"))}
+        </div>
       ))}
     </div>
   );

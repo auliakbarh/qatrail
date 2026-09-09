@@ -3,6 +3,7 @@ import { useMutation } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
+import { SuggestDatalist } from "../../components/SuggestDatalist";
 import { CREATE_FEATURE, UPDATE_FEATURE } from "../../graphql/hierarchy";
 import { useNav, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
@@ -10,6 +11,7 @@ import { withToast } from "../../store/toast";
 interface Form {
   name: string;
   description: string;
+  category: string;
   minPassPercent: number;
 }
 
@@ -22,6 +24,7 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
     defaultValues: {
       name: init.name ?? "",
       description: init.description ?? "",
+      category: init.category ?? "",
       minPassPercent: init.minPassPercent ?? 0,
     },
   });
@@ -33,6 +36,7 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
     const input = {
       name: v.name,
       description: v.description || null,
+      category: v.category || null,
       minPassPercent: Number(v.minPassPercent),
     };
     const ok = editing
@@ -53,6 +57,11 @@ export function FeatureForm({ panel, projectId }: { panel: PanelState; projectId
         </Field>
         <Field label={t("c.description")} optional>
           <textarea className={inputCls} rows={3} {...register("description")} />
+        </Field>
+        <Field label={t("fold.category")} optional>
+          <input className={inputCls} list="feature-category" placeholder={t("fold.categoryPlaceholder")} {...register("category")} />
+          <SuggestDatalist id="feature-category" field="category" />
+          <p className="text-xs text-muted-foreground">{t("fold.categoryHint")}</p>
         </Field>
         <Field label={t("form.minPassTestCases")}>
           <input

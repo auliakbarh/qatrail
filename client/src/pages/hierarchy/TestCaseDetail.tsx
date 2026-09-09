@@ -299,6 +299,8 @@ export function TestCaseDetail({ id }: { id: string }) {
               project: tc.feature?.project?.name ?? "—",
               feature: tc.feature?.name ?? "—",
             })}
+            {tc.feature?.category && ` · ${t("fold.category")}: ${tc.feature.category}`}
+            {tc.folder && ` · ${t("fold.folder")}: ${tc.folder}`}
           </p>
           {!approved && <ApprovalCard tc={tc} />}
           {tc.pendingRequest && <PendingRequestCard tc={tc} />}

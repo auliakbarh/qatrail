@@ -97,6 +97,9 @@ export const typeDefs = /* GraphQL */ `
     projectId: ID!
     name: String!
     description: String
+    # Grouping label inside the project ("UI", "API", …). Display only — nothing
+    # is computed from it, so an empty one is normal.
+    category: String
     minPassPercent: Int!
     testCaseCount: Int!
     coverage: Coverage!
@@ -131,6 +134,8 @@ export const typeDefs = /* GraphQL */ `
     description: String
     precondition: String
     note: String
+    # Subfolder inside the feature. Same deal as Feature.category.
+    folder: String
     kind: TestCaseKind
     steps: [TestCaseStep!]!
     attachments: [Attachment!]!
@@ -472,6 +477,7 @@ export const typeDefs = /* GraphQL */ `
   input FeatureInput {
     name: String!
     description: String
+    category: String
     minPassPercent: Int!
   }
   input TestCaseInput {
@@ -479,6 +485,7 @@ export const typeDefs = /* GraphQL */ `
     description: String
     precondition: String
     note: String
+    folder: String
     kind: TestCaseKind
     steps: [StepInput!]!
     attachments: [AttachmentInput!]!
@@ -487,10 +494,14 @@ export const typeDefs = /* GraphQL */ `
   # name only used at project scope (auto-created if missing).
   input ImportTestCaseInput {
     feature: String
+    # Category of the feature this row lands in — only read at project scope,
+    # where a missing feature is created.
+    category: String
     name: String!
     description: String
     precondition: String
     note: String
+    folder: String
     kind: String
     steps: [StepInput!]!
   }
@@ -515,10 +526,12 @@ export const typeDefs = /* GraphQL */ `
   }
   type TestCaseExport {
     featureName: String!
+    category: String
     name: String!
     description: String
     precondition: String
     note: String
+    folder: String
     kind: String
     steps: [TestCaseExportStep!]!
   }

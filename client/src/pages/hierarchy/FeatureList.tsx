@@ -40,6 +40,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
   const [fActive, setFActive] = useState("");
+  const [fCategory, setFCategory] = useState("");
   const [groupKey, setGroupKey] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const pg = usePageState(25);
@@ -56,10 +57,18 @@ export function FeatureList({ projectId }: { projectId: string }) {
     setSortDir(n.dir);
   };
   // Retired features stay visible — grouped, not hidden — with editing locked.
-  const visible = (data?.features ?? [])
-    .map((f: any) => ({ ...f, activeLabel: f.active ? t("tc.active") : t("tc.inactive") }))
-    .filter((f: any) => (fActive === "" ? true : fActive === "ACTIVE" ? f.active : !f.active));
-  const rows = sortRows(searchRows(visible, search, ["name", "description"]), sortKey as any, sortDir);
+  const all = (data?.features ?? []).map((f: any) => ({
+    ...f,
+    activeLabel: f.active ? t("tc.active") : t("tc.inactive"),
+    // Unfiled features get their own bucket rather than disappearing from a
+    // grouped list.
+    categoryLabel: f.category || "—",
+  }));
+  const categories: string[] = [...new Set(all.map((f: any) => f.categoryLabel))].sort() as string[];
+  const visible = all
+    .filter((f: any) => (fActive === "" ? true : fActive === "ACTIVE" ? f.active : !f.active))
+    .filter((f: any) => !fCategory || f.categoryLabel === fCategory);
+  const rows = sortRows(searchRows(visible, search, ["name", "description", "category"]), sortKey as any, sortDir);
   const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
 
@@ -81,8 +90,19 @@ export function FeatureList({ projectId }: { projectId: string }) {
           onSearch={setSearch}
           groupKey={groupKey}
           onGroupKey={setGroupKey}
-          groupOptions={[{ value: "activeLabel", label: t("tc.groupActive") }]}
+          groupOptions={[
+            { value: "categoryLabel", label: t("fold.category") },
+            { value: "activeLabel", label: t("tc.groupActive") },
+          ]}
         >
+          <select
+            value={fCategory}
+            onChange={(e) => setFCategory(e.target.value)}
+            className="h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">{t("fold.category")}: {t("c.all")}</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <select
             value={fActive}
             onChange={(e) => setFActive(e.target.value)}
@@ -92,9 +112,9 @@ export function FeatureList({ projectId }: { projectId: string }) {
             <option value="ACTIVE">{t("tc.active")}</option>
             <option value="INACTIVE">{t("tc.inactive")}</option>
           </select>
-          {(search || fActive || groupKey) && (
+          {(search || fActive || fCategory || groupKey) && (
             <button
-              onClick={() => { setSearch(""); setFActive(""); setGroupKey(""); }}
+              onClick={() => { setSearch(""); setFActive(""); setFCategory(""); setGroupKey(""); }}
               className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
               {t("c.resetFilters")}
@@ -107,6 +127,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
               <tr className="border-b border-border">
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("fold.category")} colKey="categoryLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.feature")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh className="text-center" label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("list.testCases")} colKey="testCaseCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -116,10 +137,10 @@ export function FeatureList({ projectId }: { projectId: string }) {
               </tr>
             </thead>
             <tbody>
-              {loading && rows.length === 0 && <TableSkeleton cols={8} />}
+              {loading && rows.length === 0 && <TableSkeleton cols={9} />}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     {t("dash.noFeatures")}
                   </td>
                 </tr>
@@ -128,7 +149,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                 <Fragment key={label || "all"}>
                   {groupKey && (
                     <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                      <td colSpan={8} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                           {label || "—"} · {gr.length}
@@ -140,6 +161,7 @@ export function FeatureList({ projectId }: { projectId: string }) {
                 <tr key={f.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.key}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{f.categoryLabel}</td>
                   <td className="px-3 py-2">
                     <button
                       onClick={() => goFeature(f.id)}

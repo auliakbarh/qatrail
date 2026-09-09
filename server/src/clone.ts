@@ -21,6 +21,9 @@ export async function cloneTestCaseInto(
       description: src.description,
       precondition: src.precondition,
       note: src.note,
+      // A copy keeps its place in the tree: the same subfolder under the target
+      // feature. Landing at the feature root would scatter a cloned catalogue.
+      folder: src.folder,
       kind: src.kind,
       createdById,
       // A copy inherits the source's review state: identical content that was
@@ -63,6 +66,8 @@ export async function cloneFeatureInto(
       projectId: targetProjectId,
       name: nameOverride ?? `${src.name} (copy)`,
       description: src.description,
+      // Same reason as TestCase.folder: a copy lands in the same category.
+      category: src.category,
       minPassPercent: src.minPassPercent,
     },
   });
