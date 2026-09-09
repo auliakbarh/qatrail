@@ -385,6 +385,10 @@ model RecordTest {
   executedBy    User         @relation("testExecutor", fields: [executedById], references: [id])
   executedAt    DateTime
   note          String?
+  // JIRA ticket this run exercised, e.g. "CAI-730". One per run: a build closes
+  // many tickets (AppTest.jiraTickets is a list), a single test case run doesn't.
+  // Free text — we never resolve it, we only link to it.
+  jiraKey       String?
   result        TestResult
   // Set when this record is a retest of a previously-failed issue (plain ref,
   // no FK) — marks it as verification of that issue's fix.

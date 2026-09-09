@@ -35,9 +35,12 @@ export interface BulkCase {
 interface Row {
   result: "PASS" | "FAIL" | "BLOCKED";
   note: string;
+  jiraKey: string;
   attachments: { url: string; kind: string; label: string }[];
   open: boolean; // attachment editor expanded
 }
+
+const EMPTY_ROW: Row = { result: "PASS", note: "", jiraKey: "", attachments: [], open: false };
 
 // Record the same run for several assigned test cases at once. One timestamp for
 // the batch, one verdict per case. FAIL rows still need a real issue each, so the
@@ -60,13 +63,13 @@ export function BulkRecordForm({
   const { user } = useAuth();
   const [executedAt, setExecutedAt] = useState(nowLocal());
   const [rows, setRows] = useState<Record<string, Row>>(() =>
-    Object.fromEntries(cases.map((c) => [c.testCaseId, { result: "PASS", note: "", attachments: [], open: false } as Row])),
+    Object.fromEntries(cases.map((c) => [c.testCaseId, { ...EMPTY_ROW }])),
   );
   const [viewId, setViewId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // The table behind the panel stays interactive, so a row can appear after mount.
-  const rowOf = (id: string): Row => rows[id] ?? { result: "PASS", note: "", attachments: [], open: false };
+  const rowOf = (id: string): Row => rows[id] ?? EMPTY_ROW;
   const patch = (id: string, p: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...rowOf(id), ...p } }));
   const patchAtt = (id: string, i: number, p: Partial<Row["attachments"][number]>) =>
     setRows((r) => ({ ...r, [id]: { ...rowOf(id), attachments: rowOf(id).attachments.map((a, j) => (j === i ? { ...a, ...p } : a)) } }));
@@ -93,7 +96,7 @@ export function BulkRecordForm({
   // Nothing typed yet: closing can't lose anything, so don't ask.
   const dirty = cases.some((c) => {
     const r = rowOf(c.testCaseId);
-    return r.result !== "PASS" || !!r.note.trim() || r.attachments.length > 0;
+    return r.result !== "PASS" || !!r.note.trim() || !!r.jiraKey.trim() || r.attachments.length > 0;
   });
 
   const submit = async () => {
@@ -109,6 +112,7 @@ export function BulkRecordForm({
             testCaseId: c.testCaseId,
             result: rowOf(c.testCaseId).result,
             note: rowOf(c.testCaseId).note.trim() || null,
+            jiraKey: rowOf(c.testCaseId).jiraKey.trim() || null,
             attachments: rowOf(c.testCaseId).attachments
               .filter((a) => a.url.trim())
               .map((a) => ({ url: a.url, kind: a.kind, label: a.label || null })),
@@ -201,12 +205,21 @@ export function BulkRecordForm({
                     {t("c.attachments")} {r.attachments.length > 0 && `(${r.attachments.length})`}
                   </button>
                 </div>
-                <input
-                  className={`${inputCls} mt-2 ${blockerMissing ? "border-destructive" : ""}`}
-                  placeholder={r.result === "BLOCKED" ? t("rec.blocker") : t("c.note")}
-                  value={r.note}
-                  onChange={(e) => patch(c.testCaseId, { note: e.target.value })}
-                />
+                <div className="mt-2 flex gap-2">
+                  <input
+                    className={`${inputCls} ${blockerMissing ? "border-destructive" : ""}`}
+                    placeholder={r.result === "BLOCKED" ? t("rec.blocker") : t("c.note")}
+                    value={r.note}
+                    onChange={(e) => patch(c.testCaseId, { note: e.target.value })}
+                  />
+                  <input
+                    className={`${inputCls} w-32 shrink-0`}
+                    placeholder={t("rec.jiraKeyPlaceholder")}
+                    title={t("rec.jiraKey")}
+                    value={r.jiraKey}
+                    onChange={(e) => patch(c.testCaseId, { jiraKey: e.target.value })}
+                  />
+                </div>
                 {blockerMissing && <p className="mt-1 text-xs text-destructive">{t("rec.blockedHint")}</p>}
                 {r.result === "FAIL" && <p className="mt-1 text-xs text-muted-foreground">{t("form.failOpensIssue")}</p>}
 

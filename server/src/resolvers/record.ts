@@ -9,6 +9,7 @@ type AttachKind = "IMAGE" | "VIDEO" | "MARKDOWN" | "JSON" | "DOC" | "XLS" | "CSV
 interface RecordTestInput {
   executedAt: string;
   note?: string | null;
+  jiraKey?: string | null;
   result: "PASS" | "FAIL" | "BLOCKED";
   retestIssueId?: string | null;
   appTestId?: string | null;
@@ -33,6 +34,7 @@ export function recordData(
     executedAt: Date;
     result: string;
     note?: string | null;
+    jiraKey?: string | null;
     retestIssueId?: string | null;
     appTestId?: string | null;
     sessionTestId?: string | null;
@@ -51,6 +53,8 @@ export function recordData(
     executedById: r.executedById,
     executedAt: r.executedAt,
     note: r.note ?? null,
+    // Trimmed so "CAI-730 " and "CAI-730" filter as one ticket, not two.
+    jiraKey: r.jiraKey?.trim() || null,
     result: r.result as any,
     retestIssueId: r.retestIssueId ?? null,
     appTestId: r.appTestId ?? null,
@@ -95,7 +99,7 @@ export const recordResolvers = {
         executedAt: string;
         appTestId?: string | null;
         sessionTestId?: string | null;
-        inputs: { testCaseId: string; result: "PASS" | "FAIL" | "BLOCKED"; note?: string | null; attachments: { url: string; kind: AttachKind; label?: string | null }[] }[];
+        inputs: { testCaseId: string; result: "PASS" | "FAIL" | "BLOCKED"; note?: string | null; jiraKey?: string | null; attachments: { url: string; kind: AttachKind; label?: string | null }[] }[];
       },
       ctx: Context,
     ) {
@@ -135,6 +139,10 @@ export const recordResolvers = {
   },
   RecordTest: {
     key: (r: any) => `REC-${r.number}`,
+    async testCaseKey(r: any, _: unknown, ctx: Context) {
+      const tc = await ctx.prisma.testCase.findUnique({ where: { id: r.testCaseId }, select: { number: true } });
+      return tc ? `TC-${tc.number}` : "—";
+    },
     executedAt: (r: any) => r.executedAt.toISOString(),
     createdAt: (r: any) => r.createdAt.toISOString(),
     executedBy: (r: any, _: unknown, ctx: Context) =>

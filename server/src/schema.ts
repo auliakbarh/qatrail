@@ -198,9 +198,14 @@ export const typeDefs = /* GraphQL */ `
     id: ID!
     key: String!
     testCaseId: ID!
+    # Human key of the case this run belongs to (TC-<n>) — a run listed under an
+    # app test or session has to say what was run.
+    testCaseKey: String!
     executedBy: User!
     executedAt: String!
     note: String
+    # JIRA ticket exercised by this run.
+    jiraKey: String
     result: TestResult!
     retestIssueId: ID
     appTestId: ID
@@ -538,6 +543,7 @@ export const typeDefs = /* GraphQL */ `
   input RecordTestInput {
     executedAt: String!
     note: String
+    jiraKey: String
     result: TestResult!
     retestIssueId: ID
     appTestId: ID
@@ -550,6 +556,7 @@ export const typeDefs = /* GraphQL */ `
     testCaseId: ID!
     result: TestResult!
     note: String
+    jiraKey: String
     attachments: [AttachmentInput!]!
   }
   # One row of a bulk retest. The run's scope comes from the issue itself, so it
