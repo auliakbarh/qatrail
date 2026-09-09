@@ -34,6 +34,14 @@ export function SidebarTree() {
     if (drilledProjectId) setScope(drilledProjectId);
   }, [drilledProjectId, setScope]);
 
+  // A scoped sidebar opens that project's branch. Without this the tree is one
+  // collapsed row — the Category → Feature levels, which are the whole point of
+  // it, stay invisible until someone clicks the chevron. Keyed on `scope` alone
+  // so a manual collapse still sticks until the project changes.
+  useEffect(() => {
+    if (scope) setExpanded((prev) => (prev.has(scope) ? prev : new Set(prev).add(scope)));
+  }, [scope]);
+
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -55,9 +63,6 @@ export function SidebarTree() {
         onChange={(e) => {
           const next = e.target.value;
           setScope(next);
-          // The chosen project opens straight away — picking it and then having
-          // to click its chevron is one click too many.
-          if (next) setExpanded(new Set([next]));
           // Already looking at a project? Take the page there too, otherwise the
           // sidebar would name one project while the page still shows another.
           // On any other page the picker only scopes the tree — it must not yank

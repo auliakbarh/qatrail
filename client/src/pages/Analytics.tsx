@@ -117,8 +117,9 @@ export default function Analytics() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Read-only: the picker is in the sidebar. Still shown, because nobody
             should have to look elsewhere to know whose numbers these are. */}
-        <span className="text-sm font-medium" title={t("nav.scopeHint")}>
-          {projectId ? projectName(projectId) : t("an.scopeAll")}
+        <span className="text-sm" title={t("nav.scopeHint")}>
+          <span className="text-muted-foreground">{t("at.project")}: </span>
+          <span className="font-medium">{projectId ? projectName(projectId) : t("an.scopeAll")}</span>
         </span>
         {projectId && (
           <select
