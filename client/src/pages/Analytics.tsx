@@ -1,8 +1,8 @@
-import { useState, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { drillPath } from "../store/nav";
+import { drillPath, useProjectScope } from "../store/nav";
 import { ANALYTICS } from "../graphql/analytics";
 import { SESSION_TESTS } from "../graphql/sessiontest";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
@@ -48,11 +48,19 @@ function Card({ title, action, children }: { title: string; action?: any; childr
 export default function Analytics() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [projectId, setProjectId] = useState<string>("");
+  // Scope comes from the sidebar picker: the project is chosen once, in one
+  // place, and this page reports on whatever is chosen there.
+  const { projectId } = useProjectScope();
   const [featureId, setFeatureId] = useState<string>("");
   const [sessionTestId, setSessionTestId] = useState<string>("");
   const [from, setFrom] = useState<string | null>(null);
   const [to, setTo] = useState<string | null>(null);
+  // A narrower scope belongs to the project it was picked in — switching project
+  // has to drop it, or the page reports on a feature that isn't in view.
+  useEffect(() => {
+    setFeatureId("");
+    setSessionTestId("");
+  }, [projectId]);
   const { data: projData } = useQuery(PROJECTS);
   const { data: featData } = useQuery(FEATURES, { variables: { projectId }, skip: !projectId });
   const { data: sessData } = useQuery(SESSION_TESTS, { variables: { projectId: projectId || null }, skip: !projectId });
@@ -107,22 +115,11 @@ export default function Analytics() {
   return (
     <div className="h-full space-y-4 overflow-y-auto p-6">
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={projectId}
-          onChange={(e) => {
-            setProjectId(e.target.value);
-            setFeatureId("");
-            setSessionTestId("");
-          }}
-          className={small}
-        >
-          <option value="">{t("an.scopeAll")}</option>
-          {(projData?.projects ?? []).map((p: any) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        {/* Read-only: the picker is in the sidebar. Still shown, because nobody
+            should have to look elsewhere to know whose numbers these are. */}
+        <span className="text-sm font-medium" title={t("nav.scopeHint")}>
+          {projectId ? projectName(projectId) : t("an.scopeAll")}
+        </span>
         {projectId && (
           <select
             value={featureId}

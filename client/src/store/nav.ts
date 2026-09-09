@@ -23,6 +23,25 @@ export const useNav = create<NavState>((set) => ({
   closePanel: () => set({ panel: null }),
 }));
 
+// The project the sidebar is scoped to, remembered across reloads. Analytics
+// reads it too, which is why it lives here instead of inside SidebarTree: the
+// project is picked once, in one place. Empty string = every project.
+const SCOPE_KEY = "qatrail.projectScope";
+
+interface ProjectScopeState {
+  projectId: string;
+  setProjectId: (id: string) => void;
+}
+
+export const useProjectScope = create<ProjectScopeState>((set) => ({
+  projectId: localStorage.getItem(SCOPE_KEY) ?? "",
+  setProjectId: (projectId) => {
+    if (projectId) localStorage.setItem(SCOPE_KEY, projectId);
+    else localStorage.removeItem(SCOPE_KEY);
+    set({ projectId });
+  },
+}));
+
 // `?from=` also says which testing context the case is being looked at in, so a
 // run or finding filed from the drilldown lands in that app test / session
 // instead of belonging to nothing.

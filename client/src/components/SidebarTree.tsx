@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
-import { useDrill } from "../store/nav";
+import { useDrill, useProjectScope } from "../store/nav";
 import { groupRows } from "../lib/list";
 import { cn } from "../lib/utils";
 import { Skeleton } from "./Skeleton";
@@ -15,10 +15,18 @@ import { Skeleton } from "./Skeleton";
 export function SidebarTree() {
   const { t } = useTranslation();
   const { data } = useQuery(PROJECTS);
+  const { projectId: drilledProjectId } = useDrill();
+  const { projectId: scope, setProjectId: setScope } = useProjectScope();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // The whole project list collapses, separate from each project's feature branch.
   const [listOpen, setListOpen] = useState(true);
   const projects = data?.projects ?? [];
+
+  // Opening a project anywhere in the app scopes the sidebar to it, so the picker
+  // never disagrees with what the page is showing.
+  useEffect(() => {
+    if (drilledProjectId && drilledProjectId !== scope) setScope(drilledProjectId);
+  }, [drilledProjectId, scope, setScope]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -29,18 +37,39 @@ export function SidebarTree() {
 
   if (projects.length === 0) return null;
 
+  // A stale id (project deleted, or retired out of the list) falls back to
+  // showing everything rather than an empty sidebar.
+  const picked = projects.filter((p: any) => p.id === scope);
+  const shown = picked.length ? picked : projects;
+
   return (
-    <div className="mt-1 flex flex-col gap-0.5">
+    <div className="mt-1 flex flex-col gap-1">
+      <select
+        value={picked.length ? scope : ""}
+        onChange={(e) => {
+          setScope(e.target.value);
+          // The chosen project opens straight away — picking it and then having
+          // to click its chevron is one click too many.
+          if (e.target.value) setExpanded(new Set([e.target.value]));
+        }}
+        className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+        title={t("nav.scopeHint")}
+      >
+        <option value="">{t("an.scopeAll")}</option>
+        {projects.map((p: any) => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </select>
       <button
         onClick={() => setListOpen((v) => !v)}
         className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
         title={listOpen ? t("nav.collapseProjects") : t("nav.expandProjects")}
       >
         {listOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        {t("dash.projects")} · {projects.length}
+        {t("dash.projects")} · {shown.length}
       </button>
       {listOpen &&
-        projects.map((p: any) => (
+        shown.map((p: any) => (
           <ProjectNode key={p.id} project={p} expanded={expanded.has(p.id)} onToggle={() => toggle(p.id)} />
         ))}
     </div>

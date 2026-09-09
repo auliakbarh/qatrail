@@ -1208,6 +1208,7 @@ Hold / Resume ............. pause & resume IN_PROGRESS`,
 
   // Session tests (SIT/UAT cycle)
   "nav.sessionTests": "Session Tests",
+  "nav.scopeHint": "Pick the project once here — Analytics follows it too",
   "nav.collapseProjects": "Collapse project list",
   "nav.expandProjects": "Expand project list",
   "st.title": "Session Tests",
@@ -2488,6 +2489,7 @@ Hold / Resume ............. jeda & lanjut IN_PROGRESS`,
 
   // Session tests (siklus SIT/UAT)
   "nav.sessionTests": "Session Test",
+  "nav.scopeHint": "Pilih project sekali di sini — Analytics ikut project ini juga",
   "nav.collapseProjects": "Tutup daftar project",
   "nav.expandProjects": "Buka daftar project",
   "st.title": "Session Test",
