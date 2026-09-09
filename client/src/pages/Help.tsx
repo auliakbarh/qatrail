@@ -135,6 +135,7 @@ export default function Help() {
             <P><Trans i18nKey="help.structure.p3" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.structure.p4" components={{ b: <B />, code: <Code /> }} /></P>
             <P><Trans i18nKey="help.structure.p5" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.structure.folder" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="navigation" title={t("help.sec.navigation")}>
@@ -144,6 +145,7 @@ export default function Help() {
             <P><Trans i18nKey="help.nav.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.nav.p5" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.nav.p6" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.nav.scope" components={{ b: <B /> }} /></P>
           </Doc>
 
           <Doc id="approval" title={t("help.sec.approval")}>
@@ -182,6 +184,7 @@ export default function Help() {
             <Callout><Trans i18nKey="help.records.callout" components={{ b: <B /> }} /></Callout>
             <P><Trans i18nKey="help.records.bulk" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.records.scope" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.records.jira" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.attachments" components={{ b: <B /> }} /></P>
           </Doc>
 
@@ -200,6 +203,7 @@ export default function Help() {
             <P><Trans i18nKey="help.apptest.p5" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.builds" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.apptest.review" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.review.signoff" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.apptest.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
@@ -210,6 +214,7 @@ export default function Help() {
             <P><Trans i18nKey="help.session.p4" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.session.p5" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.session.review" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.review.signoff" components={{ b: <B /> }} /></P>
             <Callout><Trans i18nKey="help.session.callout" components={{ b: <B /> }} /></Callout>
           </Doc>
 
@@ -269,6 +274,7 @@ export default function Help() {
           <Doc id="jira" title={t("help.sec.jira")}>
             <P><Trans i18nKey="help.jira.p1" components={{ b: <B /> }} /></P>
             <P><Trans i18nKey="help.jira.p2" components={{ b: <B /> }} /></P>
+            <P><Trans i18nKey="help.jira.done" components={{ b: <B />, code: <Code /> }} /></P>
           </Doc>
 
           <Doc id="settings" title={t("help.sec.settings")}>
