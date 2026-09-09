@@ -51,6 +51,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
   const [groupKey, setGroupKey] = useState("");
   const [fKind, setFKind] = useState("");
   const [fActive, setFActive] = useState("");
+  const [fFolder, setFFolder] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const pg = usePageState(25);
   const [del, setDel] = useState<{ id: string; name: string } | null>(null);
@@ -73,11 +74,15 @@ export function TestCaseList({ featureId }: { featureId: string }) {
     ...tc,
     kindLabel: tc.kind ?? "—",
     activeLabel: tc.active ? t("tc.active") : t("tc.inactive"),
+    // Cases with no subfolder sit in their own bucket, not nowhere.
+    folderLabel: tc.folder || "—",
   }));
+  const folders: string[] = [...new Set(base.map((tc: any) => tc.folderLabel))].sort() as string[];
   const byKind = fKind ? base.filter((tc: any) => (fKind === "—" ? !tc.kind : tc.kind === fKind)) : base;
-  const filtered =
+  const byActive =
     fActive === "" ? byKind : byKind.filter((tc: any) => (fActive === "ACTIVE" ? tc.active : !tc.active));
-  const rows = sortRows(searchRows(filtered, search, ["name", "description"]), sortKey as any, sortDir);
+  const filtered = fFolder ? byActive.filter((tc: any) => tc.folderLabel === fFolder) : byActive;
+  const rows = sortRows(searchRows(filtered, search, ["name", "description", "folder"]), sortKey as any, sortDir);
   const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
   const selCls = "h-8 rounded border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -101,10 +106,15 @@ export function TestCaseList({ featureId }: { featureId: string }) {
           groupKey={groupKey}
           onGroupKey={setGroupKey}
           groupOptions={[
+            { value: "folderLabel", label: t("fold.folder") },
             { value: "kindLabel", label: t("tc.kind") },
             { value: "activeLabel", label: t("tc.groupActive") },
           ]}
         >
+          <select value={fFolder} onChange={(e) => setFFolder(e.target.value)} className={selCls}>
+            <option value="">{t("fold.folder")}: {t("c.all")}</option>
+            {folders.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
           <select value={fKind} onChange={(e) => setFKind(e.target.value)} className={selCls}>
             <option value="">{t("tc.kind")}: {t("c.all")}</option>
             <option value="POSITIVE">{t("tc.kindPositive")}</option>
@@ -116,9 +126,9 @@ export function TestCaseList({ featureId }: { featureId: string }) {
             <option value="ACTIVE">{t("tc.active")}</option>
             <option value="INACTIVE">{t("tc.inactive")}</option>
           </select>
-          {(search || fKind || fActive || groupKey) && (
+          {(search || fKind || fActive || fFolder || groupKey) && (
             <button
-              onClick={() => { setSearch(""); setFKind(""); setFActive(""); setGroupKey(""); }}
+              onClick={() => { setSearch(""); setFKind(""); setFActive(""); setFFolder(""); setGroupKey(""); }}
               className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
               {t("c.resetFilters")}
@@ -131,6 +141,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
               <tr className="border-b border-border">
                 <th className="w-8 px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
                 <SortableTh label={t("c.id")} colKey="key" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortableTh label={t("fold.folder")} colKey="folderLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh label={t("dash.testCase")} colKey="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh className="text-center" label={t("c.status")} colKey="activeLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <SortableTh className="text-center" label={t("tc.kind")} colKey="kindLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -141,10 +152,10 @@ export function TestCaseList({ featureId }: { featureId: string }) {
               </tr>
             </thead>
             <tbody>
-              {loading && rows.length === 0 && <TableSkeleton cols={9} />}
+              {loading && rows.length === 0 && <TableSkeleton cols={10} />}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     {t("dash.noTestCases")}
                   </td>
                 </tr>
@@ -153,7 +164,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                 <Fragment key={label || "all"}>
                   {groupKey && (
                     <tr className="cursor-pointer bg-muted/40 hover:bg-muted/60" onClick={() => toggleGroup(label)}>
-                      <td colSpan={9} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      <td colSpan={10} className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           {collapsed.has(label) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                           {label || "—"} · {gr.length}
@@ -165,6 +176,7 @@ export function TestCaseList({ featureId }: { featureId: string }) {
                 <tr key={tc.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">{idx + 1}</td>
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{tc.key}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{tc.folderLabel}</td>
                   <td className="px-3 py-2">
                     <button
                       onClick={() => goTestCase(tc.id)}

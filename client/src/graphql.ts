@@ -24,6 +24,7 @@ export const HEALTH = gql`
       maintenanceStartAt
       maintenanceEndAt
       jiraConfigured
+      jiraAutoDone
       jiraBaseUrl
       ssoEnabled
     }

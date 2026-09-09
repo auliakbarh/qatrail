@@ -16,6 +16,7 @@ import {
   SET_TEST_CASE_ACTIVE,
 } from "../../graphql/hierarchy";
 import { RECORD_TESTS, ISSUES, DELETE_RECORD_TEST, DELETE_ISSUE } from "../../graphql/issue";
+import { HEALTH } from "../../graphql";
 import { useNav, useDrill } from "../../store/nav";
 import { cn, fmtDateTime as fmt } from "../../lib/utils";
 import { gapLabel, waitedFor } from "../../lib/approval";
@@ -34,6 +35,7 @@ import { useAuth } from "../../store/auth";
 import { canManageContent } from "../../lib/perm";
 import { TableSkeleton, DetailSkeleton } from "../../components/Skeleton";
 import { Badge } from "../../components/Badge";
+import { JiraTicketLinks } from "../../components/JiraTicketLinks";
 
 // Approval state of the case: what it means, and what to do about it. Everyone
 // sees the state; only an eligible approver sees the buttons.
@@ -299,6 +301,8 @@ export function TestCaseDetail({ id }: { id: string }) {
               project: tc.feature?.project?.name ?? "—",
               feature: tc.feature?.name ?? "—",
             })}
+            {tc.feature?.category && ` · ${t("fold.category")}: ${tc.feature.category}`}
+            {tc.folder && ` · ${t("fold.folder")}: ${tc.folder}`}
           </p>
           {!approved && <ApprovalCard tc={tc} />}
           {tc.pendingRequest && <PendingRequestCard tc={tc} />}
@@ -420,6 +424,8 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
   const navigate = useNavigate();
   const { goIssue } = useDrill();
   const { data, loading } = useQuery(RECORD_TESTS, { variables: { testCaseId } });
+  // Only for the JIRA base URL, so a ticket key on a run is clickable.
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
   const [del, setDel] = useState<string | null>(null);
   const pg = usePageState();
   const [deleteRecord] = useMutation(DELETE_RECORD_TEST, {
@@ -440,6 +446,7 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.qa")}</th>
             <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">{t("c.result")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("c.note")}</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.jiraKey")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("st.relatedScope")}</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t("rec.attach")}</th>
             <th className="px-3 py-2"></th>
@@ -447,10 +454,10 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
         </thead>
         <tbody>
           {loading && (
-            <TableSkeleton rows={3} cols={9} />
+            <TableSkeleton rows={3} cols={10} />
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
+            <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("rec.empty")}</td></tr>
           )}
           {pageRows.map(([r, idx]: [any, number]) => (
             <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
@@ -473,6 +480,9 @@ function RecordsTab({ testCaseId, manage }: { testCaseId: string; manage: boolea
                 </div>
               </td>
               <td className="px-3 py-2 text-xs text-muted-foreground">{r.note || "—"}</td>
+              <td className="px-3 py-2 text-xs">
+                <JiraTicketLinks tickets={r.jiraKey ? [r.jiraKey] : []} baseUrl={healthData?.health?.jiraBaseUrl} />
+              </td>
               <td className="px-3 py-2 text-xs">
                 {r.appTestId
                   ? <button onClick={() => navigate(`/app-tests/${r.appTestId}`)} className="font-mono text-primary hover:underline">{r.appTestKey}</button>
@@ -531,10 +541,10 @@ function IssuesTab({ testCaseId, manage }: { testCaseId: string; manage: boolean
         </thead>
         <tbody>
           {loading && (
-            <TableSkeleton rows={3} cols={9} />
+            <TableSkeleton rows={3} cols={10} />
           )}
           {!loading && rows.length === 0 && (
-            <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t("tc.noIssuesYet")}</td></tr>
+            <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">{t("tc.noIssuesYet")}</td></tr>
           )}
           {rows.map((i: any, idx: number) => (
             <tr key={i.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">

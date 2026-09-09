@@ -14,7 +14,7 @@ export const PROJECTS = gql`
 export const FEATURES = gql`
   query Features($projectId: ID!, $includeInactive: Boolean) {
     features(projectId: $projectId, includeInactive: $includeInactive) {
-      id key projectId name description minPassPercent testCaseCount ${COVERAGE} createdAt updatedAt
+      id key projectId name description category minPassPercent testCaseCount ${COVERAGE} createdAt updatedAt
       active pendingRequest { id kind }
     }
   }
@@ -23,7 +23,7 @@ export const FEATURES = gql`
 export const TEST_CASES = gql`
   query TestCases($featureId: ID!, $includeInactive: Boolean) {
     testCases(featureId: $featureId, includeInactive: $includeInactive) {
-      id key featureId name description kind recordCount issueCount latestResult createdAt active
+      id key featureId name description folder kind recordCount issueCount latestResult createdAt active
       pendingRequest { id kind }
     }
   }
@@ -32,13 +32,13 @@ export const TEST_CASES = gql`
 export const TEST_CASE = gql`
   query TestCase($id: ID!) {
     testCase(id: $id) {
-      id key featureId name description precondition note kind
+      id key featureId name description precondition note folder kind
       steps { id order step expectedResult }
       attachments { id order url kind label }
       recordCount issueCount latestResult createdAt createdBy { id name }
       approval reviewedAt firstApprovedAt rejectReason canApprove active reviewedBy { id name }
       pendingRequest { id kind canApprove canCancel requestedAt requestedBy { id name } targetFeature { id name } targetName }
-      feature { id key name project { id key name } }
+      feature { id key name category project { id key name } }
     }
   }
 `;
@@ -162,7 +162,7 @@ export const DELETE_FEATURE = gql`
 export const EXPORT_TEST_CASES = gql`
   query ExportTestCases($projectId: ID, $featureId: ID) {
     exportTestCases(projectId: $projectId, featureId: $featureId) {
-      featureName name description precondition note kind
+      featureName category name description precondition note folder kind
       steps { step expectedResult }
     }
   }

@@ -256,6 +256,10 @@ model Feature {
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name           String
   description    String?
+  // Top-level grouping inside a project: "UI", "API", or whatever a squad uses.
+  // A label, not a level — nothing is computed from it, so it stays free text and
+  // null on rows that predate the column.
+  category       String?
   minPassPercent Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -276,6 +280,9 @@ model TestCase {
   description  String?
   precondition String?
   note         String?
+  // Subfolder inside the feature ("Cashback", "Entry"). Same deal as
+  // Feature.category: display grouping, free text, null allowed.
+  folder       String?
   kind         TestCaseKind?
   createdById  String
   createdBy    User          @relation("testCaseAuthor", fields: [createdById], references: [id])
@@ -378,6 +385,10 @@ model RecordTest {
   executedBy    User         @relation("testExecutor", fields: [executedById], references: [id])
   executedAt    DateTime
   note          String?
+  // JIRA ticket this run exercised, e.g. "CAI-730". One per run: a build closes
+  // many tickets (AppTest.jiraTickets is a list), a single test case run doesn't.
+  // Free text — we never resolve it, we only link to it.
+  jiraKey       String?
   result        TestResult
   // Set when this record is a retest of a previously-failed issue (plain ref,
   // no FK) — marks it as verification of that issue's fix.

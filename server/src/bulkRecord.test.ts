@@ -25,6 +25,12 @@ describe("recordData", () => {
     expect(recordData({ ...base, sessionTestId: "s" }).appTestId).toBeNull();
     expect(recordData(base).appTestId).toBeNull();
   });
+  it("trims the JIRA key and treats a blank one as none", () => {
+    expect(recordData({ ...base, jiraKey: " CAI-730 " }).jiraKey).toBe("CAI-730");
+    expect(recordData({ ...base, jiraKey: "   " }).jiraKey).toBeNull();
+    expect(recordData({ ...base, jiraKey: null }).jiraKey).toBeNull();
+    expect(recordData(base).jiraKey).toBeNull();
+  });
 });
 
 // DB-backed, gated like the other integration tests:

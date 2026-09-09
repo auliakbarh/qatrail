@@ -2,12 +2,13 @@ import type { Context } from "../context.js";
 import { requireAuth, requireQA } from "../context.js";
 import { featureCoverage } from "../coverage.js";
 import { cloneFeatureInto } from "../clone.js";
-import { APPROVED_ONLY } from "./testcase.js";
+import { APPROVED_ONLY, label } from "./testcase.js";
 import { needsApproval, openRequest, assertActive, dropRequestsUnder } from "./approvalRequest.js";
 
 interface FeatureInput {
   name: string;
   description?: string | null;
+  category?: string | null;
   minPassPercent: number;
 }
 
@@ -38,6 +39,7 @@ export const featureResolvers = {
           projectId: args.projectId,
           name: args.input.name.trim(),
           description: args.input.description ?? null,
+          category: label(args.input.category),
           minPassPercent: clampPercent(args.input.minPassPercent),
         },
       });
@@ -51,6 +53,7 @@ export const featureResolvers = {
         data: {
           name: args.input.name.trim(),
           description: args.input.description ?? null,
+          category: label(args.input.category),
           minPassPercent: clampPercent(args.input.minPassPercent),
         },
       });

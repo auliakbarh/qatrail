@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateImport, normalizeKind } from "./resolvers/testcase.js";
+import { validateImport, normalizeKind, label, featureCategories } from "./resolvers/testcase.js";
 
 const step = (s: string) => ({ step: s, expectedResult: null });
 
@@ -52,5 +52,38 @@ describe("validateImport", () => {
     expect(r.ok).toBe(false);
     expect(r.errors).toEqual([{ row: 4, message: "Feature is required at project scope" }]);
     expect(r.newFeatures).toEqual(["Signup"]);
+  });
+});
+
+describe("label", () => {
+  it("blank and whitespace collapse to null so a group can't split in two", () => {
+    expect(label("UI")).toBe("UI");
+    expect(label("  Cashback  ")).toBe("Cashback");
+    expect(label("   ")).toBe(null);
+    expect(label("")).toBe(null);
+    expect(label(null)).toBe(null);
+    expect(label(undefined)).toBe(null);
+  });
+});
+
+describe("featureCategories", () => {
+  const row = (feature: string | null, category?: string | null) => ({
+    feature,
+    category,
+    name: "TC",
+    steps: [],
+  });
+
+  it("first row naming a feature decides its category", () => {
+    const m = featureCategories([row("Login", "UI"), row("Login", "API"), row("Payment", " API ")]);
+    expect(m.get("login")).toBe("UI");
+    expect(m.get("payment")).toBe("API");
+  });
+
+  it("blank category means unfiled, and a blank feature is not a key", () => {
+    const m = featureCategories([row("Login", "  "), row("", "UI"), row(null, "UI")]);
+    expect(m.get("login")).toBe(null);
+    expect(m.has("")).toBe(false);
+    expect(m.size).toBe(1);
   });
 });

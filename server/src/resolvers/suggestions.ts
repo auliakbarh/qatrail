@@ -26,6 +26,16 @@ export const suggestionsResolvers = {
         const rows = await ctx.prisma.sessionTest.findMany({ select: { stakeholders: true } });
         return uniq(rows.flatMap((r) => r.stakeholders));
       }
+      // Grouping labels are free text, so the datalist is what keeps a project
+      // from growing "UI", "ui" and "U I" as three separate groups.
+      if (args.field === "category") {
+        const rows = await ctx.prisma.feature.findMany({ distinct: ["category"], select: { category: true } });
+        return uniq(rows.map((r) => r.category));
+      }
+      if (args.field === "folder") {
+        const rows = await ctx.prisma.testCase.findMany({ distinct: ["folder"], select: { folder: true } });
+        return uniq(rows.map((r) => r.folder));
+      }
       if (args.field === "appName") {
         const rows = await ctx.prisma.sessionTestApp.findMany({ distinct: ["name"], select: { name: true } });
         return uniq(rows.map((r) => r.name));

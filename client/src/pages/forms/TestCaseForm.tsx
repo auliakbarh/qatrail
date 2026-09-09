@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { RightPanel } from "../../components/RightPanel";
 import { Field, inputCls, FormActions } from "../../components/Form";
+import { SuggestDatalist } from "../../components/SuggestDatalist";
 import {
   CREATE_TEST_CASE,
   UPDATE_TEST_CASE,
@@ -20,6 +21,7 @@ interface Form {
   description: string;
   precondition: string;
   note: string;
+  folder: string;
   kind: string;
   steps: { step: string; expectedResult: string }[];
   attachments: { url: string; kind: string; label: string }[];
@@ -30,6 +32,7 @@ const EMPTY: Form = {
   description: "",
   precondition: "",
   note: "",
+  folder: "",
   kind: "",
   steps: [{ step: "", expectedResult: "" }],
   attachments: [],
@@ -69,6 +72,7 @@ export function TestCaseForm({
         description: tc.description ?? "",
         precondition: tc.precondition ?? "",
         note: tc.note ?? "",
+        folder: tc.folder ?? "",
         kind: tc.kind ?? "",
         steps: tc.steps.length
           ? tc.steps.map((s: any) => ({ step: s.step, expectedResult: s.expectedResult ?? "" }))
@@ -88,6 +92,7 @@ export function TestCaseForm({
       description: v.description || null,
       precondition: v.precondition || null,
       note: v.note || null,
+      folder: v.folder || null,
       kind: v.kind || null,
       steps: v.steps
         .filter((s) => s.step.trim())
@@ -117,6 +122,11 @@ export function TestCaseForm({
         </Field>
         <Field label={t("c.description")} optional>
           <textarea className={inputCls} rows={2} {...register("description")} />
+        </Field>
+        <Field label={t("fold.folder")} optional>
+          <input className={inputCls} list="testcase-folder" placeholder={t("fold.folderPlaceholder")} {...register("folder")} />
+          <SuggestDatalist id="testcase-folder" field="folder" />
+          <p className="text-xs text-muted-foreground">{t("fold.folderHint")}</p>
         </Field>
         <Field label={t("tc.kind")} optional>
           <select className={inputCls} {...register("kind")}>

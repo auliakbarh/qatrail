@@ -28,6 +28,10 @@ export const authResolvers = {
         maintenanceStartAt: s?.maintenanceStartAt?.toISOString() ?? null,
         maintenanceEndAt: s?.maintenanceEndAt?.toISOString() ?? null,
         jiraConfigured: hasJiraCreds(),
+        // Whether approving a report actually moves its tickets. The reviewer is
+        // warned before they approve, so the warning must not promise something
+        // this deployment never does.
+        jiraAutoDone: hasJiraCreds() && !!env.jira.doneTransition,
         jiraBaseUrl: env.jira.baseUrl || null,
         ssoEnabled: env.msSso.enabled,
       };

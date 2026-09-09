@@ -29,18 +29,41 @@ interface TestCaseInput {
   description?: string | null;
   precondition?: string | null;
   note?: string | null;
+  folder?: string | null;
   kind?: "POSITIVE" | "NEGATIVE" | null;
   steps: StepInput[];
   attachments: AttachmentInput[];
 }
 interface ImportRow {
   feature?: string | null;
+  category?: string | null;
   name: string;
   description?: string | null;
   precondition?: string | null;
   note?: string | null;
+  folder?: string | null;
   kind?: string | null;
   steps: StepInput[];
+}
+
+// Grouping label (TestCase.folder, Feature.category): blank/whitespace collapses
+// to null, so "Cashback" and "Cashback " can't split into two folders. Shared
+// with feature.ts — one rule, both columns.
+export function label(v?: string | null): string | null {
+  return v?.trim() || null;
+}
+
+// Category to give each feature this import has to create: the first row that
+// names the feature wins. Features that already exist are left alone — an import
+// creates content, it doesn't re-file the catalogue. Keyed by trimmed lowercase
+// feature name, the same key the resolver resolves ids with.
+export function featureCategories(rows: ImportRow[]): Map<string, string | null> {
+  const out = new Map<string, string | null>();
+  for (const r of rows) {
+    const k = (r.feature ?? "").trim().toLowerCase();
+    if (k && !out.has(k)) out.set(k, label(r.category));
+  }
+  return out;
 }
 
 // Blank/null -> null; POSITIVE/NEGATIVE (case-insensitive) -> canonical; else "INVALID".
@@ -211,15 +234,17 @@ export const testCaseResolvers = {
         : { ...APPROVED_ONLY, feature: { ...APPROVED_ONLY.feature, projectId: args.projectId } };
       const tcs = await ctx.prisma.testCase.findMany({
         where,
-        include: { feature: { select: { name: true } }, steps: { orderBy: { order: "asc" } } },
+        include: { feature: { select: { name: true, category: true } }, steps: { orderBy: { order: "asc" } } },
         orderBy: [{ feature: { name: "asc" } }, { createdAt: "asc" }],
       });
       return tcs.map((tc) => ({
         featureName: tc.feature.name,
+        category: tc.feature.category,
         name: tc.name,
         description: tc.description,
         precondition: tc.precondition,
         note: tc.note,
+        folder: tc.folder,
         kind: tc.kind,
         steps: tc.steps.map((s) => ({ step: s.step, expectedResult: s.expectedResult })),
       }));
@@ -239,6 +264,7 @@ export const testCaseResolvers = {
           description: input.description ?? null,
           precondition: input.precondition ?? null,
           note: input.note ?? null,
+          folder: label(input.folder),
           kind: input.kind ?? null,
           createdById: user.id,
           approval,
@@ -282,6 +308,7 @@ export const testCaseResolvers = {
           description: input.description ?? null,
           precondition: input.precondition ?? null,
           note: input.note ?? null,
+          folder: label(input.folder),
           kind: input.kind ?? null,
           ...(reset ? { approval: "PENDING", reviewedAt: null, reviewedById: null, rejectReason: null } : {}),
           steps: { deleteMany: {}, create: stepData(input.steps) },
@@ -478,6 +505,7 @@ export const testCaseResolvers = {
       const existing = projectId
         ? await ctx.prisma.feature.findMany({ where: { projectId }, select: { id: true, name: true } })
         : [];
+      const categoryByFeature = featureCategories(rows);
       const existingNames = new Set(existing.map((f) => f.name.trim().toLowerCase()));
 
       const result = validateImport(rows, { projectScope: !!projectId, existingFeatures: existingNames });
@@ -490,7 +518,9 @@ export const testCaseResolvers = {
         const idByName = new Map(existing.map((f) => [f.name.trim().toLowerCase(), f.id]));
         if (projectId) {
           for (const fname of result.newFeatures) {
-            const f = await tx.feature.create({ data: { projectId, name: fname, minPassPercent: 0 } });
+            const f = await tx.feature.create({
+              data: { projectId, name: fname, category: categoryByFeature.get(fname.toLowerCase()) ?? null, minPassPercent: 0 },
+            });
             idByName.set(fname.toLowerCase(), f.id);
           }
         }
@@ -503,6 +533,7 @@ export const testCaseResolvers = {
               description: r.description ?? null,
               precondition: r.precondition ?? null,
               note: r.note ?? null,
+              folder: label(r.folder),
               kind: normalizeKind(r.kind) as "POSITIVE" | "NEGATIVE" | null,
               createdById: user.id,
               approval,

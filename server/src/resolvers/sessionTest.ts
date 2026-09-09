@@ -6,7 +6,8 @@ import { canReviewTest, canSubmitTestReview, LIVE_TEST_CASE, testReviewRequired 
 import type { TestReviewState } from "../appTestStatus.js";
 import { sessionTestCoverage } from "../coverage.js";
 import { env } from "../env.js";
-import { toADF, upsertCommentsFor, sessionTestMarkdown } from "../jira.js";
+import { toADF, upsertCommentsFor, sessionTestMarkdown, transitionIssues } from "../jira.js";
+import { closeScopeIssues } from "./workflow.js";
 import { notify, notifyQaAdmins, notifyWatchers } from "../notify.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
@@ -23,6 +24,30 @@ export type SessionTestStatus = "OPEN" | "IN_TESTING" | "IN_REVIEW" | "PASSED" |
 //   else                                -> OPEN
 // Peer review (reviewRequired) works exactly as it does for an app test: hitting
 // the agreed target is not a sign-off until another QA approves the report.
+// Per-case summary of a session's runs: the latest run (the rows come back
+// newest-first, so the first one seen wins) and every JIRA ticket its runs
+// named — not just the latest one's, since a case retried against two tickets
+// belongs under both in the filter. Pure so the shape is testable without a DB.
+export interface RunRow {
+  testCaseId: string;
+  result: string;
+  executedAt: Date;
+  note?: string | null;
+  jiraKey?: string | null;
+}
+export function summarizeRuns<T extends RunRow>(records: T[]): { latest: Map<string, T>; tickets: Map<string, string[]> } {
+  const latest = new Map<string, T>();
+  const seen = new Map<string, Set<string>>();
+  for (const r of records) {
+    if (!latest.has(r.testCaseId)) latest.set(r.testCaseId, r);
+    const key = r.jiraKey?.trim();
+    if (key) (seen.get(r.testCaseId) ?? seen.set(r.testCaseId, new Set()).get(r.testCaseId)!).add(key);
+  }
+  const tickets = new Map<string, string[]>();
+  for (const [tcId, set] of seen) tickets.set(tcId, [...set].sort());
+  return { latest, tickets };
+}
+
 export function deriveSessionStatus(s: {
   closed: boolean;
   caseCount: number;
@@ -159,10 +184,9 @@ export const sessionTestResolvers = {
       const records = await ctx.prisma.recordTest.findMany({
         where: { sessionTestId, testCaseId: { in: tcIds } },
         orderBy: { executedAt: "desc" },
-        select: { testCaseId: true, result: true, executedAt: true },
+        select: { testCaseId: true, result: true, executedAt: true, note: true, jiraKey: true },
       });
-      const latest = new Map<string, { result: string; executedAt: Date }>();
-      for (const r of records) if (!latest.has(r.testCaseId)) latest.set(r.testCaseId, r);
+      const { latest, tickets } = summarizeRuns(records);
 
       const openGroups = await ctx.prisma.issue.groupBy({
         by: ["testCaseId"],
@@ -203,6 +227,11 @@ export const sessionTestResolvers = {
           status,
           issueCount: issueCounts.get(r.testCaseId) ?? 0,
           apps: r.apps,
+          // What the last run said, as opposed to TestCase.note which is part of
+          // the case itself. Both are on the row: one is the plan, one is what
+          // happened.
+          lastNote: l?.note ?? null,
+          jiraKeys: tickets.get(r.testCaseId) ?? [],
           assignedById: r.assignedById,
           assignedAt: r.assignedAt.toISOString(),
           doneTestAt: doneTestAt?.toISOString() ?? null,
@@ -438,6 +467,11 @@ export const sessionTestResolvers = {
           reviewNote: note || null,
         },
       });
+      // Same sign-off rule as an app test report — see closeScopeIssues.
+      if (args.approve) {
+        await closeScopeIssues(ctx, user, { sessionTestId: st.id }, `ST-${st.number} report approved`);
+        await transitionIssues(st.jiraTickets);
+      }
       const msg = args.approve
         ? `Session report approved: ST-${st.number}`
         : `Session report sent back: ST-${st.number} — ${note}`;

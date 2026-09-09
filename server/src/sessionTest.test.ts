@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "./db.js";
-import { deriveSessionStatus, sessionTestResolvers } from "./resolvers/sessionTest.js";
+import { deriveSessionStatus, summarizeRuns, sessionTestResolvers } from "./resolvers/sessionTest.js";
 import { appTestResolvers } from "./resolvers/appTest.js";
 import { approvalRequestResolvers } from "./resolvers/approvalRequest.js";
 import { recordResolvers } from "./resolvers/record.js";
@@ -40,6 +40,35 @@ describe("deriveSessionStatus", () => {
     it("switching the setting off releases whatever was waiting", () => {
       expect(deriveSessionStatus({ ...met, reviewRequired: false, reviewState: "IN_REVIEW" })).toBe("PASSED");
     });
+  });
+});
+
+describe("summarizeRuns", () => {
+  const run = (testCaseId: string, mins: number, jiraKey?: string | null, note?: string | null) => ({
+    testCaseId,
+    result: "PASS",
+    executedAt: new Date(mins * 60000),
+    note: note ?? null,
+    jiraKey: jiraKey ?? null,
+  });
+  // Same order the resolver reads them in: newest first.
+  const desc = (rows: ReturnType<typeof run>[]) => [...rows].sort((a, b) => +b.executedAt - +a.executedAt);
+
+  it("keeps the newest run per case", () => {
+    const { latest } = summarizeRuns(desc([run("tc1", 1, null, "first"), run("tc1", 9, null, "last"), run("tc2", 5)]));
+    expect(latest.get("tc1")?.note).toBe("last");
+    expect(latest.get("tc2")?.executedAt).toEqual(new Date(5 * 60000));
+  });
+
+  it("collects every ticket a case was run against, deduped, trimmed and sorted", () => {
+    const { tickets } = summarizeRuns(desc([run("tc1", 1, "CAI-9"), run("tc1", 2, " CAI-9 "), run("tc1", 3, "CAI-1")]));
+    expect(tickets.get("tc1")).toEqual(["CAI-1", "CAI-9"]);
+  });
+
+  it("leaves a case with no ticket out of the map entirely", () => {
+    const { tickets } = summarizeRuns(desc([run("tc1", 1, "   "), run("tc2", 2, null)]));
+    expect(tickets.has("tc1")).toBe(false);
+    expect(tickets.size).toBe(0);
   });
 });
 

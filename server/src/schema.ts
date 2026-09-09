@@ -58,6 +58,9 @@ export const typeDefs = /* GraphQL */ `
     maintenanceStartAt: String
     maintenanceEndAt: String
     jiraConfigured: Boolean!
+    # True when approving an app test / session report moves its linked tickets
+    # to done (JIRA_DONE_TRANSITION is set). Drives the reviewer's warning.
+    jiraAutoDone: Boolean!
     jiraBaseUrl: String
     ssoEnabled: Boolean!
   }
@@ -97,6 +100,9 @@ export const typeDefs = /* GraphQL */ `
     projectId: ID!
     name: String!
     description: String
+    # Grouping label inside the project ("UI", "API", …). Display only — nothing
+    # is computed from it, so an empty one is normal.
+    category: String
     minPassPercent: Int!
     testCaseCount: Int!
     coverage: Coverage!
@@ -131,6 +137,8 @@ export const typeDefs = /* GraphQL */ `
     description: String
     precondition: String
     note: String
+    # Subfolder inside the feature. Same deal as Feature.category.
+    folder: String
     kind: TestCaseKind
     steps: [TestCaseStep!]!
     attachments: [Attachment!]!
@@ -193,9 +201,14 @@ export const typeDefs = /* GraphQL */ `
     id: ID!
     key: String!
     testCaseId: ID!
+    # Human key of the case this run belongs to (TC-<n>) — a run listed under an
+    # app test or session has to say what was run.
+    testCaseKey: String!
     executedBy: User!
     executedAt: String!
     note: String
+    # JIRA ticket exercised by this run.
+    jiraKey: String
     result: TestResult!
     retestIssueId: ID
     appTestId: ID
@@ -472,6 +485,7 @@ export const typeDefs = /* GraphQL */ `
   input FeatureInput {
     name: String!
     description: String
+    category: String
     minPassPercent: Int!
   }
   input TestCaseInput {
@@ -479,6 +493,7 @@ export const typeDefs = /* GraphQL */ `
     description: String
     precondition: String
     note: String
+    folder: String
     kind: TestCaseKind
     steps: [StepInput!]!
     attachments: [AttachmentInput!]!
@@ -487,10 +502,14 @@ export const typeDefs = /* GraphQL */ `
   # name only used at project scope (auto-created if missing).
   input ImportTestCaseInput {
     feature: String
+    # Category of the feature this row lands in — only read at project scope,
+    # where a missing feature is created.
+    category: String
     name: String!
     description: String
     precondition: String
     note: String
+    folder: String
     kind: String
     steps: [StepInput!]!
   }
@@ -515,16 +534,19 @@ export const typeDefs = /* GraphQL */ `
   }
   type TestCaseExport {
     featureName: String!
+    category: String
     name: String!
     description: String
     precondition: String
     note: String
+    folder: String
     kind: String
     steps: [TestCaseExportStep!]!
   }
   input RecordTestInput {
     executedAt: String!
     note: String
+    jiraKey: String
     result: TestResult!
     retestIssueId: ID
     appTestId: ID
@@ -537,6 +559,7 @@ export const typeDefs = /* GraphQL */ `
     testCaseId: ID!
     result: TestResult!
     note: String
+    jiraKey: String
     attachments: [AttachmentInput!]!
   }
   # One row of a bulk retest. The run's scope comes from the issue itself, so it
@@ -748,6 +771,12 @@ export const typeDefs = /* GraphQL */ `
     status: String!           # PASSED | FAILED | BLOCKED | NOT_STARTED
     issueCount: Int!
     apps: [SessionTestApp!]!
+    # Note on the latest run of this case in this session (TestCase.note is the
+    # case's own note — the plan, not what happened).
+    lastNote: String
+    # Every JIRA ticket this case's runs in this session named. Drives the Jira
+    # filter on the session's case table.
+    jiraKeys: [String!]!
     assignedBy: User!
     assignedAt: String!
     doneTestAt: String

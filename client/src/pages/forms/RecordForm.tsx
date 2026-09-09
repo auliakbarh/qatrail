@@ -26,6 +26,7 @@ interface Form {
   executedAt: string;
   result: "PASS" | "FAIL" | "BLOCKED";
   note: string;
+  jiraKey: string;
   attachments: { url: string; kind: string; label: string }[];
 }
 
@@ -54,7 +55,7 @@ export function RecordForm({
   const { closePanel, openPanel } = useNav();
   const { user } = useAuth();
   const { register, handleSubmit, control, watch, formState } = useForm<Form>({
-    defaultValues: { executedAt: nowLocal(), result: "PASS", note: "", attachments: [] },
+    defaultValues: { executedAt: nowLocal(), result: "PASS", note: "", jiraKey: "", attachments: [] },
   });
   const atts = useFieldArray({ control, name: "attachments" });
   const result = watch("result");
@@ -94,6 +95,7 @@ export function RecordForm({
             executedAt: new Date(v.executedAt).toISOString(),
             result: v.result,
             note: v.note || null,
+            jiraKey: v.jiraKey || null,
             retestIssueId: retestIssueId ?? null,
             appTestId: appTestId ?? null,
             sessionTestId: sessionTestId ?? null,
@@ -167,6 +169,9 @@ export function RecordForm({
           error={formState.errors.note && t("c.required")}
         >
           <textarea className={inputCls} rows={2} {...register("note", { required: result === "BLOCKED" })} />
+        </Field>
+        <Field label={t("rec.jiraKey")} optional>
+          <input className={inputCls} placeholder={t("rec.jiraKeyPlaceholder")} {...register("jiraKey")} />
         </Field>
 
         <div className="space-y-2">

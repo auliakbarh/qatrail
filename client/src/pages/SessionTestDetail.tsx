@@ -99,6 +99,7 @@ export default function SessionTestDetail() {
   const [groupKey, setGroupKey] = useState("");
   const [fFeature, setFFeature] = useState("");
   const [fStatus, setFStatus] = useState("");
+  const [fJira, setFJira] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const pg = usePageState();
   const recPg = usePageState();
@@ -147,6 +148,8 @@ export default function SessionTestDetail() {
     ...r,
     tcKey: r.testCase.key,
     tcName: r.testCase.name,
+    tcNote: r.testCase.note ?? "",
+    jiraLabel: (r.jiraKeys ?? []).join(", "),
     appNames: (r.apps ?? []).map((a: any) => a.name).join(", "),
   }));
   const records = recData?.sessionTestRecords ?? [];
@@ -154,8 +157,20 @@ export default function SessionTestDetail() {
   const an = anData?.analytics;
 
   const distinct = (k: string) => [...new Set(rows0.map((r: any) => r[k]).filter(Boolean))].sort();
-  const filtered = rows0.filter((r: any) => (!fFeature || r.featureName === fFeature) && (!fStatus || r.status === fStatus));
-  const rows = sortRows(searchRows(filtered, search, ["tcKey", "tcName", "featureName", "appNames"]), sortKey as any, sortDir);
+  // Every ticket named by any run in this session, so the picker offers what is
+  // actually there rather than the whole project's ticket list.
+  const jiraOptions: string[] = [...new Set(rows0.flatMap((r: any) => r.jiraKeys ?? []))].sort() as string[];
+  const filtered = rows0.filter(
+    (r: any) =>
+      (!fFeature || r.featureName === fFeature) &&
+      (!fStatus || r.status === fStatus) &&
+      (!fJira || (r.jiraKeys ?? []).includes(fJira)),
+  );
+  const rows = sortRows(
+    searchRows(filtered, search, ["tcKey", "tcName", "featureName", "appNames", "tcNote", "lastNote", "jiraLabel"]),
+    sortKey as any,
+    sortDir,
+  );
   const pageRows = paged(rows, pg);
   const groups: [string, any[]][] = groupKey ? Object.entries(groupRows(pageRows, groupKey as any)) : [["", pageRows]];
   // Selection is over what's currently listed, so a filtered "select all" means
@@ -171,7 +186,7 @@ export default function SessionTestDetail() {
     name: r.tcName,
     apps: r.apps,
   }));
-  const cols = manage ? 9 : 8; // + the bulk-select checkbox
+  const cols = manage ? 12 : 11; // + the bulk-select checkbox
 
   // Deep-link into the hierarchy drilldown; `from` keeps the breadcrumb rooted here.
   const openTestCase = (r: any) => {
@@ -247,6 +262,7 @@ export default function SessionTestDetail() {
           target={s}
           closed={!!s.closedAt}
           canSubmit={manage}
+          tickets={tickets}
           onSubmit={() => withToast(submitReview({ variables: { id } }), t("t.reviewSubmitted"), t("c.somethingWrong"))}
           onReview={(approve, note) =>
             withToast(
@@ -336,6 +352,7 @@ export default function SessionTestDetail() {
                 { value: "featureName", label: t("at.feature") },
                 { value: "status", label: t("c.status") },
                 { value: "appNames", label: t("st.apps") },
+                { value: "jiraLabel", label: t("rec.jiraKey") },
               ]}
             >
               <select value={fFeature} onChange={(e) => setFFeature(e.target.value)} className={selCls}>
@@ -346,9 +363,13 @@ export default function SessionTestDetail() {
                 <option value="">{t("c.status")}: {t("c.all")}</option>
                 {distinct("status").map((v: any) => <option key={v} value={v}>{v}</option>)}
               </select>
-              {(search || fFeature || fStatus || groupKey) && (
+              <select value={fJira} onChange={(e) => setFJira(e.target.value)} className={selCls}>
+                <option value="">{t("rec.jiraKey")}: {t("c.all")}</option>
+                {jiraOptions.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+              {(search || fFeature || fStatus || fJira || groupKey) && (
                 <button
-                  onClick={() => { setSearch(""); setFFeature(""); setFStatus(""); setGroupKey(""); }}
+                  onClick={() => { setSearch(""); setFFeature(""); setFStatus(""); setFJira(""); setGroupKey(""); }}
                   className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
                 >
                   {t("c.resetFilters")}
@@ -370,6 +391,9 @@ export default function SessionTestDetail() {
                     <SortableTh className="text-center" label={t("c.status")} colKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("st.apps")} colKey="appNames" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.issues")} colKey="issueCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("c.note")} colKey="tcNote" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("st.lastNote")} colKey="lastNote" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                    <SortableTh label={t("rec.jiraKey")} colKey="jiraLabel" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortableTh label={t("at.dateDone")} colKey="doneTestAt" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <th className="px-3 py-2"></th>
                   </tr>
@@ -409,6 +433,17 @@ export default function SessionTestDetail() {
                               ? <button onClick={() => navigate(`/issues?session=${id}&testCase=${r.testCase.id}`)} className="text-primary hover:underline">{r.issueCount}</button>
                               : r.issueCount}
                           </td>
+                          {/* The case's own note is the plan; the last run's note is
+                              what happened. Both, because QA reads them together. */}
+                          <td className="max-w-[14rem] truncate px-3 py-2 text-xs text-muted-foreground" title={r.tcNote || undefined}>
+                            {r.tcNote || "—"}
+                          </td>
+                          <td className="max-w-[14rem] truncate px-3 py-2 text-xs text-muted-foreground" title={r.lastNote || undefined}>
+                            {r.lastNote || "—"}
+                          </td>
+                          <td className="px-3 py-2 text-xs">
+                            <JiraTicketLinks tickets={r.jiraKeys ?? []} baseUrl={healthData?.health?.jiraBaseUrl} max={2} />
+                          </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">{r.doneTestAt ? fmt(r.doneTestAt) : "—"}</td>
                           <td className="px-3 py-2">
                             <div className="flex justify-end gap-1">
@@ -441,22 +476,28 @@ export default function SessionTestDetail() {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2">{t("st.recordNo")}</th>
+                  <th className="px-3 py-2">{t("iss.testCase")}</th>
                   <th className="px-3 py-2 text-center">{t("c.result")}</th>
                   <th className="px-3 py-2">{t("rec.qa")}</th>
                   <th className="px-3 py-2">{t("iss.testedAt")}</th>
                   <th className="px-3 py-2">{t("c.note")}</th>
+                  <th className="px-3 py-2">{t("rec.jiraKey")}</th>
                   <th className="px-3 py-2">{t("st.linkedIssue")}</th>
                 </tr>
               </thead>
               <tbody>
-                {records.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">{t("st.noRecords")}</td></tr>}
+                {records.length === 0 && <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">{t("st.noRecords")}</td></tr>}
                 {paged(records, recPg).map((r: any) => (
                   <tr key={r.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                     <td className="px-3 py-2 font-mono text-xs">{r.key}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{r.testCaseKey}</td>
                     <td className="px-3 py-2 text-center"><Badge variant={r.result === "PASS" ? "primary" : r.result === "FAIL" ? "destructive" : "muted"}>{r.result}</Badge></td>
                     <td className="px-3 py-2 text-muted-foreground">{r.executedBy?.name}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{fmt(r.executedAt)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{r.note ?? "—"}</td>
+                    <td className="px-3 py-2 text-xs">
+                      <JiraTicketLinks tickets={r.jiraKey ? [r.jiraKey] : []} baseUrl={healthData?.health?.jiraBaseUrl} />
+                    </td>
                     <td className="px-3 py-2 text-xs">
                       {r.issueId
                         ? <button onClick={() => navigate(`/issues/${r.issueId}`)} className="text-primary hover:underline">{t("c.open")}</button>

@@ -1,6 +1,6 @@
 {
   "name": "qatrail",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "private": true,
   "description": "QA reporting: App/Project -> Feature -> Test Case -> Record -> Issue, with review workflow, SLA, analytics",
   "author": "Aulia Akbar Harahap",
@@ -21,9 +21,11 @@
     "db:push": "npm -w server run db:push",
     "db:seed": "npm -w server run seed",
     "db:seed:content": "npm -w server run seed:content",
-    "setup": "npm install && npm run db:up && npm run db:push && npm run db:seed"
+    "setup": "npm install && npm run db:up && npm run db:push && npm run db:seed",
+    "ui:check": "node scripts/ui-check.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "playwright-core": "^1.63.0"
   }
 }

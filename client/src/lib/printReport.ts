@@ -116,13 +116,13 @@ ${apps.length === 0 ? td(["—", "—", "—", "—", "—", "—", "—"]) : ap
 </tbody></table>
 
 <h2>Test cases</h2>
-<table><thead>${th(["Key", "Name", "Feature", "Status", "Apps", "Issues", "Done at"])}</thead><tbody>
-${cases.map((c) => td([c.testCase?.key, c.testCase?.name, c.featureName, c.status, (c.apps ?? []).map((a: any) => a.name).join(", "), c.issueCount, c.doneTestAt ? fmtDateTime(c.doneTestAt) : "—"])).join("")}
+<table><thead>${th(["Key", "Name", "Feature", "Status", "Apps", "Issues", "Jira", "Done at"])}</thead><tbody>
+${cases.map((c) => td([c.testCase?.key, c.testCase?.name, c.featureName, c.status, (c.apps ?? []).map((a: any) => a.name).join(", "), c.issueCount, (c.jiraKeys ?? []).join(", ") || "—", c.doneTestAt ? fmtDateTime(c.doneTestAt) : "—"])).join("")}
 </tbody></table>
 
 <h2>Test runs</h2>
-<table><thead>${th(["Record", "Result", "Executed by", "Executed at", "Note"])}</thead><tbody>
-${records.length === 0 ? td(["—", "—", "—", "—", "—"]) : records.map((r) => td([r.key, r.result, r.executedBy?.name, fmtDateTime(r.executedAt), r.note])).join("")}
+<table><thead>${th(["Record", "Test case", "Result", "Executed by", "Executed at", "Note", "Jira"])}</thead><tbody>
+${records.length === 0 ? td(["—", "—", "—", "—", "—", "—", "—"]) : records.map((r) => td([r.key, r.testCaseKey, r.result, r.executedBy?.name, fmtDateTime(r.executedAt), r.note, r.jiraKey || "—"])).join("")}
 </tbody></table>
 
 ${s.summary ? `<h2>Summary</h2><p>${esc(s.summary)}</p>` : ""}

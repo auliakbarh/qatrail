@@ -27,10 +27,14 @@ workflow, SLA tracking, analytics, and role-based access.
 ## Features
 
 - Hierarchy: Project → Feature → Test Case → Record Test (PASS / FAIL / BLOCKED); pass %/coverage & readiness (an open issue keeps a case out of the pass count)
+- Foldering: a feature carries a free-text **category** ("UI", "API") and a test case a **folder** ("Cashback", "Entry"), so the catalogue reads as Project → Category → Feature → Folder → Test Case in the sidebar and as collapsible groups in the lists. Both are labels, not levels: nothing is computed from them, and leaving them empty is normal
+- One project at a time: the sidebar picker scopes the tree (and Analytics) to the chosen project; "All projects" is still there for the cross-project totals
+- A test record can name the **JIRA ticket** it exercised, on a single run or per row in a bulk run — which is how "has CAI-730 been tested, and where" gets answered. A session's case table filters by ticket
 - Bulk test run: tick the assigned test cases in an app test or a testing session and record them in one panel — one timestamp for the batch, a verdict per case, and the issue form opens for each FAIL afterwards
 - Issues: Defect/Bug, full workflow (accept/reject/need-clarify/solve+postmortem/review), retest-to-close, SLA per priority (production), notifications (live)
 - Bulk retest: tick the issues waiting for review in the issue list and verify them together — one run recorded per issue (carrying that issue's own app test or session) plus the verdict it implies; rows an engineer moved in the meantime are counted as skipped, not failed
 - Session tests (SIT/UAT): one testing event per date with stakeholders, apps under test (linked app test or typed by hand, versions snapshotted), agreed target pass %, close-with-summary and a printable sign-off report
+- Peer review of a report (optional): approving an app test / session report signs off the round — every finding still open on it is closed, and its linked JIRA tickets are moved to done when `JIRA_DONE_TRANSITION` names the transition (empty = no ticket is ever moved). The reviewer is asked to confirm, and told which tickets will move
 - Recording straight on a test case first offers a testing session instead (a run outside an app test or session can't appear in any sign-off report) — a nudge, not a block; and a case opened from an app test or a session hides the catalogue actions (retire / move / edit), which belong to the project hierarchy
 - Human keys: `PRJ-/FEAT-/TC-/REC-/ISSUE-/APP-/ST-/UT-<n>`; deep links `/issues/:id`, `/session-tests/:id`, `/app-tests/:id`
 - The hierarchy drilldown is in the URL — `/projects/:p/features/:f/test-cases/:tc/issues/:i` — so back/forward, refresh and shared links work at every level; the breadcrumb's origin rides on `?from=`

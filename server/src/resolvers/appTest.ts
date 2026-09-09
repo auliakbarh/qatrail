@@ -9,7 +9,8 @@ import { appTestCoverage } from "../coverage.js";
 import { recomputeAppTest } from "../appTestStatus.js";
 import { notify, notifyQaAdmins, notifyWatchers } from "../notify.js";
 import { env } from "../env.js";
-import { toADF, upsertCommentsFor, appTestMarkdown } from "../jira.js";
+import { toADF, upsertCommentsFor, appTestMarkdown, transitionIssues } from "../jira.js";
+import { closeScopeIssues } from "./workflow.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
 
@@ -419,6 +420,13 @@ export const appTestResolvers = {
         },
       });
       await recomputeAppTest(at.id);
+      // Approving is the sign-off: nothing under this report stays open. Its own
+      // findings are closed here, and the JIRA tickets it was built for are moved
+      // to done — best-effort, so JIRA refusing must not undo the approval.
+      if (args.approve) {
+        await closeScopeIssues(ctx, user, { appTestId: at.id }, `APP-${at.number} report approved`);
+        await transitionIssues(at.jiraTickets);
+      }
       const msg = args.approve
         ? `App test report approved: APP-${at.number}`
         : `App test report sent back: APP-${at.number} — ${note}`;
