@@ -220,6 +220,129 @@ checks.analytics = async (page, ctx) => {
   await shot(page, "analytics");
 };
 
+// Phase E: approving a report closes the round's open findings. Needs peer
+// review switched on and two identities (a report is never reviewed by the QA
+// who submitted it), so this check builds its own fixture and puts the setting
+// back in a finally — a check that leaves the deployment in review mode is worse
+// than no check.
+checks.review = async (page, ctx) => {
+  const { token, demo } = ctx;
+  if (!demo) return console.log("  – skipped: no demo project");
+
+  const before = (await gql(`{ setting { testReviewMode } }`, {}, token)).setting.testReviewMode;
+  const temp = { email: `ui-check-qa+${Date.now()}@test.local`, name: "UI check QA" };
+  let qaId = null;
+  let appTestId = null;
+  let issueId = null;
+
+  try {
+    await gql(`mutation($i:SettingInput!){ updateSetting(input:$i){ testReviewMode } }`, { i: { testReviewMode: "PEER_360" } }, token);
+
+    // The QA who runs the round and submits the report — never the reviewer.
+    const created = (await gql(
+      `mutation($i:UserInput!){ createUser(input:$i){ user { id } defaultPassword } }`,
+      { i: { email: temp.email, name: temp.name, role: "QA", active: true } },
+      token,
+    )).createUser;
+    qaId = created.user.id;
+    const qaToken = (await gql(
+      `mutation($e:String!,$p:String!){ login(email:$e,password:$p){ token } }`,
+      { e: temp.email, p: created.defaultPassword },
+    )).login.token;
+
+    const feature = (await gql(`query($p:ID!){ features(projectId:$p){ id category } }`, { p: demo.id }, token)).features.find((f) => f.category);
+    const tc = (await gql(`query($f:ID!){ testCases(featureId:$f){ id key } }`, { f: feature.id }, token)).testCases[0];
+    ctx.tcId = tc.id; // the teardown has to unassign it before the app test can go
+
+    appTestId = (await gql(
+      `mutation($i:AppTestInput!){ createAppTest(input:$i){ id key } }`,
+      { i: { projectId: demo.id, environment: "STAGING", platform: "ANDROID", kind: "FEATURE", appVersion: "9.9.9", downloadLink: "https://example.test/build", note: "ui-check fixture", jiraTickets: ["CAI-730"] } },
+      token,
+    )).createAppTest.id;
+    await gql(`mutation($a:ID!,$t:[ID!]!){ assignTestCases(appTestId:$a,testCaseIds:$t){ id } }`, { a: appTestId, t: [tc.id] }, token);
+
+    const engineer = (await gql(`{ engineers { id } }`, {}, token)).engineers[0];
+    issueId = (await gql(
+      `mutation($i:IssueInput!){ createIssue(input:$i){ id key status } }`,
+      { i: {
+        testCaseId: tc.id, type: "DEFECT", title: "ui-check finding", description: "fixture",
+        environment: "STAGING", platform: "ANDROID", appVersion: "9.9.9", testAccount: "a", testedAt: new Date().toISOString(),
+        steps: "s", actualResult: "a", expectedResult: "e", priority: "LOW",
+        assigneeId: engineer.id, appTestId, attachments: [],
+      } },
+      token,
+    )).createIssue.id;
+
+    // Hand the report over as the QA who ran it.
+    await gql(`mutation($id:ID!){ submitAppTestReview(id:$id){ id reviewState } }`, { id: appTestId }, qaToken);
+
+    // --- the part a person does ---
+    await page.goto(`${APP}/app-tests/${appTestId}`);
+    await ready(page);
+    await page.waitForTimeout(1200);
+    const approve = page.getByRole("button", { name: /approve/i }).first();
+    if ((await approve.count()) === 0) return fail("review", "no Approve button on a report waiting for review");
+    pass("report waiting for review offers Approve");
+
+    await approve.click();
+    await page.waitForTimeout(500);
+    const dialog = await page.locator("body").innerText();
+    if (!/still open will be closed|masih terbuka akan ditutup/i.test(dialog))
+      fail("review", "the confirmation does not say the findings will be closed");
+    else pass("confirmation warns that open findings are closed");
+    // JIRA_DONE_TRANSITION is unset here, so the confirmation must not promise a
+    // ticket move. This is the safety property, asserted rather than assumed.
+    if (/moved to done|digeser ke done/i.test(dialog))
+      fail("review", "confirmation promises a JIRA move while jiraAutoDone is false");
+    else pass("confirmation stays silent about JIRA when the transition is unset");
+    await shot(page, "review-confirm");
+
+    // The dialog's own Approve is the second one on the page (header + footer).
+    await page.getByRole("button", { name: /approve/i }).last().click();
+    await page.waitForTimeout(2000);
+
+    const after = await gql(
+      `query($a:ID!,$i:ID!){ appTest(id:$a){ reviewState status } issue(id:$i){ status closedAt history { kind toVal } } }`,
+      { a: appTestId, i: issueId },
+      token,
+    );
+    if (after.appTest.reviewState !== "APPROVED") fail("review", `reviewState is ${after.appTest.reviewState}, not APPROVED`);
+    else pass("report reaches APPROVED");
+    if (after.issue.status !== "CLOSED") fail("review", `the finding is ${after.issue.status}, not CLOSED`);
+    else pass("approving closed the round's open finding");
+    if (!after.issue.closedAt) fail("review", "closed finding has no closedAt");
+    if (!after.issue.history.some((h) => h.toVal === "CLOSED")) fail("review", "no timeline entry naming the close");
+    else pass("the close left a timeline entry");
+    await shot(page, "review-done");
+  } finally {
+    // Always: the deployment goes back to how it was, and the fixture leaves.
+    // Order matters — the setting first, because a report still under review can
+    // read as PASSED, and deleteAppTest only accepts an app test that is OPEN.
+    // Failures here are reported, never swallowed: silent cleanup that doesn't
+    // clean is how a "passing" check litters someone's database.
+    const cleanup = async (label, query, variables) => {
+      try {
+        await gql(query, variables, token);
+      } catch (err) {
+        fail("review", `cleanup ${label} failed: ${String(err).slice(0, 200)}`);
+      }
+    };
+    await cleanup("restore setting", `mutation($i:SettingInput!){ updateSetting(input:$i){ testReviewMode } }`, { i: { testReviewMode: before } });
+    const restored = (await gql(`{ setting { testReviewMode } }`, {}, token)).setting.testReviewMode;
+    if (restored !== before) fail("review", `testReviewMode left as ${restored}, should be ${before}`);
+    else pass(`testReviewMode restored to ${before}`);
+
+    if (issueId) await cleanup("delete issue", `mutation($id:ID!){ deleteIssue(id:$id) }`, { id: issueId });
+    if (appTestId && ctx.tcId) {
+      // An app test with assignments is not OPEN, and only an OPEN one deletes.
+      await cleanup("unassign", `mutation($a:ID!,$t:ID!){ unassignTestCase(appTestId:$a,testCaseId:$t){ id status } }`, { a: appTestId, t: ctx.tcId });
+    }
+    if (appTestId) await cleanup("delete app test", `mutation($id:ID!){ deleteAppTest(id:$id) }`, { id: appTestId });
+    if (qaId) await cleanup("delete temp QA", `mutation($id:ID!){ deleteUser(id:$id) }`, { id: qaId });
+    pass("fixture removed");
+  }
+};
+
 // Every page a user can reach, purely to collect console errors.
 checks.pages = async (page) => {
   const routes = ["/", "/app-tests", "/session-tests", "/user-testing", "/issues", "/approvals", "/analytics", "/settings", "/help"];
