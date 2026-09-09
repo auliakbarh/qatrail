@@ -32,8 +32,8 @@ export const SESSION_TEST = gql`
 export const SESSION_TEST_CASES = gql`
   query SessionTestCases($sessionTestId: ID!) {
     sessionTestCases(sessionTestId: $sessionTestId) {
-      id status issueCount assignedAt doneTestAt featureId featureName
-      testCase { id key name }
+      id status issueCount assignedAt doneTestAt featureId featureName lastNote jiraKeys
+      testCase { id key name note }
       # environment/platform/versions feed the issue prefill when a case relates
       # to exactly one app (lib/issuePrefill.ts).
       apps { id name appTestKey environment platform versionFe versionBe }
@@ -51,7 +51,7 @@ export const SESSION_ASSIGNABLE_TEST_CASES = gql`
 export const SESSION_TEST_RECORDS = gql`
   query SessionTestRecords($sessionTestId: ID!) {
     sessionTestRecords(sessionTestId: $sessionTestId) {
-      id key testCaseId result executedAt note issueId
+      id key testCaseId testCaseKey result executedAt note jiraKey issueId
       executedBy { id name }
     }
   }

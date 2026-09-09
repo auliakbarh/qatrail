@@ -768,6 +768,12 @@ export const typeDefs = /* GraphQL */ `
     status: String!           # PASSED | FAILED | BLOCKED | NOT_STARTED
     issueCount: Int!
     apps: [SessionTestApp!]!
+    # Note on the latest run of this case in this session (TestCase.note is the
+    # case's own note — the plan, not what happened).
+    lastNote: String
+    # Every JIRA ticket this case's runs in this session named. Drives the Jira
+    # filter on the session's case table.
+    jiraKeys: [String!]!
     assignedBy: User!
     assignedAt: String!
     doneTestAt: String
