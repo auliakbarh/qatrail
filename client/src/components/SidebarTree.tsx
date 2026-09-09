@@ -3,6 +3,7 @@ import { useQuery } from "@apollo/client";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { PROJECTS, FEATURES } from "../graphql/hierarchy";
+import { useNavigate } from "react-router-dom";
 import { useDrill, useProjectScope } from "../store/nav";
 import { groupRows } from "../lib/list";
 import { cn } from "../lib/utils";
@@ -14,8 +15,9 @@ import { Skeleton } from "./Skeleton";
 // listed under their own bucket instead of vanishing.
 export function SidebarTree() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data } = useQuery(PROJECTS);
-  const { projectId: drilledProjectId } = useDrill();
+  const { projectId: drilledProjectId, goProject } = useDrill();
   const { projectId: scope, setProjectId: setScope } = useProjectScope();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // The whole project list collapses, separate from each project's feature branch.
@@ -23,10 +25,14 @@ export function SidebarTree() {
   const projects = data?.projects ?? [];
 
   // Opening a project anywhere in the app scopes the sidebar to it, so the picker
-  // never disagrees with what the page is showing.
+  // never disagrees with what the page is showing. One-directional on purpose:
+  // it follows the URL and nothing else. `scope` must stay out of the condition
+  // and the deps — with it in, the picker's own write re-ran this effect, which
+  // set the scope straight back to the URL's project and made the dropdown
+  // un-selectable anywhere inside a drilldown.
   useEffect(() => {
-    if (drilledProjectId && drilledProjectId !== scope) setScope(drilledProjectId);
-  }, [drilledProjectId, scope, setScope]);
+    if (drilledProjectId) setScope(drilledProjectId);
+  }, [drilledProjectId, setScope]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -47,10 +53,19 @@ export function SidebarTree() {
       <select
         value={picked.length ? scope : ""}
         onChange={(e) => {
-          setScope(e.target.value);
+          const next = e.target.value;
+          setScope(next);
           // The chosen project opens straight away — picking it and then having
           // to click its chevron is one click too many.
-          if (e.target.value) setExpanded(new Set([e.target.value]));
+          if (next) setExpanded(new Set([next]));
+          // Already looking at a project? Take the page there too, otherwise the
+          // sidebar would name one project while the page still shows another.
+          // On any other page the picker only scopes the tree — it must not yank
+          // someone off the list they were reading.
+          if (drilledProjectId && next !== drilledProjectId) {
+            if (next) goProject(next);
+            else navigate("/");
+          }
         }}
         className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
         title={t("nav.scopeHint")}
