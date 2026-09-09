@@ -212,6 +212,7 @@ export default function AppTestDetail() {
           target={a}
           closed={a.status === "CLOSED"}
           canSubmit={manage}
+          tickets={tickets}
           onSubmit={() => withToast(submitReview({ variables: { id } }), t("t.reviewSubmitted"), t("c.somethingWrong"))}
           onReview={(approve, note) =>
             withToast(

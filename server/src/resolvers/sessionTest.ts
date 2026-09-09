@@ -6,7 +6,8 @@ import { canReviewTest, canSubmitTestReview, LIVE_TEST_CASE, testReviewRequired 
 import type { TestReviewState } from "../appTestStatus.js";
 import { sessionTestCoverage } from "../coverage.js";
 import { env } from "../env.js";
-import { toADF, upsertCommentsFor, sessionTestMarkdown } from "../jira.js";
+import { toADF, upsertCommentsFor, sessionTestMarkdown, transitionIssues } from "../jira.js";
+import { closeScopeIssues } from "./workflow.js";
 import { notify, notifyQaAdmins, notifyWatchers } from "../notify.js";
 
 const isAdmin = (role?: string) => role === "ADMIN" || role === "SUPER_ADMIN";
@@ -466,6 +467,11 @@ export const sessionTestResolvers = {
           reviewNote: note || null,
         },
       });
+      // Same sign-off rule as an app test report — see closeScopeIssues.
+      if (args.approve) {
+        await closeScopeIssues(ctx, user, { sessionTestId: st.id }, `ST-${st.number} report approved`);
+        await transitionIssues(st.jiraTickets);
+      }
       const msg = args.approve
         ? `Session report approved: ST-${st.number}`
         : `Session report sent back: ST-${st.number} — ${note}`;

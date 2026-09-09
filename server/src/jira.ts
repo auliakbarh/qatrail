@@ -291,6 +291,84 @@ export async function upsertCommentsFor(
   return next;
 }
 
+/** One transition offered by JIRA for an issue. */
+export interface JiraTransition {
+  id: string;
+  name: string;
+  to?: { name?: string | null } | null;
+}
+
+/**
+ * Pick the transition that means "done". Matches `wanted` against the
+ * transition's own name first, then the status it lands in — a workflow may call
+ * the button "Close Issue" while the status is "Done", and either spelling
+ * should work. Case- and space-insensitive; null when nothing matches, which is
+ * the signal to leave the ticket alone rather than guess.
+ */
+export function pickDoneTransition(transitions: JiraTransition[], wanted: string): string | null {
+  const w = wanted.trim().toLowerCase();
+  if (!w) return null;
+  const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
+  return (
+    transitions.find((tr) => norm(tr.name) === w)?.id ??
+    transitions.find((tr) => norm(tr.to?.name) === w)?.id ??
+    null
+  );
+}
+
+/**
+ * Move a ticket to done. Best-effort in the same way as a comment: a refusal is
+ * logged and reported, never thrown — approving a report must not fail because
+ * JIRA said no. Returns true only when JIRA accepted the transition.
+ * Off unless JIRA_DONE_TRANSITION is set (see env.ts).
+ */
+export async function transitionIssue(jiraKey: string, wanted = env.jira.doneTransition): Promise<boolean> {
+  if (!hasJiraCreds() || !wanted) return false;
+  const url = `${base()}/rest/api/3/issue/${encodeURIComponent(jiraKey)}/transitions`;
+  try {
+    const res = await fetch(url, { headers: headers() });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      log.warn({ status: res.status, jiraKey, body }, "jira transitions fetch failed");
+      reportJiraFailure("transitions", jiraKey, `HTTP ${res.status} ${body}`);
+      return false;
+    }
+    const list: JiraTransition[] = (await res.json())?.transitions ?? [];
+    const id = pickDoneTransition(list, wanted);
+    if (!id) {
+      // Not an error: the ticket may already be done, or this workflow has no
+      // such step from where it stands. Say what was on offer so the knob can
+      // be corrected, and leave the ticket untouched.
+      log.info({ jiraKey, wanted, offered: list.map((tr) => tr.name) }, "jira no matching done transition");
+      return false;
+    }
+    const done = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify({ transition: { id } }) });
+    if (!done.ok) {
+      const body = await done.text().catch(() => "");
+      log.warn({ status: done.status, jiraKey, body }, "jira transition failed");
+      reportJiraFailure("transition", jiraKey, `HTTP ${done.status} ${body}`);
+      return false;
+    }
+    log.info({ jiraKey, wanted }, "jira issue moved to done");
+    return true;
+  } catch (err) {
+    log.error({ err, jiraKey }, "jira transition error");
+    reportJiraFailure("transition", jiraKey, String(err));
+    return false;
+  }
+}
+
+/**
+ * Move every ticket of an app test / session to done. Sequential like
+ * upsertCommentsFor — a handful of tickets, and a burst of parallel writes to
+ * one JIRA project buys nothing. Returns how many actually moved.
+ */
+export async function transitionIssues(tickets: string[]): Promise<number> {
+  let moved = 0;
+  for (const key of tickets) if (await transitionIssue(key)) moved++;
+  return moved;
+}
+
 export interface IssueComment {
   url: string; // deep link to the issue in this app
   type: string;

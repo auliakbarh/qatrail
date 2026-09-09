@@ -61,6 +61,13 @@ export const env = {
     baseUrl: process.env.JIRA_BASE_URL ?? "",
     email: process.env.JIRA_EMAIL ?? "",
     apiToken: resolveJiraToken(),
+    // Name of the transition (or of the status it lands in) that means "done",
+    // used when an app test / session report is approved. Empty = never move
+    // anyone's ticket: dragging a ticket to Done is an outward, hard-to-undo
+    // act, so it stays off until someone names the transition on purpose. The
+    // name differs per JIRA workflow ("Done", "Selesai", "Close Issue"), which
+    // is why this is a knob and not a constant.
+    doneTransition: (process.env.JIRA_DONE_TRANSITION ?? "").trim(),
   },
   // Microsoft Entra SSO — prepared, not implemented (no Entra access yet).
   msSso: {

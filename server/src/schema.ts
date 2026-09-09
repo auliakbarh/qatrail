@@ -58,6 +58,9 @@ export const typeDefs = /* GraphQL */ `
     maintenanceStartAt: String
     maintenanceEndAt: String
     jiraConfigured: Boolean!
+    # True when approving an app test / session report moves its linked tickets
+    # to done (JIRA_DONE_TRANSITION is set). Drives the reviewer's warning.
+    jiraAutoDone: Boolean!
     jiraBaseUrl: String
     ssoEnabled: Boolean!
   }

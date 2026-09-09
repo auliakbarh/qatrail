@@ -103,6 +103,37 @@ async function applyReview(ctx: Context, user: any, issue: any, pass: boolean, n
   return updated;
 }
 
+/**
+ * Approving a report signs off the whole round, so nothing under it is still
+ * "open" afterwards: every finding of that app test / session that isn't closed
+ * or archived is closed, each with its own StatusEvent so the timeline says who
+ * ended it and why. Shared by reviewAppTest and reviewSessionTest — one rule,
+ * both paths.
+ *
+ * Returns how many issues were closed. Issues already CLOSED (or archived) are
+ * left alone, which also makes a second approve a no-op.
+ */
+export async function closeScopeIssues(
+  ctx: Context,
+  user: { id: string },
+  scope: { appTestId?: string; sessionTestId?: string },
+  note: string,
+): Promise<number> {
+  const where = scope.appTestId ? { appTestId: scope.appTestId } : { sessionTestId: scope.sessionTestId };
+  const issues = await ctx.prisma.issue.findMany({
+    where: { ...where, archived: false, status: { not: "CLOSED" as const } },
+  });
+  for (const issue of issues) {
+    await transition(
+      ctx,
+      issue,
+      { status: "CLOSED", closedAt: new Date() },
+      { kind: "status", fromVal: issue.status, toVal: "CLOSED", byId: user.id, note },
+    );
+  }
+  return issues.length;
+}
+
 export const workflowResolvers = {
   Mutation: {
     async issueAccept(_: unknown, args: { id: string }, ctx: Context) {

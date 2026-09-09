@@ -6,6 +6,7 @@ import { Modal } from "./Modal";
 import { fmtDateTime as fmt } from "../lib/utils";
 import { useAuth } from "../store/auth";
 import { REVIEW_ACTIVITY } from "../graphql/admin";
+import { HEALTH } from "../graphql";
 
 // Peer review of an app test / testing session report (Setting.testReviewMode).
 // One component for both, because the two flows are the same one: the QA who ran
@@ -27,6 +28,7 @@ export function ReviewCard({
   target,
   closed,
   canSubmit,
+  tickets = [],
   onSubmit,
   onReview,
 }: {
@@ -34,13 +36,20 @@ export function ReviewCard({
   target: ReviewTarget;
   closed: boolean;
   canSubmit: boolean;
+  // Tickets that will be moved to done on approve — named in the confirmation,
+  // because that is the part of it that leaves this app.
+  tickets?: string[];
   onSubmit: () => void;
   onReview: (approve: boolean, note?: string) => void;
 }) {
   const { t } = useTranslation();
   const me = useAuth((s) => s.user?.id);
   const [changes, setChanges] = useState(false);
+  const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState("");
+  const { data: healthData } = useQuery(HEALTH, { fetchPolicy: "cache-first" });
+  // Only promise the ticket move when this deployment actually does it.
+  const movesTickets = !!healthData?.health?.jiraAutoDone && tickets.length > 0;
   // Every round, not just the latest: a resubmit clears the note on the row, so
   // the history is read off the audit trail instead.
   const { data: act, refetch } = useQuery(REVIEW_ACTIVITY, {
@@ -103,8 +112,10 @@ export function ReviewCard({
           )}
           {target.canReview && (
             <>
+              {/* Approve closes findings and moves tickets in JIRA — neither is
+                  undoable from here, so it asks first. */}
               <button
-                onClick={() => then(onReview(true))}
+                onClick={() => setConfirm(true)}
                 className="inline-flex h-7 items-center gap-1 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -147,6 +158,30 @@ export function ReviewCard({
           </ul>
         </div>
       )}
+
+      <Modal
+        open={confirm}
+        onClose={() => setConfirm(false)}
+        title={t("rev.approve")}
+        footer={
+          <>
+            <button onClick={() => setConfirm(false)} className="h-7 rounded border border-border px-3 text-xs hover:bg-muted">
+              {t("c.cancel")}
+            </button>
+            <button
+              onClick={() => { setConfirm(false); then(onReview(true)); }}
+              className="h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              {t("rev.approve")}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-sm">
+          <p>{t("rev.confirmCloses")}</p>
+          {movesTickets && <p>{t("rev.confirmJira", { tickets: tickets.join(", ") })}</p>}
+        </div>
+      </Modal>
 
       <Modal
         open={changes}

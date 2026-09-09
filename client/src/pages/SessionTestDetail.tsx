@@ -262,6 +262,7 @@ export default function SessionTestDetail() {
           target={s}
           closed={!!s.closedAt}
           canSubmit={manage}
+          tickets={tickets}
           onSubmit={() => withToast(submitReview({ variables: { id } }), t("t.reviewSubmitted"), t("c.somethingWrong"))}
           onReview={(approve, note) =>
             withToast(
