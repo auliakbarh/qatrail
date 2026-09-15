@@ -205,20 +205,30 @@ export function BulkRecordForm({
                     {t("c.attachments")} {r.attachments.length > 0 && `(${r.attachments.length})`}
                   </button>
                 </div>
+                {/* The width lives on the wrappers, never on the inputs: inputCls
+                    already carries w-full, and a second width class next to it is
+                    decided by Tailwind's stylesheet order, not by the order written
+                    here — w-full wins, so `${inputCls} w-32` is 100% wide. Paired
+                    with shrink-0 that made the Jira box claim the whole row and
+                    squeezed the note down to a few unusable pixels. */}
                 <div className="mt-2 flex gap-2">
-                  <input
-                    className={`${inputCls} ${blockerMissing ? "border-destructive" : ""}`}
-                    placeholder={r.result === "BLOCKED" ? t("rec.blocker") : t("c.note")}
-                    value={r.note}
-                    onChange={(e) => patch(c.testCaseId, { note: e.target.value })}
-                  />
-                  <input
-                    className={`${inputCls} w-32 shrink-0`}
-                    placeholder={t("rec.jiraKeyPlaceholder")}
-                    title={t("rec.jiraKey")}
-                    value={r.jiraKey}
-                    onChange={(e) => patch(c.testCaseId, { jiraKey: e.target.value })}
-                  />
+                  <div className="min-w-0 flex-1">
+                    <input
+                      className={`${inputCls} ${blockerMissing ? "border-destructive" : ""}`}
+                      placeholder={r.result === "BLOCKED" ? t("rec.blocker") : t("c.note")}
+                      value={r.note}
+                      onChange={(e) => patch(c.testCaseId, { note: e.target.value })}
+                    />
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <input
+                      className={inputCls}
+                      placeholder={t("rec.jiraKeyPlaceholder")}
+                      title={t("rec.jiraKey")}
+                      value={r.jiraKey}
+                      onChange={(e) => patch(c.testCaseId, { jiraKey: e.target.value })}
+                    />
+                  </div>
                 </div>
                 {blockerMissing && <p className="mt-1 text-xs text-destructive">{t("rec.blockedHint")}</p>}
                 {r.result === "FAIL" && <p className="mt-1 text-xs text-muted-foreground">{t("form.failOpensIssue")}</p>}
