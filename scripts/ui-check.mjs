@@ -220,6 +220,49 @@ checks.analytics = async (page, ctx) => {
   await shot(page, "analytics");
 };
 
+// The bulk run panel's note box collapsed to a few pixels once a Jira field sat
+// next to it: inputCls carries w-full, and a second width class beside it is
+// decided by Tailwind's stylesheet order, not by the order written in the JSX.
+// Measured, not eyeballed — "looks fine" is what shipped the bug.
+checks.bulkrun = async (page, ctx) => {
+  const { session } = ctx;
+  if (!session) return console.log("  – skipped: no session test");
+
+  await page.goto(`${APP}/session-tests/${session.id}`);
+  await ready(page);
+  await page.waitForTimeout(1200);
+
+  // Tick the first assigned case, then open the bulk run panel.
+  const box = page.locator("table tbody input[type=checkbox]").first();
+  if ((await box.count()) === 0) return console.log("  – skipped: session has no assigned case");
+  await box.check();
+  await page.waitForTimeout(300);
+  const run = page.getByRole("button", { name: /run selected|jalankan/i }).first();
+  if ((await run.count()) === 0) return fail("bulkrun", "no Run selected button after ticking a case");
+  await run.click();
+  await page.waitForTimeout(800);
+
+  const note = page.locator('input[placeholder="Note"], input[placeholder="Catatan"]').last();
+  const jira = page.locator('input[placeholder="CAI-730"]').last();
+  if ((await note.count()) === 0) return fail("bulkrun", "no note field in the bulk run panel");
+
+  const noteW = Math.round((await note.boundingBox()).width);
+  const jiraW = Math.round((await jira.boundingBox()).width);
+  // The note is the field people actually write in, so it gets the room.
+  if (noteW < 200) fail("bulkrun", `note field is ${noteW}px wide — too narrow to type in (jira ${jiraW}px)`);
+  else pass(`note field is ${noteW}px, jira ${jiraW}px`);
+  if (noteW <= jiraW) fail("bulkrun", `note (${noteW}px) is not wider than the jira box (${jiraW}px)`);
+  else pass("note is wider than the jira box");
+
+  // Prove it accepts what a person would write, not just that it is wide.
+  await note.fill("catatan hasil test yang cukup panjang");
+  if ((await note.inputValue()).length < 10) fail("bulkrun", "note field did not take the typed text");
+  else pass("note field accepts typing");
+
+  await shot(page, "bulkrun");
+  await page.getByRole("button", { name: /cancel|batal/i }).last().click();
+};
+
 // Phase E: approving a report closes the round's open findings. Needs peer
 // review switched on and two identities (a report is never reviewed by the QA
 // who submitted it), so this check builds its own fixture and puts the setting
