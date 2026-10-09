@@ -15,6 +15,7 @@ import { userTestResolvers } from "./userTest.js";
 import { sessionTestResolvers } from "./sessionTest.js";
 import { watchResolvers } from "./watch.js";
 import { suggestionsResolvers } from "./suggestions.js";
+import { uploadResolvers } from "./upload.js";
 import { readOnlyGuard, maintenanceGuard } from "../context.js";
 
 export const resolvers = {
@@ -57,6 +58,7 @@ export const resolvers = {
     ...userTestResolvers.Mutation,
     ...sessionTestResolvers.Mutation,
     ...watchResolvers.Mutation,
+    ...uploadResolvers.Mutation,
   })),
   Subscription: {
     ...notificationResolvers.Subscription,

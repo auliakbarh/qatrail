@@ -11,7 +11,7 @@ vi.mock("./discord.js", async (orig) => ({
   ...(await orig<typeof import("./discord.js")>()),
   notifyDiscord: (...a: unknown[]) => notifyDiscord(...a),
 }));
-const { addComment, testJira, postedFooter, issueMarkdown, upsertComment, upsertCommentsFor, appTestMarkdown, sessionTestMarkdown } =
+const { addComment, testJira, postedFooter, issueMarkdown, toADF, upsertComment, upsertCommentsFor, appTestMarkdown, sessionTestMarkdown } =
   await import("./jira.js");
 const { NOTIFIABLE } = await import("./discord.js");
 
@@ -174,6 +174,25 @@ describe("comment footer", () => {
     });
     expect(md).toContain("16:12 WIB");
     expect(md).toContain("Open issue in QA Reporting");
+  });
+
+  it("lists attachments as links JIRA can open", () => {
+    const md = issueMarkdown({
+      url: "https://qa.test/issues/1",
+      type: "BUG", environment: "STAGING", platform: "ANDROID", priority: "HIGH",
+      testedAt: BY.at, testAccount: "qa@test", reporterName: "R", assigneeName: "A",
+      title: "T", steps: "s", actualResult: "a", expectedResult: "e",
+      attachments: [
+        { url: "https://b.s3.x.amazonaws.com/qatrail/a.png", kind: "IMAGE", label: "login [err]" },
+        { url: "https://x.test/v(1).mp4", kind: "VIDEO", label: null },
+      ],
+      postedBy: BY,
+    });
+    expect(md).toContain("**Attachments (2)**");
+    const links = JSON.stringify(toADF(md));
+    expect(links).toContain('"href":"https://b.s3.x.amazonaws.com/qatrail/a.png"');
+    expect(links).toContain('"text":"1. login err"');
+    expect(links).toContain('"href":"https://x.test/v(1%29.mp4"');
   });
 });
 
