@@ -75,6 +75,17 @@ export const env = {
     tenantId: process.env.MS_TENANT_ID ?? "",
     clientId: process.env.MS_CLIENT_ID ?? "",
   },
+  // S3 attachment upload. The bucket is public-read: an uploaded file's URL is
+  // permanent and is stored as the attachment `url`, like a pasted link.
+  // Every key lives under `qatrail/` (a shared bucket).
+  s3: {
+    region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "",
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+    bucket: process.env.AWS_BUCKET_NAME ?? "",
+    // Seconds the presigned PUT stays valid — the window to start the upload.
+    presignExpires: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) || 900,
+  },
   // SharePoint attachment upload — prepared, not implemented. Attachments are
   // URL-based today; flip this on once the Graph upload path is wired.
   sharepoint: {

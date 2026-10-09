@@ -7,6 +7,7 @@ import { inputCls } from "./Form";
 import { TestCaseView } from "../pages/forms/TestCaseViewPanel";
 import { BULK_RETEST } from "../graphql/workflow";
 import { withToast, useToast } from "../store/toast";
+import { UploadAttachmentBtn } from "../components/UploadAttachmentBtn";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
 const RESULTS = ["PASS", "FAIL", "BLOCKED"] as const;
@@ -56,6 +57,9 @@ export function BulkRetestModal({
 
   const rowOf = (id: string): Row => rows[id] ?? blank();
   const patch = (id: string, p: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...rowOf(id), ...p } }));
+  // Functional: several files land one after another, so it must not read a stale `rows`.
+  const addAtt = (id: string, a: Row["attachments"][number]) =>
+    setRows((r) => { const row = r[id] ?? blank(); return { ...r, [id]: { ...row, attachments: [...row.attachments, a] } }; });
   const patchAtt = (id: string, i: number, p: Partial<Row["attachments"][number]>) =>
     setRows((r) => ({ ...r, [id]: { ...rowOf(id), attachments: rowOf(id).attachments.map((a, j) => (j === i ? { ...a, ...p } : a)) } }));
 
@@ -221,13 +225,16 @@ export function BulkRetestModal({
                       </button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => patch(i.id, { attachments: [...r.attachments, { url: "", kind: "IMAGE", label: "" }] })}
-                    className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
-                  >
-                    <Plus className="h-3 w-3" /> {t("form.attachment")}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => patch(i.id, { attachments: [...r.attachments, { url: "", kind: "IMAGE", label: "" }] })}
+                      className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
+                    >
+                      <Plus className="h-3 w-3" /> {t("form.attachment")}
+                    </button>
+                    <UploadAttachmentBtn onUploaded={(a) => addAtt(i.id, a)} />
+                  </div>
                 </div>
               )}
             </div>

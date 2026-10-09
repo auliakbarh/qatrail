@@ -270,7 +270,7 @@ export const issueResolvers = {
       const user = await requireQA(ctx);
       const issue = await ctx.prisma.issue.findUnique({
         where: { id: args.id },
-        include: { reporter: true, assignee: true },
+        include: { reporter: true, assignee: true, attachments: { orderBy: { order: "asc" } } },
       });
       if (!issue) throw new Error("Issue not found");
       const jiraKey = args.jiraKey.trim().toUpperCase();
@@ -296,6 +296,7 @@ export const issueResolvers = {
           expectedResult: issue.expectedResult,
           note: issue.note,
           sessionKey: session ? `ST-${session.number}` : null,
+          attachments: issue.attachments,
           postedBy: { name: user.name, email: user.email, at: new Date() },
         }),
       );

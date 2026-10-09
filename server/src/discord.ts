@@ -139,6 +139,10 @@ export const UNLOGGED = new Set([
   "updateComment",
   "testDiscord",
   "testJira",
+  // Only signs an S3 PUT; nothing changes here. The file becomes part of the
+  // record when the form holding its url is saved, and that mutation is logged
+  // with the url in its details.
+  "createUploadUrl",
 ]);
 
 // Non-mutation events that reuse the same embed. Deliberately outside LABELS so

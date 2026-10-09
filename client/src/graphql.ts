@@ -27,6 +27,16 @@ export const HEALTH = gql`
       jiraAutoDone
       jiraBaseUrl
       ssoEnabled
+      uploadEnabled
+    }
+  }
+`;
+
+export const CREATE_UPLOAD_URL = gql`
+  mutation CreateUploadUrl($fileName: String!, $contentType: String!, $size: Int!) {
+    createUploadUrl(fileName: $fileName, contentType: $contentType, size: $size) {
+      uploadUrl
+      url
     }
   }
 `;

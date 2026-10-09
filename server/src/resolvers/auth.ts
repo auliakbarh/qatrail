@@ -11,6 +11,7 @@ import { notifyAdmins } from "../notify.js";
 import { notifyDiscord } from "../discord.js";
 import { env, hasJiraCreds } from "../env.js";
 import { API_VERSION } from "../env.public.js";
+import { s3Enabled } from "../s3.js";
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -34,6 +35,7 @@ export const authResolvers = {
         jiraAutoDone: hasJiraCreds() && !!env.jira.doneTransition,
         jiraBaseUrl: env.jira.baseUrl || null,
         ssoEnabled: env.msSso.enabled,
+        uploadEnabled: s3Enabled(),
       };
     },
     async me(_: unknown, __: unknown, ctx: Context) {

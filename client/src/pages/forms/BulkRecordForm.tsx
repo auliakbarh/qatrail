@@ -13,6 +13,7 @@ import { useNav } from "../../store/nav";
 import { withToast } from "../../store/toast";
 import { useAuth } from "../../store/auth";
 import { issuePrefill, type AppTestCtx, type SessionAppCtx } from "../../lib/issuePrefill";
+import { UploadAttachmentBtn } from "../../components/UploadAttachmentBtn";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
 const RESULTS = ["PASS", "FAIL", "BLOCKED"] as const;
@@ -71,6 +72,9 @@ export function BulkRecordForm({
   // The table behind the panel stays interactive, so a row can appear after mount.
   const rowOf = (id: string): Row => rows[id] ?? EMPTY_ROW;
   const patch = (id: string, p: Partial<Row>) => setRows((r) => ({ ...r, [id]: { ...rowOf(id), ...p } }));
+  // Functional: several files land one after another, so it must not read a stale `rows`.
+  const addAtt = (id: string, a: Row["attachments"][number]) =>
+    setRows((r) => { const row = r[id] ?? EMPTY_ROW; return { ...r, [id]: { ...row, attachments: [...row.attachments, a] } }; });
   const patchAtt = (id: string, i: number, p: Partial<Row["attachments"][number]>) =>
     setRows((r) => ({ ...r, [id]: { ...rowOf(id), attachments: rowOf(id).attachments.map((a, j) => (j === i ? { ...a, ...p } : a)) } }));
 
@@ -261,13 +265,16 @@ export function BulkRecordForm({
                         </button>
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => patch(c.testCaseId, { attachments: [...r.attachments, { url: "", kind: "IMAGE", label: "" }] })}
-                      className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
-                    >
-                      <Plus className="h-3 w-3" /> {t("form.attachment")}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => patch(c.testCaseId, { attachments: [...r.attachments, { url: "", kind: "IMAGE", label: "" }] })}
+                        className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
+                      >
+                        <Plus className="h-3 w-3" /> {t("form.attachment")}
+                      </button>
+                      <UploadAttachmentBtn onUploaded={(a) => addAtt(c.testCaseId, a)} />
+                    </div>
                   </div>
                 )}
               </div>

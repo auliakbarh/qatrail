@@ -63,6 +63,14 @@ export const typeDefs = /* GraphQL */ `
     jiraAutoDone: Boolean!
     jiraBaseUrl: String
     ssoEnabled: Boolean!
+    # True when S3 is configured, so the forms can offer "Upload file".
+    uploadEnabled: Boolean!
+  }
+  # A presigned PUT for one file. The client PUTs the bytes to uploadUrl (with
+  # the same Content-Type), then stores url as the attachment.
+  type UploadTarget {
+    uploadUrl: String!
+    url: String!
   }
 
   type JiraTestResult {
@@ -908,6 +916,10 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type Mutation {
+    # Presigned S3 PUT for an attachment file (size in bytes, signed so S3
+    # refuses a different body). Changes nothing here: the attachment is
+    # recorded when the test case / run / issue holding its url is saved.
+    createUploadUrl(fileName: String!, contentType: String!, size: Int!): UploadTarget!
     login(email: String!, password: String!): AuthPayload!
     microsoftLogin(idToken: String!): AuthPayload!
     # currentPassword is optional only for an account that has none (SSO).

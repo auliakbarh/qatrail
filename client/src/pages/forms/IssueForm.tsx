@@ -20,6 +20,7 @@ import { USER_TESTS } from "../../graphql/usertest";
 import { TEST_CASE } from "../../graphql/hierarchy";
 import { useNav, useDrill, type PanelState } from "../../store/nav";
 import { withToast } from "../../store/toast";
+import { UploadAttachmentBtn } from "../../components/UploadAttachmentBtn";
 
 const ATTACH_KINDS = ["IMAGE", "VIDEO", "MARKDOWN", "JSON", "DOC", "XLS", "CSV", "PDF", "OTHER"];
 
@@ -343,13 +344,16 @@ export function IssueForm({
             <label className="text-sm font-medium">
               {t("c.attachments")} <span className="font-normal text-muted-foreground">({t("form.url")})</span>
             </label>
-            <button
-              type="button"
-              onClick={() => atts.append({ url: "", kind: "IMAGE", label: "" })}
-              className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
-            >
-              <Plus className="h-3 w-3" /> {t("form.attachment")}
-            </button>
+            <div className="flex gap-2">
+              <UploadAttachmentBtn onUploaded={(a) => atts.append(a)} />
+              <button
+                type="button"
+                onClick={() => atts.append({ url: "", kind: "IMAGE", label: "" })}
+                className="flex h-7 items-center gap-1.5 rounded border border-border px-2 text-xs hover:bg-muted"
+              >
+                <Plus className="h-3 w-3" /> {t("form.attachment")}
+              </button>
+            </div>
           </div>
           {atts.fields.map((f, i) => (
             <div key={f.id} className="flex items-center gap-2">

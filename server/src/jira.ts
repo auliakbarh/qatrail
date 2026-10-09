@@ -387,6 +387,7 @@ export interface IssueComment {
   expectedResult: string;
   note?: string | null;
   sessionKey?: string | null; // ST-<n> when found in a testing session
+  attachments?: { url: string; kind: string; label?: string | null }[];
   postedBy: PostedBy;
 }
 
@@ -504,6 +505,20 @@ export function sessionTestMarkdown(c: SessionTestComment): string {
   return md.join("\n");
 }
 
+// Attachments go to JIRA as links, not uploaded files: the S3 bucket is
+// public-read, so the link is permanent, and re-posting (an edit of the same
+// comment) can't stack duplicate files on the ticket.
+function attachmentLines(atts: { url: string; kind: string; label?: string | null }[]): string[] {
+  if (!atts.length) return [];
+  // `]` would end the label and `)` the href in inlineNodes' link syntax.
+  const label = (a: { kind: string; label?: string | null }) => (a.label || a.kind).replace(/[[\]]/g, "");
+  return [
+    "",
+    `**Attachments (${atts.length})**`,
+    ...atts.map((a, i) => `- [${i + 1}. ${label(a)}](${a.url.replace(/\)/g, "%29")}) (${a.kind})`),
+  ];
+}
+
 export function issueMarkdown(c: IssueComment): string {
   const cell = (s: string) => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
   const platform = c.platform + (c.appVersion ? ` · app ${c.appVersion}` : "");
@@ -535,6 +550,7 @@ export function issueMarkdown(c: IssueComment): string {
     `**Expected result**`,
     c.expectedResult,
     ...(c.note ? ["", `**Note**`, c.note] : []),
+    ...attachmentLines(c.attachments ?? []),
     "",
     postedFooter(c.postedBy, c.url, "Open issue in QA Reporting"),
   ].join("\n");
